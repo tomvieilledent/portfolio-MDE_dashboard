@@ -10,8 +10,19 @@ User = get_user_model()
 
 
 class IsSelfOrAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated
+
     def has_object_permission(self, request, view, obj):
         return request.user.is_staff or obj == request.user
+
+
+class IsSuperAdminOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_superuser)
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
 
 
 @extend_schema_view(
@@ -29,6 +40,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == "create":
             return [permissions.AllowAny()]
+        if self.action == "destroy":
+            return [permissions.IsAuthenticated(), IsSuperAdminOnly()]
         return [permissions.IsAuthenticated(), IsSelfOrAdmin()]
 
     def get_queryset(self):
