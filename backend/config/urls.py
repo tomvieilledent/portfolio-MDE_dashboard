@@ -15,17 +15,33 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.urls import include, path
+from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from apps.users.auth_views import CustomTokenObtainPairView, CustomTokenRefreshView
+
+
+# Tag schema views
+class TaggedSpectacularAPIView(SpectacularAPIView):
+    @extend_schema(tags=["schema"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class TaggedSpectacularSwaggerView(SpectacularSwaggerView):
+    @extend_schema(tags=["schema"], exclude=True)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path("", TaggedSpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui-root"),
+    path("admin/", admin.site.urls),
+    path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
     path("api/users/", include("apps.users.urls")),
     path("api-auth/", include("rest_framework.urls")),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui",),
+    path("api/schema/", TaggedSpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", TaggedSpectacularSwaggerView.as_view(url_name="schema"),
+         name="swagger-ui"),
 ]
