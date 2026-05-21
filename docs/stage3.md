@@ -120,8 +120,8 @@ flowchart LR
 ### 6.1 Choix d’architecture
 
 - **Frontend** : React pour l’interface et la navigation.
-- **Backend** : Django / API REST pour les opérations métier.
-- **Base de données** : SQLite (via Django) pour la persistance.
+- **Backend** : API REST Flask pour les opérations métier.
+- **Base de données** : PostgreSQL pour la persistance.
 - **Temps réel** : WebSockets pour la messagerie.
 - **Sécurité** : authentification JWT et contrôle par rôle.
 
@@ -141,65 +141,106 @@ Les principaux composants métier identifiés sont :
 
 ### 7.1 Entités principales
 
-- **User** : identité, email, mot de passe, rôle, statut, entreprise associée.
-- **Company** : nom, description, statut, liste des membres.
-- **Training** : titre, description, date, capacité, créateur.
+- **User** : UUID, email utilisé comme identifiant de connexion Django, username aligné sur email, mot de passe, rôles admin, informations de profil, statut actif et champs d’audit.
+- **Company** : UUID, nom, description, image, administrateur associé, statut actif et champs d’audit.
+- **Training** : UUID, titre, description, image, statut actif et champs d’audit.
 - **Enrollment** : relation entre un user et une formation.
 - **Message** : auteur, destinataire ou salon, contenu, date.
-- **NewsItem** : titre, source, contenu, date, catégorie.
+- **Notification** : contenu, statut de lecture, destinataire.
+
+#### BaseClass
+
+Toutes les entités persistantes héritent d'une `BaseClass` contenant les champs communs et d'audit afin d'éviter la duplication et d'homogénéiser le modèle :
+
+- `uuid` / `id` (PK)
+- `is_active` (bool)
+- `created_at` (datetime)
+- `updated_at` (datetime)
+- `deactivate_by` (uuid FK)
+- `delete_by` (uuid FK)
+
+Les entités `User`, `Company`, `Training`, `Enrollment`, `Message` et `Notification` héritent de `BaseClass` et ajoutent leurs attributs métier spécifiques.
 
 ### 7.2 Diagramme ER
 
 ```mermaid
 erDiagram
-	COMPANY ||--o{ USER : employs
-	USER ||--o{ ENROLLMENT : joins
-	TRAINING ||--o{ ENROLLMENT : contains
-	USER ||--o{ MESSAGE : sends
-	USER ||--o{ MESSAGE : receives
-	USER ||--o{ NOTIFICATION : gets
-	COMPANY ||--o{ TRAINING : organizes
+	%% BaseClass centralise les champs communs à toutes les entités
+	BASECLASS {
+		uuid id PK
+		bool is_active
+		datetime created_at
+		datetime updated_at
+		uuid deactivate_by FK
+		uuid delete_by FK
+	}
 
+	%% Entités principales avec clés étrangères explicites
 	COMPANY {
-		int id
+		uuid id PK
 		string name
 		string description
-		string status
+		string company_picture
+		string website_link
+		uuid admin_id FK
 	}
 
 	USER {
-		int id
+		uuid id PK
+		uuid company_id FK
+		bool is_super_admin
+		bool is_admin
+		string email
+		string password
 		string first_name
 		string last_name
-		string email
-		string role
-		string status
+		string bio
+		string phone
+		string profile_picture
+		string business_card
 	}
 
 	TRAINING {
-		int id
+		uuid id PK
+		uuid company_id FK
 		string title
 		string description
-		datetime date
-		int capacity
+		string picture
 	}
 
 	ENROLLMENT {
-		int id
-		datetime created_at
+		uuid id PK
+		uuid user_id FK
+		uuid training_id FK
+		datetime enrolled_at
 	}
 
 	MESSAGE {
-		int id
+		uuid id PK
+		uuid author_id FK
+		uuid recipient_id FK
+		uuid conversation_id FK
 		string content
 		datetime created_at
 	}
 
 	NOTIFICATION {
-		int id
+		uuid id PK
+		uuid recipient_id FK
 		string content
-		bool read
+		bool is_read
+		datetime created_at
 	}
+
+	%% Relations (cardinalités)
+	COMPANY ||--o{ USER : employs
+	COMPANY ||--o{ TRAINING : organizes
+	USER ||--o{ ENROLLMENT : joins
+	TRAINING ||--o{ ENROLLMENT : contains
+	USER ||--o{ MESSAGE : sends
+	USER ||--o{ NOTIFICATION : gets
+
+	%% Note: add a Conversation table if you need group chats / rooms
 ```
 
 ### 7.3 Règles de conception
@@ -242,9 +283,9 @@ sequenceDiagram
 
 	SA->>C: Create Company
 	SA->>A: Create Company Admin
-	A->>A: First login + change password
+	A->>A: First login + set password
 	A->>U: Create User
-	U->>U: First login + change password
+	U->>U: First login + set password
 ```
 
 ### 8.3 Messagerie temps réel

@@ -18,8 +18,8 @@ Justifier toutes les décisions techniques en fonction des exigences fonctionnel
 
 ---
 
-# Importance de l’Étape 3
-
+# Importance de l’Étape 3’[]
+’
 Cette étape permet à l’équipe de créer un plan détaillé pour la construction du MVP.
 
 En planifiant les aspects techniques, la gestion du code source et l’assurance qualité à l’avance, l’équipe réduit les risques, améliore la clarté et optimise le processus de développement.
