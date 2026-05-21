@@ -1,59 +1,102 @@
 #!/usr/bin/env python3
 
+from .base import BaseModel
+from email_validator import validate_email, EmailNotValidError
+
+
 class User(BaseModel):
-    
-    #Email
+    """User model with field validation using properties.
+
+    Fields validated:
+    - email: required, max 254 chars, simple format check
+    - password: required, stored as plain string here (hashing should occur in service layer)
+    - first_name / last_name: optional, max 100 chars
+    - phone: optional, max 30 chars
+    """
+
+    def __init__(self, email, password, first_name=None, last_name=None, **kwargs):
+        super().__init__(**kwargs)
+        self.email = email
+        self.password = password
+        self.first_name = first_name
+        self.last_name = last_name
+        self.phone = kwargs.get("phone")
+        self.profile_picture = kwargs.get("profile_picture")
+        self.business_card = kwargs.get("business_card")
+        self.is_super_admin = kwargs.get("is_super_admin", False)
+        self.is_admin = kwargs.get("is_admin", False)
+        self.company_id = kwargs.get("company_id")
+
+    # Email
     @property
     def email(self):
-        """Return the user's email."""
         return self._email
 
     @email.setter
     def email(self, email):
-        """Set and validate the user's email."""
         if not isinstance(email, str):
             raise TypeError("Email must be a string.")
         email = email.strip()
         if not email:
             raise ValueError("Email cannot be empty.")
         try:
+            # validate_email raises EmailNotValidError on invalid
             validate_email(email, check_deliverability=False)
         except EmailNotValidError:
-            raise TypeError("Invalid email address format.")
-        self._email = email
+            raise ValueError("Invalid email address format.")
+        if len(email) > 254:
+            raise ValueError("Email must be 254 characters or fewer")
+        self._email = email.lower()
 
-    #Password
+    # Password - kept simple here; hashing should be applied elsewhere
+    @property
+    def password(self):
+        return self._password
 
-    #First name
+    @password.setter
+    def password(self, pwd):
+        if not isinstance(pwd, str):
+            raise TypeError("Password must be a string.")
+        if len(pwd) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(pwd) > 256:
+            raise ValueError("Password must be 256 characters or fewer")
+        self._password = pwd
+
+    # First name
     @property
     def first_name(self):
-        """Return the user's first name."""
         return self._first_name
-    
+
     @first_name.setter
     def first_name(self, first_name):
-        """Set and validate the user's first name."""
+        if first_name is None:
+            self._first_name = None
+            return
         if not isinstance(first_name, str):
             raise TypeError("First name must be a string.")
+        first_name = first_name.strip()
         if not first_name:
             raise ValueError("First name cannot be empty.")
         if len(first_name) > 100:
-            raise ValueError("First name cannot be exceed 100 charaters.")
+            raise ValueError("First name cannot exceed 100 characters.")
         self._first_name = first_name
 
-    #Last name
+    # Last name
     @property
     def last_name(self):
-        """Return the user's last name."""
         return self._last_name
-    
+
     @last_name.setter
     def last_name(self, last_name):
-        """Set and validate the user's last name."""
+        if last_name is None:
+            self._last_name = None
+            return
         if not isinstance(last_name, str):
             raise TypeError("Last name must be a string.")
+        last_name = last_name.strip()
         if not last_name:
             raise ValueError("Last name cannot be empty.")
         if len(last_name) > 100:
-            raise ValueError("Last name cannot be exceed 100 charaters.")
+            raise ValueError("Last name cannot exceed 100 characters.")
         self._last_name = last_name
