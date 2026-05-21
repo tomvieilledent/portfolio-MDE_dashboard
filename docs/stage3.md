@@ -135,8 +135,6 @@ Les principaux composants métier identifiés sont :
 - inscriptions,
 - messages,
 - actualités,
-- profils,
-- permissions,
 - notifications.
 
 ### 7.1 Entités principales
