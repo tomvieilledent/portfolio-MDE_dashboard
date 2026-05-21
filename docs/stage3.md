@@ -391,30 +391,70 @@ Exemple de réponse :
 - validation stricte des entrées,
 - réponses d’erreur cohérentes.
 
-## 10. Plan SCM
 
-La stratégie de gestion du code repose sur :
+# 10. Plan SCM (Gestion du code source)
 
-- dépôt Git unique,
-- branches `main`, `dev` et branches de fonctionnalité,
-- merges via pull request,
-- revue de code systématique,
-- conventions de nommage claires,
-- commits petits et ciblés,
-- synchronisation régulière de l’équipe.
+| Élément | Explication simple |
+|---|---|
+| Dépôt Git | Projet stocké sur GitHub/GitLab avec un dossier `frontend` et un dossier `backend` |
+| Branche `main` | Version finale utilisée en production |
+| Branche `dev` | Branche utilisée pour le développement |
+| `feature/*` | Branche pour développer une nouvelle fonctionnalité |
+| `release/*` | Branche pour préparer une nouvelle version |
+| `hotfix/*` | Branche pour corriger rapidement un bug important |
+| Pull Request | Chaque modification doit être vérifiée avant d’être ajoutée au projet |
+| Protection des branches | Impossible de modifier `main` et `dev` sans validation |
+| Convention des commits | Messages de commits écrits de manière claire et organisée |
+| Vérification automatique | Le code est testé automatiquement avant validation |
+| Outils qualité | Utilisation d’outils pour formater et vérifier le code |
+| Mise à jour dépendances | Dépendances mises à jour automatiquement |
+| Changelog | Historique des modifications généré automatiquement |
+| Documentation | Fichier expliquant comment est pensé le projet |
+| Gestion des secrets | Les mots de passe et clés API ne sont jamais stockés dans le code |
+| CI parallèle | Plusieurs tests lancés en même temps pour gagner du temps |
 
-Le plan projet issu des documents mentionne aussi une validation client toutes les deux semaines, qui sert de garde-fou pour le scope.
+## Répartition des tâches
 
-## 11. Plan QA
+| Personne | Rôle |
+|---|---|
+| Tom | Développement backend et API |
+| Nabil | Développement frontend et interface utilisateur |
+| Florian | Intégration, QA, documentation et support fullstack |
 
-Les tests et l’assurance qualité doivent couvrir :
+---
 
-- tests unitaires sur les fonctions et composants critiques,
-- tests d’intégration sur les flux métier,
-- tests de sécurité sur l’authentification,
-- validation manuelle des parcours principaux,
-- tests de non-régression avant livraison,
-- vérification de la responsivité.
+# 11. Stratégie QA (Assurance Qualité)
+
+| Domaine | Explication simple |
+|---|---|
+| Objectif QA | Assurer un projet fiable, sécurisé et rapide |
+| Tests unitaires | Vérification des fonctions importantes du projet |
+| Tests E2E | Simulation des actions utilisateur importantes |
+| Tests de performance | Vérification que l’application reste rapide |
+| Objectif performance | Temps de réponse API inférieur à 500 ms |
+| Sécurité | Détection automatique des failles de sécurité |
+| Observabilité | Surveillance des erreurs et performances |
+| Alertes | Notification en cas de problème serveur |
+| Environnement staging | Version de test proche de la production |
+| Accessibilité | Vérification que le site est utilisable par tous |
+| Sauvegardes | Sauvegarde régulière de la base de données |
+| Rollback | Possibilité de revenir à une ancienne version |
+| Smoke tests | Vérification rapide après chaque déploiement |
+| Priorité qualité | Importance donnée à des tests utiles et fiables |
+
+---
+
+# Pipeline CI/CD simplifié
+
+| Étape | Action |
+|---|---|
+| 1 | Vérification du code |
+| 2 | Exécution des tests |
+| 3 | Création du build |
+| 4 | Vérification sécurité |
+| 5 | Déploiement en staging |
+| 6 | Validation finale |
+| 7 | Déploiement en production |
 
 ### 11.1 Stratégie de test
 
