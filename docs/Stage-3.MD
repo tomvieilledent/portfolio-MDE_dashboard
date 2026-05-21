@@ -461,7 +461,7 @@ Create Enrollment
 - réponses d’erreur normalisées (RFC7807 style problem+json),
 - journalisation des opérations sensibles (suppression, changement de rôle).
 
-# 10. Plan SCM (Gestion du code source)
+## 7. Plan SCM (Gestion du code source)
 
 | Élément                  | Explication simple                                                                 |
 | ------------------------ | ---------------------------------------------------------------------------------- |
@@ -482,7 +482,7 @@ Create Enrollment
 | Gestion des secrets      | Les mots de passe et clés API ne sont jamais stockés dans le code                  |
 | CI parallèle             | Plusieurs tests lancés en même temps pour gagner du temps                          |
 
-## Répartition des tâches
+## 8. Répartition des tâches
 
 | Personne | Rôle                                                |
 | -------- | --------------------------------------------------- |
@@ -492,7 +492,7 @@ Create Enrollment
 
 ---
 
-# 11. Stratégie QA (Assurance Qualité)
+## 9. Stratégie QA (Assurance Qualité)
 
 | Domaine               | Explication simple                               |
 | --------------------- | ------------------------------------------------ |
@@ -513,7 +513,7 @@ Create Enrollment
 
 ---
 
-# Pipeline CI/CD simplifié
+## 10. Pipeline CI/CD simplifié
 
 | Étape | Action                    |
 | ----- | ------------------------- |
@@ -525,7 +525,7 @@ Create Enrollment
 | 6     | Validation finale         |
 | 7     | Déploiement en production |
 
-### 11.1 Stratégie de test
+## 11. Stratégie de test
 
 - développement itératif,
 - couverture des cas d’usage critiques en premier,
