@@ -2,7 +2,7 @@ from .base import BaseModel
 from .user import User
 from .company import Company
 from .training import Training
-from .enrollment import Enrollment
+from .formation_user import FormationUser
 from .conversation import Conversation
 from .message import Message
 from .notification import Notification
@@ -13,9 +13,12 @@ __all__ = [
     "User",
     "Company",
     "Training",
-    "Enrollment",
+    "FormationUser",
     "Conversation",
     "Message",
     "Notification",
     "News",
 ]
+
+# Backwards compatibility alias
+Enrollment = FormationUser

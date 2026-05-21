@@ -3,25 +3,15 @@ from .base import BaseModel
 
 
 class Conversation(BaseModel):
-    def __init__(self, title=None, participant_ids=None, **kwargs):
+    """Conversation model for instant WebSocket chats.
+
+    This model represents a transient chat/channel identified by participants.
+    No title is stored because chats are real-time and managed via WebSocket sessions.
+    """
+
+    def __init__(self, participant_ids=None, **kwargs):
         super().__init__(**kwargs)
-        self.title = title
         self.participant_ids = participant_ids or []
-
-    @property
-    def title(self):
-        return self._title
-
-    @title.setter
-    def title(self, value):
-        if value is None:
-            self._title = None
-            return
-        if not isinstance(value, str):
-            raise TypeError("Conversation title must be a string")
-        if len(value) > 200:
-            raise ValueError("Conversation title must be 200 characters or fewer")
-        self._title = value.strip()
 
     @property
     def participant_ids(self):
