@@ -235,8 +235,8 @@ erDiagram
 	%% Relations (cardinalités)
 	COMPANY ||--o{ USER : employs
 	COMPANY ||--o{ TRAINING : organizes
-	USER ||--o{ ENROLLMENT : joins
 	TRAINING ||--o{ ENROLLMENT : contains
+	USER ||--o{ ENROLLMENT : joins
 	USER ||--o{ MESSAGE : sends
 	USER ||--o{ NOTIFICATION : gets
 
