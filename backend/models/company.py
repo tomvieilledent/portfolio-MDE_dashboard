@@ -1,16 +1,36 @@
 #!/usr/bin/env python3
+import uuid
+
+from email_validator import EmailNotValidError, validate_email
+
 from .base import BaseModel
 
 
 class Company(BaseModel):
-    """Company model with simple validation on fields."""
+    """Company model with field validation.
 
-    def __init__(self, name, description=None, website_link=None, company_picture=None, admin_id=None, **kwargs):
+    Creation flow:
+    - the service layer may receive an admin email as an input only.
+    - that email is used to resolve the related user UUID.
+    - the company stores the admin reference in admin_id.
+    """
+
+    def __init__(
+        self,
+        name,
+        admin_email=None,
+        admin_id=None,
+        description=None,
+        website_link=None,
+        company_picture=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.name = name
         self.description = description
         self.website_link = website_link
         self.company_picture = company_picture
+        self.admin_email = admin_email
         self.admin_id = admin_id
 
     @property
@@ -57,3 +77,66 @@ class Company(BaseModel):
         if len(value) > 512:
             raise ValueError("Website link must be 512 characters or fewer")
         self._website_link = value.strip()
+
+    @property
+    def company_picture(self):
+        return self._company_picture
+
+    @company_picture.setter
+    def company_picture(self, value):
+        if value is None:
+            self._company_picture = None
+            return
+        if not isinstance(value, str):
+            raise TypeError("Company picture must be a string address")
+        value = value.strip()
+        if not value:
+            raise ValueError("Company picture cannot be empty")
+        if len(value) > 512:
+            raise ValueError("Company picture must be 512 characters or fewer")
+        self._company_picture = value
+
+    @property
+    def admin_id(self):
+        return self._admin_id
+
+    @admin_id.setter
+    def admin_id(self, value):
+        if value is None:
+            self._admin_id = None
+            return
+        if isinstance(value, uuid.UUID):
+            self._admin_id = str(value)
+            return
+        if not isinstance(value, str):
+            raise TypeError("Admin ID must be a string UUID")
+        value = value.strip()
+        if not value:
+            raise ValueError("Admin ID cannot be empty")
+        try:
+            uuid.UUID(value)
+        except ValueError as exc:
+            raise ValueError("Admin ID must be a valid UUID") from exc
+        self._admin_id = value
+
+    @property
+    def admin_email(self):
+        return self._admin_email
+
+    @admin_email.setter
+    def admin_email(self, value):
+        if value is None:
+            self._admin_email = None
+            return
+        if not isinstance(value, str):
+            raise TypeError("Admin email must be a string")
+        value = value.strip()
+        if not value:
+            raise ValueError("Admin email cannot be empty")
+        if len(value) > 254:
+            raise ValueError("Admin email must be 254 characters or fewer")
+        try:
+            validate_email(value, check_deliverability=False)
+        except EmailNotValidError as exc:
+            raise ValueError("Admin email must be a valid email address") from exc
+        self._admin_email = value.lower()
