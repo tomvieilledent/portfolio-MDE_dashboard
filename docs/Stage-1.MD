@@ -241,7 +241,7 @@ The dashboard directly addresses each challenge:
 - **Challenge**: Implementing reliable WebSocket communication for real-time messaging
 - **Impact**: High – Core feature of the platform
 - **Probability**: High – Advanced technology for our experience level
-- **Mitigation**: Gradual learning through prototypes; use proven libraries (Socket.io)
+- **Mitigation**: Gradual learning through prototypes; use proven WebSocket libraries
 
 #### 2. Complex Database Management
 
@@ -310,7 +310,7 @@ The dashboard directly addresses each challenge:
    - Week 10-12: Testing, optimization, polish
 
 2. **Gradual Learning of WebSockets Through Prototypes**
-   - Develop Socket.io prototype in Week 2-3 (parallel to other features)
+   - Develop WebSocket prototype in Week 2-3 (parallel to other features)
    - Create minimal viable example before full integration
    - Conduct knowledge-sharing session with team
    - Use proven libraries and patterns instead of building from scratch
@@ -540,13 +540,13 @@ The Maison de l'Économie Dashboard follows a **three-tier architecture**:
 **API & Real-Time Communication**
 
 - **Flask-RESTful**: Extension for building REST APIs efficiently
-- **Socket.io**: Real-time communication library for WebSocket support
+- **WebSockets**: Real-time communication support for messaging
 - **Flask-Cors**: Cross-Origin Resource Sharing for API accessibility
 
 **Database & ORM**
 
 - **SQLAlchemy**: Powerful ORM for database abstraction
-- **PostgreSQL**: Robust, scalable relational database (recommended for production)
+- **SQLite / SQLAlchemy**: Default relational persistence layer for the MVP
 - **SQLite**: Development database for testing
 
 **Authentication & Security**
@@ -573,7 +573,7 @@ The Maison de l'Économie Dashboard follows a **three-tier architecture**:
 
 - **React Context API**: State management for application data
 - **Axios**: HTTP client for API communication
-- **Socket.io Client**: Real-time communication from browser
+- **WebSocket client**: Real-time communication from browser
 
 **Styling & UI**
 
@@ -614,7 +614,7 @@ The Maison de l'Économie Dashboard follows a **three-tier architecture**:
 **Database Platform**
 
 - **Development**: SQLite for simplicity
-- **Staging/Production**: PostgreSQL for scalability and performance
+- **Staging/Production**: external SQL database if needed, otherwise SQLite for local development
 
 ### Deployment Infrastructure
 
@@ -627,26 +627,26 @@ The Maison de l'Économie Dashboard follows a **three-tier architecture**:
 **Staging Environment**
 
 - Cloud-based server (TBD based on hosting decision)
-- PostgreSQL database
+- SQLite database
 - Automated deployment pipeline
 
 **Production Environment**
 
 - Scalable cloud hosting (AWS, Heroku, or Digital Ocean – TBD)
-- PostgreSQL with backups
+- SQLite with backup strategy
 - CDN for frontend assets
 - Monitoring and logging solutions
 
 ### Technology Justification
 
-| Technology   | Reason for Selection                                         | Alternatives Considered                           |
-| ------------ | ------------------------------------------------------------ | ------------------------------------------------- |
-| Python/Flask | Rapid development, readable code, excellent for REST APIs    | Node.js/Express, Django                           |
-| React        | Large ecosystem, component reusability, learning opportunity | Vue.js, Angular                                   |
-| PostgreSQL   | Robust, scalable, excellent for relational data              | MySQL, MongoDB                                    |
-| SQLAlchemy   | Powerful ORM, database agnostic, excellent documentation     | Django ORM, Raw SQL                               |
-| Tailwind CSS | Utility-first approach, rapid UI development                 | Bootstrap, Material-UI                            |
-| Socket.io    | Battle-tested, excellent WebSocket support                   | Native WebSocket, alternative WebSocket libraries |
+| Technology          | Reason for Selection                                         | Alternatives Considered          |
+| ------------------- | ------------------------------------------------------------ | -------------------------------- |
+| Python/Flask        | Rapid development, readable code, excellent for REST APIs    | Node.js/Express, Django          |
+| React               | Large ecosystem, component reusability, learning opportunity | Vue.js, Angular                  |
+| SQLite / SQLAlchemy | Lightweight, simple local persistence with ORM               | MySQL, MongoDB                   |
+| SQLAlchemy          | Powerful ORM, database agnostic, excellent documentation     | Django ORM, Raw SQL              |
+| Tailwind CSS        | Utility-first approach, rapid UI development                 | Bootstrap, Material-UI           |
+| WebSockets          | Battle-tested, standard real-time browser support            | Server-Sent Events, long polling |
 
 ---
 

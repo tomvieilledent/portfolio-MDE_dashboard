@@ -1,0 +1,137 @@
+import os
+
+from flask import Flask, jsonify
+from flask_restful import Api
+from flask_jwt_extended import JWTManager
+from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError
+
+from backend.api.errors import ERROR_CODES, error_response
+from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, AuthRefreshResource, AuthRegisterResource
+from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
+from backend.api.resources.conversation import ConversationListResource, ConversationResource
+from backend.api.resources.formation_user import FormationUserListResource, FormationUserResource
+from backend.api.resources.message import ConversationMessagesResource, MessageListResource, MessageResource
+from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
+from backend.api.resources.notification import NotificationListResource, NotificationResource
+from backend.api.resources.training import CurrentUserTrainingsResource, TrainingEnrollResource, TrainingEnrollmentsResource, TrainingListResource, TrainingResource, UserTrainingsResource
+from backend.api.resources.user import UserListResource, UserMeResource, UserResetPasswordResource, UserResource
+from backend.persistence.db import engine
+import backend.persistence.models  # ensure models are imported
+from pathlib import Path
+from backend.api.state import BLOCKLIST
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config['JWT_SECRET_KEY'] = os.getenv(
+        'JWT_SECRET_KEY', 'change-this-secret-to-a-long-random-string-32chars-min')
+    api = Api(app)
+    jwt = JWTManager(app)
+
+    @jwt.token_in_blocklist_loader
+    def is_token_revoked(_jwt_header, jwt_payload):
+        return jwt_payload.get('jti') in BLOCKLIST
+
+    @jwt.unauthorized_loader
+    def unauthorized(reason):
+        return error_response(ERROR_CODES['UNAUTHORIZED'], reason, 401)
+
+    @jwt.invalid_token_loader
+    def invalid_token(reason):
+        return error_response(ERROR_CODES['INVALID_TOKEN'], reason, 401)
+
+    @jwt.expired_token_loader
+    def expired_token(_jwt_header, _jwt_payload):
+        return error_response(ERROR_CODES['TOKEN_EXPIRED'], 'token has expired', 401)
+
+    @jwt.revoked_token_loader
+    def revoked_token(_jwt_header, _jwt_payload):
+        return error_response(ERROR_CODES['TOKEN_REVOKED'], 'token has been revoked', 401)
+
+    @app.errorhandler(NoAuthorizationError)
+    def handle_no_authorization(_exc):
+        return error_response(ERROR_CODES['UNAUTHORIZED'], 'Missing Authorization Header', 401)
+
+    @app.errorhandler(JWTExtendedException)
+    def handle_jwt_exception(exc):
+        return error_response(ERROR_CODES['INVALID_TOKEN'], str(exc), 401)
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_exception(exc):
+        if isinstance(exc, NoAuthorizationError):
+            return error_response(ERROR_CODES['UNAUTHORIZED'], 'Missing Authorization Header', 401)
+        if isinstance(exc, JWTExtendedException):
+            return error_response(ERROR_CODES['INVALID_TOKEN'], str(exc), 401)
+        return error_response(ERROR_CODES['INTERNAL_ERROR'], 'internal server error', 500)
+
+    # ensure sqlite file exists (best-effort)
+    try:
+        if engine.url.drivername == 'sqlite':
+            db_path = Path(engine.url.database)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            if not db_path.exists():
+                db_path.touch()
+                try:
+                    db_path.chmod(0o644)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    engine.dispose()
+
+    api.add_resource(AuthRegisterResource, '/auth/register')
+    api.add_resource(AuthLoginResource, '/auth/login')
+    api.add_resource(AuthRefreshResource, '/auth/refresh')
+    api.add_resource(AuthLogoutResource, '/auth/logout')
+    api.add_resource(UserListResource, '/users')
+    api.add_resource(UserMeResource, '/users/me', '/me')
+    api.add_resource(UserResource, '/users/<string:user_id>')
+    api.add_resource(UserResetPasswordResource,
+                     '/users/<string:user_id>/reset-password')
+
+    api.add_resource(CompanyListResource, '/companies')
+    api.add_resource(CompanyResource, '/companies/<string:company_id>')
+    api.add_resource(CompanyUsersResource,
+                     '/companies/<string:company_id>/users')
+    api.add_resource(CompanyAssignUserResource,
+                     '/companies/<string:company_id>/users/<string:user_id>')
+
+    api.add_resource(TrainingListResource, '/trainings')
+    api.add_resource(TrainingResource, '/trainings/<string:training_id>')
+    api.add_resource(TrainingEnrollResource,
+                     '/trainings/<string:training_id>/enroll',
+                     '/trainings/<string:training_id>/join')
+    api.add_resource(TrainingEnrollmentsResource,
+                     '/trainings/<string:training_id>/enrollments')
+    api.add_resource(UserTrainingsResource,
+                     '/users/<string:user_id>/trainings')
+    api.add_resource(CurrentUserTrainingsResource, '/me/trainings')
+
+    api.add_resource(ConversationListResource, '/conversations', '/rooms')
+    api.add_resource(ConversationResource,
+                     '/conversations/<string:conversation_id>',
+                     '/rooms/<string:conversation_id>')
+    api.add_resource(ConversationMessagesResource,
+                     '/conversations/<string:conversation_id>/messages',
+                     '/rooms/<string:conversation_id>/messages')
+
+    api.add_resource(MessageListResource, '/messages')
+    api.add_resource(MessageResource, '/messages/<string:message_id>')
+
+    api.add_resource(NotificationListResource, '/notifications')
+    api.add_resource(NotificationResource,
+                     '/notifications/<string:notification_id>')
+
+    api.add_resource(NewsListResource, '/news')
+    api.add_resource(NewsResource, '/news/<string:news_id>')
+    api.add_resource(NewsSyncResource, '/news/sync')
+
+    api.add_resource(FormationUserListResource, '/formation-users')
+    api.add_resource(FormationUserResource,
+                     '/formation-users/<string:relation_id>')
+
+    @app.route('/')
+    def home():
+        return jsonify({'ok': True})
+
+    return app

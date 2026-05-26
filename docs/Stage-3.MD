@@ -42,7 +42,7 @@ flowchart LR
 	U[Utilisateur] --> F[Frontend]
 	A[Administrateur] --> F
 	F --> B[Backend]
-	B --> D[(PostgreSQL)]
+	B --> D[(SQLite / SQLAlchemy)]
 	B --> N[Service d'actualités externe]
 	B --> R[Temps réel / WebSockets]
 	R --> F
@@ -52,7 +52,7 @@ flowchart LR
 
 - **Frontend** : React / Tailwind CSS pour l’interface et la navigation.
 - **Backend** : API REST / Flask pour les opérations métier.
-- **Base de données** : PostgreSQL pour la persistance.
+- **Base de données** : SQLite par défaut via SQLAlchemy pour la persistance.
 - **Temps réel** : WebSockets pour la messagerie.
 - **Sécurité** : authentification JWT et contrôle par rôle.
 
@@ -70,7 +70,7 @@ Les principaux composants métier identifiés sont :
 
 ### 4.1 Entités principales
 
-- **User** : UUID, email utilisé comme identifiant de connexion Django, username aligné sur email, mot de passe, rôles admin, informations de profil, statut actif et champs d’audit.
+- **User** : UUID, email utilisé comme identifiant de connexion, mot de passe hashé, rôles admin, informations de profil, statut actif et champs d’audit.
 - **Company** : UUID, nom, description, image, administrateur associé, statut actif et champs d’audit.
 - **Training** : UUID, titre, description, image, statut actif et champs d’audit.
 - **Enrollment** : relation entre un user et une formation.

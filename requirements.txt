@@ -1,0 +1,12 @@
+Flask
+Flask-RESTful
+Flask-Cors
+SQLAlchemy
+Flask-JWT-Extended
+Flask-Bcrypt
+python-dotenv
+gunicorn
+psycopg2-binary
+requests
+email-validator
+alembic

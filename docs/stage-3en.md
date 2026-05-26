@@ -42,7 +42,7 @@ flowchart LR
 	User[User] --> F[Frontend]
 	Admin[Administrator] --> F
 	F --> B[Backend]
-	B --> D[(PostgreSQL)]
+	B --> D[(SQLite / SQLAlchemy)]
 	B --> N[External news service]
 	B --> R[Real-time / WebSockets]
 	R --> F
@@ -52,7 +52,7 @@ flowchart LR
 
 - **Frontend**: React for UI and routing.
 - **Backend**: REST API (Flask) for business operations.
-- **Database**: PostgreSQL for persistence.
+- **Database**: SQLite by default via SQLAlchemy for persistence.
 - **Real-time**: WebSockets for messaging.
 - **Security**: JWT authentication and role-based access control.
 

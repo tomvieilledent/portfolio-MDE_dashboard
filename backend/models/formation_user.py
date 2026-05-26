@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from .base import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class FormationUser(BaseModel):
@@ -16,7 +16,7 @@ class FormationUser(BaseModel):
         super().__init__(**kwargs)
         self.user_id = user_id
         self.training_id = training_id
-        self.enrolled_at = enrolled_at or datetime.utcnow()
+        self.enrolled_at = enrolled_at or datetime.now(timezone.utc)
         self.status = status
         self.progress = progress
 

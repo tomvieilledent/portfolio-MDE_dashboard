@@ -1,16 +1,16 @@
-# 📦 BACKLOG PRODUIT — BACKEND DJANGO (PÉPINIÈRE D’ENTREPRISE)
+# 📦 BACKLOG PRODUIT — BACKEND FLASK / SQLALCHEMY (PÉPINIÈRE D’ENTREPRISE)
 
 ## 🎯 CONTEXTE PRODUIT
 
-Backend Django REST + Channels pour une pépinière d’entreprises.
+Backend Flask REST API + SQLAlchemy pour une pépinière d’entreprises.
 
 ### Fonctionnalités :
 
-* Gestion utilisateurs (employés)
-* Gestion entreprises
-* Gestion formations
-* Chat temps réel inter-entreprises
-* Documentation technique + utilisateur
+- Gestion utilisateurs (employés)
+- Gestion entreprises
+- Gestion formations
+- Chat temps réel inter-entreprises
+- Documentation technique + utilisateur
 
 ---
 
@@ -22,13 +22,13 @@ Responsabilité : fondation technique + sécurité
 
 ### Domaines :
 
-* Architecture Django
-* Authentification
-* Users
-* Companies
-* Permissions
-* Sécurité globale API
-* Intégration globale
+- Architecture Flask
+- Authentification
+- Users
+- Companies
+- Permissions
+- Sécurité globale API
+- Intégration globale
 
 👉 Mission : garantir un backend stable, sécurisé, extensible
 
@@ -40,10 +40,10 @@ Responsabilité : fonctionnalités métier
 
 ### Domaines :
 
-* Formations
-* Chat REST
-* Chat WebSocket
-* UX API
+- Formations
+- Chat REST
+- Chat WebSocket
+- UX API
 
 👉 Mission : construire les features uniquement sur fondation stable
 
@@ -55,29 +55,28 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* Créer dépôt GitHub (nommage standard backend-pepiniere)
-* Initialiser README.md avec description projet
-* Initialiser licence (MIT ou propriétaire)
-* Créer environnement virtuel Python (python -m venv venv)
-* Activer environnement virtuel
-* Installer Django (pip install django)
-* Installer DRF (pip install djangorestframework)
-* Installer Channels (pip install channels)
-* Installer Redis client (channels-redis)
-* Générer requirements.txt figé
+- Créer dépôt GitHub (nommage standard backend-pepiniere)
+- Initialiser README.md avec description projet
+- Initialiser licence (MIT ou propriétaire)
+- Créer environnement virtuel Python (python -m venv venv)
+- Activer environnement virtuel
+- Installer Flask (pip install flask)
+- Installer Flask-RESTful (pip install flask-restful)
+- Installer Flask-JWT-Extended (pip install flask-jwt-extended)
+- Installer SQLAlchemy (pip install sqlalchemy)
+- Générer requirements.txt figé
 
 ---
 
-## US0.2 — Structure projet Django
+## US0.2 — Structure projet Flask
 
 ### Micro-tâches
 
-* django-admin startproject config
-* créer apps : users, companies, trainings, chat
-* config INSTALLED_APPS
-* structurer settings.py (base/dev/prod)
-* créer dossier /core pour logique commune
-* créer dossier /shared pour utils
+- créer backend Flask avec app factory
+- créer modules : models, persistence, api, services
+- config variables d’environnement (.env)
+- structurer la configuration par environnement (dev/test/prod)
+- créer dossier /shared pour utils communs
 
 ---
 
@@ -85,13 +84,13 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* définir naming models (snake_case fields)
-* définir naming endpoints REST
-* définir conventions serializers
-* définir conventions permissions
-* définir structure branches Git (main/dev/feature)
-* créer CONTRIBUTING.md
-* définir rules PR review
+- définir naming models (snake_case fields)
+- définir naming endpoints REST
+- définir conventions serializers
+- définir conventions permissions
+- définir structure branches Git (main/dev/feature)
+- créer CONTRIBUTING.md
+- définir rules PR review
 
 ---
 
@@ -99,11 +98,11 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer dossier /docs
-* créer architecture_overview.md
-* décrire modules backend
-* décrire flux utilisateur global
-* créer api_overview.md (vide structuré)
+- créer dossier /docs
+- créer architecture_overview.md
+- décrire modules backend
+- décrire flux utilisateur global
+- créer api_overview.md (vide structuré)
 
 ---
 
@@ -115,14 +114,14 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer app users
-* créer classe User(AbstractUser)
-* ajouter champ role (ENUM : employee, admin, superadmin)
-* ajouter FK company nullable
-* définir USERNAME_FIELD si nécessaire
-* config AUTH_USER_MODEL dans settings
-* créer migration initiale
-* vérifier intégrité migration
+- créer app users
+- créer classe User SQLAlchemy
+- ajouter champ role (employee, admin, superadmin)
+- ajouter company_id nullable
+- utiliser email comme identifiant métier
+- configurer la validation email et le hash du mot de passe
+- créer migration initiale
+- vérifier intégrité migration
 
 ---
 
@@ -130,11 +129,11 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer UserSerializer (lecture)
-* créer UserCreateSerializer (écriture)
-* valider password strength
-* hash password automatiquement
-* exclure champs sensibles (password)
+- créer UserSerializer (lecture)
+- créer UserCreateSerializer (écriture)
+- valider password strength
+- hash password automatiquement
+- exclure champs sensibles (password)
 
 ---
 
@@ -142,13 +141,13 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* installer SimpleJWT
-* config REST_FRAMEWORK authentication
-* config token lifetime (access/refresh)
-* créer endpoint /auth/register
-* créer endpoint /auth/login
-* créer endpoint /auth/refresh
-* créer endpoint /auth/logout (blacklist)
+- installer SimpleJWT
+- config REST_FRAMEWORK authentication
+- config token lifetime (access/refresh)
+- créer endpoint /auth/register
+- créer endpoint /auth/login
+- créer endpoint /auth/refresh
+- créer endpoint /auth/logout (blacklist)
 
 ---
 
@@ -156,12 +155,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer endpoint GET /users/me
-* créer endpoint PATCH /users/me
-* créer endpoint GET /users/{id}
-* créer endpoint GET /users
-* ajouter pagination users
-* ajouter filtre company_id
+- créer endpoint GET /users/me
+- créer endpoint PATCH /users/me
+- créer endpoint GET /users/{id}
+- créer endpoint GET /users
+- ajouter pagination users
+- ajouter filtre company_id
 
 ---
 
@@ -169,11 +168,11 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer BasePermission custom
-* créer IsAuthenticated strict
-* créer IsAdminPépi (super admin système)
-* créer IsCompanyMember
-* bloquer accès cross-company
+- créer BasePermission custom
+- créer IsAuthenticated strict
+- créer IsAdminPépi (super admin système)
+- créer IsCompanyMember
+- bloquer accès cross-company
 
 ---
 
@@ -183,13 +182,13 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer app companies
-* créer model Company
-* ajouter champ name (unique)
-* ajouter champ description (text)
-* ajouter created_at
-* ajouter updated_at
-* générer migration
+- créer app companies
+- créer model Company
+- ajouter champ name (unique)
+- ajouter champ description (text)
+- ajouter created_at
+- ajouter updated_at
+- générer migration
 
 ---
 
@@ -197,10 +196,10 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer CompanySerializer (read)
-* créer CompanyWriteSerializer
-* validation name unique
-* validation description length
+- créer CompanySerializer (read)
+- créer CompanyWriteSerializer
+- validation name unique
+- validation description length
 
 ---
 
@@ -208,12 +207,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* endpoint POST /companies
-* endpoint GET /companies
-* endpoint GET /companies/{id}
-* endpoint PATCH /companies/{id}
-* endpoint DELETE /companies/{id}
-* pagination liste companies
+- endpoint POST /companies
+- endpoint GET /companies
+- endpoint GET /companies/{id}
+- endpoint PATCH /companies/{id}
+- endpoint DELETE /companies/{id}
+- pagination liste companies
 
 ---
 
@@ -221,11 +220,11 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* ajouter FK user.company nullable
-* endpoint assign user to company
-* endpoint remove user from company
-* validation 1 user = 1 company
-* protection changement entreprise
+- ajouter FK user.company nullable
+- endpoint assign user to company
+- endpoint remove user from company
+- validation 1 user = 1 company
+- protection changement entreprise
 
 ---
 
@@ -235,9 +234,9 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* filtrer users par company
-* filtrer trainings par access scope
-* filtrer chat rooms par membership
+- filtrer users par company
+- filtrer trainings par access scope
+- filtrer chat rooms par membership
 
 ---
 
@@ -245,10 +244,10 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* log login success
-* log login failure
-* log permission denied
-* log suspicious access
+- log login success
+- log login failure
+- log permission denied
+- log suspicious access
 
 ---
 
@@ -260,14 +259,14 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer app trainings
-* créer model Training
-* champ title (string)
-* champ description (text)
-* champ date (datetime)
-* champ capacity (int)
-* champ created_by FK user
-* migration DB
+- créer app trainings
+- créer model Training
+- champ title (string)
+- champ description (text)
+- champ date (datetime)
+- champ capacity (int)
+- champ created_by FK user
+- migration DB
 
 ---
 
@@ -275,12 +274,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer model Enrollment
-* FK user
-* FK training
-* champ created_at
-* empêcher double inscription
-* vérifier capacity avant insert
+- créer model Enrollment
+- FK user
+- FK training
+- champ created_at
+- empêcher double inscription
+- vérifier capacity avant insert
 
 ---
 
@@ -288,13 +287,13 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* POST /trainings
-* GET /trainings
-* GET /trainings/{id}
-* PATCH /trainings/{id}
-* DELETE /trainings/{id}
-* POST /trainings/{id}/join
-* GET /me/trainings
+- POST /trainings
+- GET /trainings
+- GET /trainings/{id}
+- PATCH /trainings/{id}
+- DELETE /trainings/{id}
+- POST /trainings/{id}/join
+- GET /me/trainings
 
 ---
 
@@ -304,15 +303,15 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer app chat
-* model Room
-* champ type (GLOBAL/COMPANY/PRIVATE)
-* champ name nullable
-* model Message
-* FK sender
-* FK room
-* content text
-* timestamp auto
+- créer app chat
+- model Room
+- champ type (GLOBAL/COMPANY/PRIVATE)
+- champ name nullable
+- model Message
+- FK sender
+- FK room
+- content text
+- timestamp auto
 
 ---
 
@@ -320,12 +319,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* POST /rooms
-* GET /rooms
-* GET /rooms/{id}
-* POST /rooms/{id}/messages
-* GET /rooms/{id}/messages
-* pagination messages
+- POST /rooms
+- GET /rooms
+- GET /rooms/{id}
+- POST /rooms/{id}/messages
+- GET /rooms/{id}/messages
+- pagination messages
 
 ---
 
@@ -333,23 +332,23 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* créer room globale automatique
-* créer room entreprise automatique
-* créer room privée dynamique
-* validation accès room
+- créer room globale automatique
+- créer room entreprise automatique
+- créer room privée dynamique
+- validation accès room
 
 ---
 
 # ⚡ EPIC B3 — CHAT WEBSOCKET
 
-## B3.1 — Infrastructure Channels
+## B3.1 — Infrastructure WebSockets
 
 ### Micro-tâches
 
-* config ASGI.py
-* config routing websocket
-* config channel layers Redis
-* test connection websocket brut
+- config ASGI.py
+- config routing websocket
+- config channel layers Redis
+- test connection websocket brut
 
 ---
 
@@ -357,12 +356,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* connect websocket
-* disconnect websocket
-* join group room
-* leave group room
-* receive message
-* broadcast message
+- connect websocket
+- disconnect websocket
+- join group room
+- leave group room
+- receive message
+- broadcast message
 
 ---
 
@@ -370,9 +369,9 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* vérifier auth token websocket
-* vérifier accès room
-* bloquer user externe
+- vérifier auth token websocket
+- vérifier accès room
+- bloquer user externe
 
 ---
 
@@ -382,11 +381,11 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* architecture backend globale
-* diagramme entités (users/companies/chat/trainings)
-* flux authentication JWT
-* flux chat websocket
-* flux formations
+- architecture backend globale
+- diagramme entités (users/companies/chat/trainings)
+- flux authentication JWT
+- flux chat websocket
+- flux formations
 
 ---
 
@@ -394,12 +393,12 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* document auth endpoints
-* document users endpoints
-* document companies endpoints
-* document trainings endpoints
-* document chat endpoints
-* ajouter exemples JSON
+- document auth endpoints
+- document users endpoints
+- document companies endpoints
+- document trainings endpoints
+- document chat endpoints
+- ajouter exemples JSON
 
 ---
 
@@ -407,10 +406,10 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* comment se connecter
-* comment rejoindre entreprise
-* comment accéder formations
-* comment utiliser chat
+- comment se connecter
+- comment rejoindre entreprise
+- comment accéder formations
+- comment utiliser chat
 
 ---
 
@@ -418,20 +417,20 @@ Responsabilité : fonctionnalités métier
 
 ### Micro-tâches
 
-* setup serveur prod
-* variables environnement
-* migration production
-* run server prod
+- setup serveur prod
+- variables environnement
+- migration production
+- run server prod
 
 ---
 
 # 🚀 RÈGLES DE TRAVAIL
 
-* 1 micro-tâche = 15 à 120 min max
-* 5 à 12 tâches/jour/dev
-* PR obligatoire par micro-feature
-* backend stable avant features
-* REST avant WebSocket
+- 1 micro-tâche = 15 à 120 min max
+- 5 à 12 tâches/jour/dev
+- PR obligatoire par micro-feature
+- backend stable avant features
+- REST avant WebSocket
 
 ---
 
@@ -439,142 +438,142 @@ Responsabilité : fonctionnalités métier
 
 Backend modulaire, sécurisé, scalable avec chat temps réel multi-entreprises + API documentée + architecture propre production-ready
 
-
 # JSON TRELO
 
 {
-  "board": "Backend Pépinière Django",
-  "lists": [
-    {
-      "name": "🧱 BACKLOG",
-      "cards": [
-        "Setup repo Git + README",
-        "Installer Django + DRF + Channels",
-        "Créer structure apps (users, companies, trainings, chat)",
-        "Configurer settings dev/prod",
-        "Configurer JWT auth",
-        "Configurer Redis + Channels"
-      ]
-    },
-    {
-      "name": "👤 DEV A - CORE BACKEND",
-      "cards": [
-        "Créer Custom User model",
-        "Ajouter roles utilisateurs",
-        "Configurer AUTH_USER_MODEL",
-        "Créer endpoints auth (login/register/refresh/logout)",
-        "Créer API /me (profil user)",
-        "Créer model Company",
-        "CRUD Companies API",
-        "Liaison User ↔ Company",
-        "Créer système permissions globales",
-        "Isolation données par entreprise"
-      ]
-    },
-    {
-      "name": "🎓 DEV B - FORMATIONS",
-      "cards": [
-        "Créer model Training",
-        "Créer model Enrollment",
-        "API CRUD Trainings",
-        "API inscription formation",
-        "Validation capacity training",
-        "Lister formations user"
-      ]
-    },
-    {
-      "name": "💬 DEV B - CHAT REST",
-      "cards": [
-        "Créer model Room",
-        "Créer model Message",
-        "API create/list rooms",
-        "API send message",
-        "API list messages",
-        "Room GLOBAL + COMPANY + PRIVATE"
-      ]
-    },
-    {
-      "name": "⚡ DEV B - CHAT WEBSOCKET",
-      "cards": [
-        "Configurer ASGI",
-        "Configurer Channels",
-        "Configurer Redis layer",
-        "Créer ChatConsumer",
-        "Join/Leave room websocket",
-        "Broadcast messages",
-        "Sécuriser websocket auth"
-      ]
-    },
-    {
-      "name": "📚 DOCUMENTATION",
-      "cards": [
-        "Architecture backend",
-        "Diagramme entités",
-        "Documentation API",
-        "Documentation utilisateur",
-        "Documentation déploiement"
-      ]
-    },
-    {
-      "name": "🧪 TESTS & STABILISATION",
-      "cards": [
-        "Tests auth",
-        "Tests companies",
-        "Tests trainings",
-        "Tests chat REST",
-        "Tests websocket"
-      ]
-    }
-  ]
+"board": "Backend Pépinière Flask",
+"lists": [
+{
+"name": "🧱 BACKLOG",
+"cards": [
+"Setup repo Git + README",
+"Installer Flask + Flask-RESTful + SQLAlchemy",
+"Créer structure apps (users, companies, trainings, chat)",
+"Configurer settings dev/prod",
+"Configurer JWT auth",
+"Configurer les WebSockets"
+]
+},
+{
+"name": "👤 DEV A - CORE BACKEND",
+"cards": [
+"Créer Custom User model",
+"Ajouter roles utilisateurs",
+"Configurer le modèle User SQLAlchemy",
+"Créer endpoints auth (login/register/refresh/logout)",
+"Créer API /me (profil user)",
+"Créer model Company",
+"CRUD Companies API",
+"Liaison User ↔ Company",
+"Créer système permissions globales",
+"Isolation données par entreprise"
+]
+},
+{
+"name": "🎓 DEV B - FORMATIONS",
+"cards": [
+"Créer model Training",
+"Créer model Enrollment",
+"API CRUD Trainings",
+"API inscription formation",
+"Validation capacity training",
+"Lister formations user"
+]
+},
+{
+"name": "💬 DEV B - CHAT REST",
+"cards": [
+"Créer model Room",
+"Créer model Message",
+"API create/list rooms",
+"API send message",
+"API list messages",
+"Room GLOBAL + COMPANY + PRIVATE"
+]
+},
+{
+"name": "⚡ DEV B - CHAT WEBSOCKET",
+"cards": [
+"Configurer ASGI",
+"Configurer la couche temps réel",
+"Configurer Redis layer",
+"Créer ChatConsumer",
+"Join/Leave room websocket",
+"Broadcast messages",
+"Sécuriser websocket auth"
+]
+},
+{
+"name": "📚 DOCUMENTATION",
+"cards": [
+"Architecture backend",
+"Diagramme entités",
+"Documentation API",
+"Documentation utilisateur",
+"Documentation déploiement"
+]
+},
+{
+"name": "🧪 TESTS & STABILISATION",
+"cards": [
+"Tests auth",
+"Tests companies",
+"Tests trainings",
+"Tests chat REST",
+"Tests websocket"
+]
+}
+]
 }
 
-# Architecture DJANGO
+# Architecture FLASK
 
 backend/
 │
-├── config/                 # settings Django
-│   ├── settings/
-│   │   ├── base.py
-│   │   ├── dev.py
-│   │   ├── prod.py
-│   ├── urls.py
-│   ├── asgi.py
-│   ├── wsgi.py
+├── api/ # ressources Flask
+├── persistence/ # SQLAlchemy + services
+│ ├── settings/
+│ │ ├── base.py
+│ │ ├── dev.py
+│ │ ├── prod.py
+│ ├── urls.py
+│ ├── asgi.py
+│ ├── wsgi.py
 │
 ├── apps/
-│   ├── users/
-│   │   ├── models.py
-│   │   ├── serializers.py
-│   │   ├── views.py
-│   │   ├── services.py     # logique métier
-│   │   ├── permissions.py
-│   │
-│   ├── companies/
-│   │   ├── models.py
-│   │   ├── serializers.py
-│   │   ├── views.py
-│   │   ├── services.py
-│   │
-│   ├── trainings/
-│   │   ├── models.py
-│   │   ├── serializers.py
-│   │   ├── views.py
-│   │   ├── services.py
-│   │
-│   ├── chat/
-│   │   ├── models.py
-│   │   ├── consumers.py   # websocket
-│   │   ├── routing.py
-│   │   ├── services.py
+│ ├── users/
+│ │ ├── models.py
+│ │ ├── serializers.py
+│ │ ├── views.py
+│ │ ├── services.py # logique métier
+│ │ ├── permissions.py
+│ │
+│ ├── companies/
+│ │ ├── models.py
+│ │ ├── serializers.py
+│ │ ├── views.py
+│ │ ├── services.py
+│ │
+│ ├── trainings/
+│ │ ├── models.py
+│ │ ├── serializers.py
+│ │ ├── views.py
+│ │ ├── services.py
+│ │
+│ ├── chat/
+│ │ ├── models.py
+│ │ ├── consumers.py # websocket
+│ │ ├── routing.py
+│ │ ├── services.py
 │
 ├── core/
-│   ├── permissions.py
-│   ├── exceptions.py
-│   ├── utils.py
+│ ├── permissions.py
+│ ├── exceptions.py
+│ ├── utils.py
 │
 ├── shared/
-│   ├── base_model.py
-│   ├── timestamps.py
+│ ├── base_model.py
+│ ├── timestamps.py
 │
 └── manage.py
 
@@ -587,8 +586,8 @@ core = règles globales
 
 # SCHÉMA BASE DE DONNÉES (ERD LOGIQUE)
 
-USER
-----
+## USER
+
 id (PK)
 username
 email
@@ -600,8 +599,8 @@ company_id (FK → COMPANY)
         │ many-to-one
         ▼
 
-COMPANY
--------
+## COMPANY
+
 id (PK)
 name
 description
@@ -611,82 +610,112 @@ created_at
         ├───────────────┐
         ▼               ▼
 
-TRAINING            CHAT ROOM
---------            ----------
-id                  id
-title               name
-description         type (GLOBAL / COMPANY / PRIVATE)
-date                company_id (nullable)
+TRAINING CHAT ROOM
+
+---
+
+id id
+title name
+description type (GLOBAL / COMPANY / PRIVATE)
+date company_id (nullable)
 capacity
 
         │
         ▼
 
-ENROLLMENT
-----------
+## ENROLLMENT
+
 id
 user_id (FK)
 training_id (FK)
 created_at
 
+## CHAT MESSAGE
 
-CHAT MESSAGE
-------------
 id
 room_id (FK)
 sender_id (FK → USER)
 content
 timestamp
 
-
 # PLAN EXACT JOUR PAR JOUR (15 JOURS)
+
 ## JOUR 1
+
 setup repo
-Django install
-DRF install
-structure apps
+Flask install
+SQLAlchemy install
+structure modules
+
 ## JOUR 2
+
 settings clean (dev/prod)
 JWT setup
-Redis install
+SQLite setup
+
 ## JOUR 3
+
 custom User model
 roles
 migrations
+
 ## JOUR 4
+
 auth API (login/register)
 /me endpoint
+
 ## JOUR 5
+
 Company model
 Company CRUD
+
 ## JOUR 6
+
 user ↔ company
 permissions base
+
 ## JOUR 7
+
 Training model
 Training CRUD
+
 ## JOUR 8
+
 Enrollment system
 join training
+
 ## JOUR 9
+
 Chat models (Room + Message)
 REST API chat
+
 ## JOUR 10
+
 chat logique (rooms types)
 pagination messages
+
 ## JOUR 11
+
 Channels setup
 ASGI config
 Redis layer
+
 ## JOUR 12
+
 WebSocket consumer
 join room + broadcast
+
 ## JOUR 13
+
 sécurisation websocket
 auth websocket
+
 ## JOUR 14
+
 tests API (auth, company, training)
+
 ## JOUR 15
+
 documentation complète
 API docs
 user docs
