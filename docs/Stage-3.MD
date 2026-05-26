@@ -50,8 +50,8 @@ flowchart LR
 
 ### 3.1 Choix d’architecture
 
-- **Frontend** : React pour l’interface et la navigation.
-- **Backend** : API REST Flask pour les opérations métier.
+- **Frontend** : React / Tailwind CSS pour l’interface et la navigation.
+- **Backend** : API REST / Flask pour les opérations métier.
 - **Base de données** : PostgreSQL pour la persistance.
 - **Temps réel** : WebSockets pour la messagerie.
 - **Sécurité** : authentification JWT et contrôle par rôle.
