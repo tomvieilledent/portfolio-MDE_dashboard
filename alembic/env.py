@@ -1,3 +1,4 @@
+from backend.persistence.db import engine
 import os
 import sys
 from logging.config import fileConfig
@@ -8,7 +9,6 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..')))
 
-from backend.persistence.db import engine
 from backend.persistence.models import Base as models_Base  # noqa
 
 # this is the Alembic Config object, which provides

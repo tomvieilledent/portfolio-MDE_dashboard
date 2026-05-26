@@ -7,7 +7,7 @@ from ._common_sql import isoformat, normalize_text, session_scope
 
 class FormationUserFacade:
     def __init__(self):
-           pass
+        pass
 
     def create(self, user_id, training_id, enrolled_at=None, status=None, progress=None, **kwargs):
         with session_scope() as db:

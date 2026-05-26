@@ -7,7 +7,7 @@ from ._common_sql import isoformat, normalize_text, session_scope
 
 class NewsFacade:
     def __init__(self):
-           pass
+        pass
 
     def create(self, title, source=None, summary=None, url=None, published_at=None, **kwargs):
         with session_scope() as db:

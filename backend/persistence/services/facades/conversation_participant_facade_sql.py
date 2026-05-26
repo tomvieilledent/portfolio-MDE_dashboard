@@ -7,7 +7,7 @@ from ._common_sql import isoformat, session_scope
 
 class ConversationParticipantFacade:
     def __init__(self):
-           pass
+        pass
 
     def create(self, conversation_id, user_id, **kwargs):
         with session_scope() as db:

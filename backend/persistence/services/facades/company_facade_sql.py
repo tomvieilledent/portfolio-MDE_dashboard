@@ -7,7 +7,7 @@ from typing import Any
 
 class CompanyFacade:
     def __init__(self):
-           pass
+        pass
 
     def create(self, name, admin_email=None, admin_id=None, **kwargs):
         db = SessionLocal()
