@@ -103,3 +103,40 @@ class User(BaseModel):
         if len(last_name) > 100:
             raise ValueError("Last name cannot exceed 100 characters.")
         self._last_name = last_name
+
+    # Validation helpers for API/service reuse
+    @staticmethod
+    def validate_first_name(value):
+        """Validate a candidate first name.
+
+        Raises TypeError or ValueError on invalid input. Returns the
+        normalized string on success.
+        """
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise TypeError("First name must be a string.")
+        v = value.strip()
+        if not v:
+            raise ValueError("First name cannot be empty.")
+        if len(v) > 100:
+            raise ValueError("First name cannot exceed 100 characters.")
+        return v
+
+    @staticmethod
+    def validate_last_name(value):
+        """Validate a candidate last name.
+
+        Raises TypeError or ValueError on invalid input. Returns the
+        normalized string on success.
+        """
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise TypeError("Last name must be a string.")
+        v = value.strip()
+        if not v:
+            raise ValueError("Last name cannot be empty.")
+        if len(v) > 100:
+            raise ValueError("Last name cannot exceed 100 characters.")
+        return v

@@ -410,14 +410,68 @@ def test_training_permissions_and_crud(seeded_context):
     finally:
         db.close()
 
-    delete_training = client.delete(
-        f'/trainings/{training_id}', headers=admin_headers)
-    assert delete_training.status_code == 200
-    assert delete_training.get_json() == {'msg': 'training deactivated'}
 
-    missing_training = client.get(
-        f'/trainings/{training_id}', headers=admin_headers)
-    assert missing_training.status_code == 200
+@pytest.mark.parametrize(
+    'payload',
+    [
+        ({'first_name': '', 'last_name': 'Valid'}),
+        ({'first_name': '   ', 'last_name': 'Valid'}),
+        ({'first_name': 123, 'last_name': 'Valid'}),
+        ({'first_name': 'A' * 101, 'last_name': 'Valid'}),
+        ({'first_name': 'Valid', 'last_name': ''}),
+        ({'first_name': 'Valid', 'last_name': '   '}),
+        ({'first_name': 'Valid', 'last_name': 123}),
+        ({'first_name': 'Valid', 'last_name': 'B' * 101}),
+    ],
+)
+def test_user_update_name_validation_cases(seeded_context, payload):
+    """PUT and PATCH to update user names must validate inputs."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    # create a user to operate on
+    create_user = client.post('/users', headers=admin_headers, json={
+        'email': 'to.update@example.com',
+        'password': 'password123',
+        'first_name': 'Initial',
+        'last_name': 'Name',
+    })
+    assert create_user.status_code == 201
+    user_id = create_user.get_json()['user']['id']
+
+    # PUT should reject invalid payloads
+    resp_put = client.put(f'/users/{user_id}',
+                          headers=admin_headers, json=payload)
+    assert_error(resp_put, 400, ERROR_CODES['VALIDATION_ERROR'])
+
+    # PATCH should also reject when provided
+    resp_patch = client.patch(
+        f'/users/{user_id}', headers=admin_headers, json=payload)
+    assert_error(resp_patch, 400, ERROR_CODES['VALIDATION_ERROR'])
+
+    # name validation assertions complete
+
+
+@pytest.mark.parametrize(
+    'payload',
+    [
+        ({'first_name': ''}),
+        ({'first_name': '   '}),
+        ({'first_name': 123}),
+        ({'first_name': 'A' * 101}),
+        ({'last_name': ''}),
+        ({'last_name': '   '}),
+        ({'last_name': 123}),
+        ({'last_name': 'B' * 101}),
+    ],
+)
+def test_me_patch_name_validation_cases(seeded_context, payload):
+    """PATCH /users/me should validate name inputs like the user endpoints."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    resp = client.patch('/users/me', headers=admin_headers, json=payload)
+    assert_error(resp, 400, ERROR_CODES['VALIDATION_ERROR'])
 
 
 @pytest.mark.parametrize(

@@ -70,6 +70,16 @@ class UserMeResource(Resource):
     def patch(self):
         """Partially update current user using provided JSON body."""
         data = request.get_json(silent=True) or {}
+        try:
+            if 'first_name' in data:
+                data['first_name'] = DomainUser.validate_first_name(
+                    data.get('first_name'))
+            if 'last_name' in data:
+                data['last_name'] = DomainUser.validate_last_name(
+                    data.get('last_name'))
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+
         user = service.update(get_jwt_identity(), **data)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -93,8 +103,14 @@ class UserResource(Resource):
         data = request.get_json() or {}
         first_name: Any = data.get('first_name')
         last_name: Any = data.get('last_name')
-        user = service.update(
-            user_id, first_name=first_name, last_name=last_name)
+        # validate name fields to keep parity with creation checks
+        try:
+            fn = DomainUser.validate_first_name(first_name)
+            ln = DomainUser.validate_last_name(last_name)
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+
+        user = service.update(user_id, first_name=fn, last_name=ln)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'user': user}
@@ -103,6 +119,17 @@ class UserResource(Resource):
     def patch(self, user_id):
         """Partial update for the user using provided JSON body."""
         data = request.get_json(silent=True) or {}
+        # validate optional name fields when provided
+        try:
+            if 'first_name' in data:
+                data['first_name'] = DomainUser.validate_first_name(
+                    data.get('first_name'))
+            if 'last_name' in data:
+                data['last_name'] = DomainUser.validate_last_name(
+                    data.get('last_name'))
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+
         user = service.update(user_id, **data)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
