@@ -80,4 +80,8 @@ class NotificationFacade:
             'content': notification.content,
             'is_read': notification.is_read,
             'created_at': isoformat(notification.created_at),
+            'updated_at': isoformat(getattr(notification, 'updated_at', None)),
+            'deactivate_by': getattr(notification, 'deactivate_by', None),
+            'delete_by': getattr(notification, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(notification, 'uploaded_at', None)),
         }

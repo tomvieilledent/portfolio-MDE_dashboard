@@ -10,7 +10,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token, get_jw
 from backend.models.user import User as DomainUser
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.state import BLOCKLIST
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 
 
 service = UserService()

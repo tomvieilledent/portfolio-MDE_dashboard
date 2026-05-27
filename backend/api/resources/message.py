@@ -9,7 +9,7 @@ from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.persistence.services import MessageService
 from backend.models.message import Message as DomainMessage
 

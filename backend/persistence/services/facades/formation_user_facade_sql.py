@@ -95,4 +95,8 @@ class FormationUserFacade:
             'enrolled_at': isoformat(relation.enrolled_at),
             'status': relation.status,
             'progress': relation.progress,
+            'updated_at': isoformat(getattr(relation, 'updated_at', None)),
+            'deactivate_by': getattr(relation, 'deactivate_by', None),
+            'delete_by': getattr(relation, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(relation, 'uploaded_at', None)),
         }

@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.persistence.services import FormationUserService
 from backend.models.formation_user import FormationUser as DomainFormationUser
 
@@ -62,6 +62,24 @@ class FormationUserResource(Resource):
     def patch(self, relation_id):
         """Update enrollment fields (status/progress)."""
         data = request.get_json(silent=True) or {}
+
+        current = formation_service.facade.get(relation_id)
+        if not current:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
+
+        try:
+            domain = DomainFormationUser(
+                user_id=current.get('user_id'),
+                training_id=current.get('training_id'),
+                status=current.get('status'),
+                progress=current.get('progress'),
+            )
+            for k, v in data.items():
+                if hasattr(domain, k):
+                    setattr(domain, k, v)
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+
         relation = formation_service.facade.update(relation_id, **data)
         if not relation:
             return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)

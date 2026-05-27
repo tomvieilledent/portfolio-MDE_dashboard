@@ -26,6 +26,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True),
                         onupdate=lambda: datetime.now(timezone.utc))
     deactivate_by = Column(String(36))
@@ -45,6 +46,7 @@ class Company(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True),
                         onupdate=lambda: datetime.now(timezone.utc))
     deactivate_by = Column(String(36))
@@ -62,6 +64,7 @@ class Training(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True),
                         onupdate=lambda: datetime.now(timezone.utc))
     deactivate_by = Column(String(36))
@@ -78,6 +81,7 @@ class Message(Base):
     content = Column(String(5000), nullable=False)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
 
 
 class Conversation(Base):
@@ -89,6 +93,7 @@ class Conversation(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
 
 
 class ConversationParticipant(Base):
@@ -99,6 +104,7 @@ class ConversationParticipant(Base):
     user_id = Column(String(36), nullable=False)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+    uploaded_at = Column(DateTime(timezone=True))
 
 
 class Notification(Base):

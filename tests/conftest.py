@@ -20,6 +20,8 @@ def app_bundle(monkeypatch, tmp_path):
 
     db_module = importlib.import_module('backend.persistence.db')
     models_module = importlib.import_module('backend.persistence.models')
+    # Ensure a clean test schema matching the current models
+    models_module.Base.metadata.drop_all(bind=db_module.engine)
     models_module.Base.metadata.create_all(bind=db_module.engine)
 
     app_module = importlib.import_module('backend.api.app')

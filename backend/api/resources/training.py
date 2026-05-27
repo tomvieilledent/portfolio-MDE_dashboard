@@ -9,7 +9,7 @@ from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.models.training import Training as DomainTraining
 from backend.persistence.services import FormationUserService, TrainingService, UserService
 
@@ -92,6 +92,25 @@ class TrainingResource(Resource):
     def patch(self, training_id):
         """Partially update a training's fields."""
         data = request.get_json(silent=True) or {}
+
+        # fetch current training to validate partial updates via domain model
+        current = training_service.facade.get(training_id)
+        if not current:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+
+        try:
+            domain = DomainTraining(
+                title=current.get('title'),
+                description=current.get('description'),
+                picture=current.get('picture'),
+                company_id=current.get('company_id'),
+            )
+            for k, v in data.items():
+                if hasattr(domain, k):
+                    setattr(domain, k, v)
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+
         training = training_service.facade.update(training_id, **data)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)

@@ -8,6 +8,7 @@ from backend.persistence.models import Company as ORMCompany, User as ORMUser
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Any
+from ._common_sql import isoformat
 
 
 class CompanyFacade:
@@ -107,5 +108,9 @@ class CompanyFacade:
             'admin_email': c.admin_email,
             'admin_id': c.admin_id,
             'is_active': c.is_active,
-            'created_at': c.created_at.isoformat() if c.created_at else None,
+            'created_at': isoformat(c.created_at),
+            'updated_at': isoformat(getattr(c, 'updated_at', None)),
+            'deactivate_by': getattr(c, 'deactivate_by', None),
+            'delete_by': getattr(c, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(c, 'uploaded_at', None)),
         }

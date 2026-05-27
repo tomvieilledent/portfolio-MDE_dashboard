@@ -10,6 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Any
+from ._common_sql import isoformat
 
 
 class UserFacade:
@@ -166,5 +167,9 @@ class UserFacade:
             'phone': u.phone,
             'is_super_admin': u.is_super_admin,
             'is_active': u.is_active,
-            'created_at': u.created_at.isoformat() if u.created_at else None,
+            'created_at': isoformat(u.created_at),
+            'updated_at': isoformat(u.updated_at) if hasattr(u, 'updated_at') else None,
+            'deactivate_by': getattr(u, 'deactivate_by', None),
+            'delete_by': getattr(u, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(u, 'uploaded_at', None)),
         }

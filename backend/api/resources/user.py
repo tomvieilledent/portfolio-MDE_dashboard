@@ -9,7 +9,7 @@ from backend.persistence.services import UserService
 from flask_jwt_extended import get_jwt_identity
 from typing import Any
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.models.user import User as DomainUser
 
 

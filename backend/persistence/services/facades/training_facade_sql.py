@@ -8,6 +8,7 @@ from backend.persistence.models import Training as ORMTraining
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Any
+from ._common_sql import isoformat
 
 
 class TrainingFacade:
@@ -91,5 +92,9 @@ class TrainingFacade:
             'title': t.title,
             'company_id': t.company_id,
             'is_active': t.is_active,
-            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'created_at': isoformat(t.created_at),
+            'updated_at': isoformat(getattr(t, 'updated_at', None)),
+            'deactivate_by': getattr(t, 'deactivate_by', None),
+            'delete_by': getattr(t, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(t, 'uploaded_at', None)),
         }

@@ -67,4 +67,8 @@ class ConversationParticipantFacade:
             'conversation_id': participant.conversation_id,
             'user_id': participant.user_id,
             'created_at': isoformat(participant.created_at),
+            'uploaded_at': isoformat(getattr(participant, 'uploaded_at', None)),
+            'updated_at': isoformat(getattr(participant, 'updated_at', None)),
+            'deactivate_by': getattr(participant, 'deactivate_by', None),
+            'delete_by': getattr(participant, 'delete_by', None),
         }

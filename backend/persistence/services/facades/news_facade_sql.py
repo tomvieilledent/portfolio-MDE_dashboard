@@ -57,4 +57,8 @@ class NewsFacade:
             'url': news.url,
             'published_at': isoformat(news.published_at),
             'created_at': isoformat(news.created_at),
+            'updated_at': isoformat(getattr(news, 'updated_at', None)),
+            'deactivate_by': getattr(news, 'deactivate_by', None),
+            'delete_by': getattr(news, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(news, 'uploaded_at', None)),
         }

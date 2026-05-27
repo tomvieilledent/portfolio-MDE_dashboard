@@ -1,8 +1,7 @@
-"""Custom JWT wrapper to return API-shaped JSON on errors.
+"""JWT helper wrapper to return consistent JSON errors.
 
-This module provides `jwt_required()` which wraps `verify_jwt_in_request`
-and converts JWT exceptions into the project's standardized JSON error
-responses.
+This file replaces the previous `backend.api.jwt` module to avoid
+naming conflicts with the external `jwt` package (PyJWT).
 """
 
 from functools import wraps

@@ -88,4 +88,8 @@ class ConversationFacade:
             'participant_ids': from_csv(conversation.participant_ids),
             'is_active': conversation.is_active,
             'created_at': isoformat(conversation.created_at),
+            'updated_at': isoformat(getattr(conversation, 'updated_at', None)),
+            'deactivate_by': getattr(conversation, 'deactivate_by', None),
+            'delete_by': getattr(conversation, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(conversation, 'uploaded_at', None)),
         }

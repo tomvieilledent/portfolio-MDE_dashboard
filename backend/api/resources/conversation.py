@@ -9,7 +9,7 @@ from flask import request
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.persistence.services import ConversationService
 from backend.models.conversation import Conversation as DomainConversation
 
@@ -91,12 +91,18 @@ class ConversationResource(Resource):
         Returns 404 if conversation not found.
         """
         data = request.get_json(silent=True) or {}
-        if 'participant_id' in data and data.get('action') == 'add':
+        participant_id = data.get('participant_id')
+        if participant_id is not None:
+            if not isinstance(participant_id, str):
+                return error_response(ERROR_CODES['VALIDATION_ERROR'], 'participant_id must be a string', 400)
+            participant_id = participant_id.strip()
+
+        if participant_id and data.get('action') == 'add':
             conversation = conversation_service.facade.add_participant(
-                conversation_id, data.get('participant_id'))
-        elif 'participant_id' in data and data.get('action') == 'remove':
+                conversation_id, participant_id)
+        elif participant_id and data.get('action') == 'remove':
             conversation = conversation_service.facade.remove_participant(
-                conversation_id, data.get('participant_id'))
+                conversation_id, participant_id)
         else:
             conversation = None
         if not conversation:

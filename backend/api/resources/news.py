@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
-from backend.api.jwt import jwt_required
+from backend.api.jwt_helpers import jwt_required
 from backend.persistence.services import NewsService
 from backend.models.news import News as DomainNews
 

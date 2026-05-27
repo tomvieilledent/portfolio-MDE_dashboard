@@ -90,4 +90,8 @@ class MessageFacade:
             'conversation_id': message.conversation_id,
             'content': message.content,
             'created_at': isoformat(message.created_at),
+            'updated_at': isoformat(getattr(message, 'updated_at', None)),
+            'deactivate_by': getattr(message, 'deactivate_by', None),
+            'delete_by': getattr(message, 'delete_by', None),
+            'uploaded_at': isoformat(getattr(message, 'uploaded_at', None)),
         }
