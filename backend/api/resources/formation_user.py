@@ -7,6 +7,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
 from backend.persistence.services import FormationUserService
+from backend.models.formation_user import FormationUser as DomainFormationUser
 
 
 formation_service = FormationUserService()
@@ -32,6 +33,11 @@ class FormationUserListResource(Resource):
         training_id = data.get('training_id')
         if not user_id or not training_id:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'user_id and training_id are required', 400)
+        try:
+            DomainFormationUser(user_id=user_id, training_id=training_id, status=data.get(
+                'status'), progress=data.get('progress'))
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         relation = formation_service.facade.create(
             user_id,
             training_id,

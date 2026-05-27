@@ -11,6 +11,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
 from backend.persistence.services import ConversationService
+from backend.models.conversation import Conversation as DomainConversation
 
 
 conversation_service = ConversationService()
@@ -49,6 +50,10 @@ class ConversationListResource(Resource):
             Optional list of participant ids for the new conversation.
         """
         data = request.get_json(silent=True) or {}
+        try:
+            DomainConversation(participant_ids=data.get('participant_ids'))
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         conversation = conversation_service.facade.create(
             participant_ids=data.get('participant_ids'))
         return {'conversation': conversation}, 201

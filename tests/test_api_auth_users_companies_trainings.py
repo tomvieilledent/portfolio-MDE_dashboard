@@ -1,3 +1,7 @@
+from typing import Any, cast
+
+import pytest
+
 from backend.api.errors import ERROR_CODES
 
 
@@ -6,6 +10,10 @@ def assert_error(response, status, code):
     assert response.status_code == status
     assert payload['error']['code'] == code
     return payload
+
+
+def make_text(length, char='a'):
+    return char * length
 
 
 def test_home_and_openapi_routes(app_bundle):
@@ -91,6 +99,28 @@ def test_auth_rejects_bad_payloads_and_invalid_credentials(app_bundle):
     assert_error(bad_login, 401, ERROR_CODES['INVALID_CREDENTIALS'])
 
 
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({'email': '', 'password': 'password123'},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'email': 'user@example.com', 'password': ''},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'email': 123, 'password': 'password123'},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'email': 'user@example.com', 'password': 123},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'email': make_text(255) + '@example.com',
+         'password': 'password123'}, 400, ERROR_CODES['VALIDATION_ERROR']),
+    ],
+)
+def test_auth_register_field_validation_cases(app_bundle, payload, status, code):
+    client = app_bundle['client']
+
+    response = client.post('/auth/register', json=payload)
+    assert_error(response, status, code)
+
+
 def test_protected_route_requires_auth(app_bundle):
     client = app_bundle['client']
 
@@ -174,6 +204,29 @@ def test_user_crud_and_profile_endpoints(seeded_context):
     assert member_profile.status_code == 200
 
 
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({'email': 'missing-password@example.com'},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'email': 'bad-email', 'password': 'password123'},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'email': 123, 'password': 'password123'},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'email': 'user@example.com', 'password': 123},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'email': 'user@example.com', 'password': make_text(257)},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+    ],
+)
+def test_user_create_field_validation_cases(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post('/users', headers=admin_headers, json=payload)
+    assert_error(response, status, code)
+
+
 def test_company_flow_and_admin_email_requirement(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
@@ -221,6 +274,8 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     try:
         stored_company = db.query(ORMCompany).filter(
             ORMCompany.id == company_id).first()
+        assert stored_company is not None
+        stored_company = cast(Any, stored_company)
         assert stored_company.description == 'Updated description'
     finally:
         db.close()
@@ -240,6 +295,8 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     try:
         stored_user = db.query(ORMUser).filter(
             ORMUser.id == seeded_context['member_user']['id']).first()
+        assert stored_user is not None
+        stored_user = cast(Any, stored_user)
         assert stored_user.company_id == company_id
     finally:
         db.close()
@@ -256,6 +313,8 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     try:
         stored_user = db.query(ORMUser).filter(
             ORMUser.id == seeded_context['member_user']['id']).first()
+        assert stored_user is not None
+        stored_user = cast(Any, stored_user)
         assert stored_user.company_id is None
     finally:
         db.close()
@@ -268,6 +327,35 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     list_filtered = client.get(
         '/users', headers=admin_headers, query_string={'company_id': company_id})
     assert list_filtered.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({'name': ''}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'name': 'Valid Company'}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'name': 123, 'admin_email': 'admin@example.com'},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'name': make_text(201), 'admin_email': 'admin@example.com'},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'name': 'Valid Company', 'admin_email': ''},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'name': 'Valid Company', 'admin_email': 123},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'name': 'Valid Company', 'admin_email': make_text(255) +
+         '@example.com'}, 400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'name': 'Valid Company', 'admin_email': 'missing@example.com'},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'name': 'Valid Company', 'admin_email': 'company.admin@example.com',
+         'admin_id': 'bad-uuid'}, 400, ERROR_CODES['VALIDATION_ERROR']),
+    ],
+)
+def test_company_create_field_validation_cases(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post('/companies', headers=admin_headers, json=payload)
+    assert_error(response, status, code)
 
 
 def test_training_permissions_and_crud(seeded_context):
@@ -316,6 +404,8 @@ def test_training_permissions_and_crud(seeded_context):
     try:
         stored_training = db.query(ORMTraining).filter(
             ORMTraining.id == training_id).first()
+        assert stored_training is not None
+        stored_training = cast(Any, stored_training)
         assert stored_training.description == 'Updated description'
     finally:
         db.close()
@@ -328,3 +418,28 @@ def test_training_permissions_and_crud(seeded_context):
     missing_training = client.get(
         f'/trainings/{training_id}', headers=admin_headers)
     assert missing_training.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'title': ''}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'title': 123}, 400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'title': make_text(201)}, 400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'title': 'Docker Basics', 'description': 123},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'title': 'Docker Basics', 'description': make_text(2001)},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'title': 'Docker Basics', 'picture': 123},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'title': 'Docker Basics', 'picture': make_text(513)},
+         400, ERROR_CODES['VALIDATION_ERROR']),
+    ],
+)
+def test_training_create_field_validation_cases(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post('/trainings', headers=admin_headers, json=payload)
+    assert_error(response, status, code)

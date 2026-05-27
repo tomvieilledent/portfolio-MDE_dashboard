@@ -7,6 +7,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
 from backend.persistence.services import NewsService
+from backend.models.news import News as DomainNews
 
 
 news_service = NewsService()
@@ -36,6 +37,10 @@ class NewsListResource(Resource):
         title = data.get('title')
         if not title:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'title is required', 400)
+        try:
+            DomainNews(title=title)
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         article = news_service.facade.create(
             title,
             source=data.get('source'),

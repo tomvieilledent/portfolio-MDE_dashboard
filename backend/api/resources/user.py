@@ -10,6 +10,7 @@ from flask_jwt_extended import get_jwt_identity
 from typing import Any
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
+from backend.models.user import User as DomainUser
 
 
 service = UserService()
@@ -42,6 +43,11 @@ class UserListResource(Resource):
         first_name = data.get('first_name')
         if not email or not password:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'email and password required', 400)
+        # Validate using domain model to ensure consistent field checks
+        try:
+            DomainUser(email=email, password=password, first_name=first_name)
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         try:
             user = service.register(email, password, first_name=first_name)
         except Exception as exc:

@@ -1,3 +1,5 @@
+import pytest
+
 from backend.api.errors import ERROR_CODES
 
 
@@ -6,6 +8,10 @@ def assert_error(response, status, code):
     assert response.status_code == status
     assert payload['error']['code'] == code
     return payload
+
+
+def make_text(length, char='a'):
+    return char * length
 
 
 def test_conversation_and_message_flow(seeded_context):
@@ -219,3 +225,94 @@ def test_formation_user_flow(seeded_context):
         f'/formation-users/{relation_id}', headers=admin_headers)
     assert delete_relation.status_code == 200
     assert delete_relation.get_json() == {'msg': 'enrollment deleted'}
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 404, ERROR_CODES['NOT_FOUND']),
+        ({'participant_id': ''}, 404, ERROR_CODES['NOT_FOUND']),
+        ({'participant_id': 'x', 'action': 'invalid'},
+         404, ERROR_CODES['NOT_FOUND']),
+    ],
+)
+def test_conversation_patch_invalid_cases(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    # create a conversation to operate on
+    conv = client.post('/conversations', headers=admin_headers,
+                       json={}).get_json()['conversation']
+
+    response = client.patch(
+        f"/conversations/{conv['id']}", headers=admin_headers, json=payload)
+    assert_error(response, status, code)
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 400, ERROR_CODES['VALIDATION_ERROR']),
+        ({'content': ''}, 400, ERROR_CODES['VALIDATION_ERROR']),
+    ],
+)
+def test_conversation_messages_post_invalid(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    conv = client.post('/conversations', headers=admin_headers,
+                       json={}).get_json()['conversation']
+    response = client.post(
+        f"/conversations/{conv['id']}/messages", headers=admin_headers, json=payload)
+    assert_error(response, status, code)
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'recipient_id': '', 'content': 'Hi'},
+         400, ERROR_CODES['BAD_REQUEST']),
+        ({'recipient_id': 'some-id', 'content': ''},
+         400, ERROR_CODES['BAD_REQUEST']),
+    ],
+)
+def test_notifications_post_field_validation(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post(
+        '/notifications', headers=admin_headers, json=payload)
+    assert_error(response, status, code)
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'title': ''}, 400, ERROR_CODES['BAD_REQUEST']),
+    ],
+)
+def test_news_post_field_validation(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post('/news', headers=admin_headers, json=payload)
+    assert_error(response, status, code)
+
+
+@pytest.mark.parametrize(
+    'payload, status, code',
+    [
+        ({}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'user_id': '', 'training_id': 't'}, 400, ERROR_CODES['BAD_REQUEST']),
+        ({'user_id': 'u', 'training_id': ''}, 400, ERROR_CODES['BAD_REQUEST']),
+    ],
+)
+def test_formation_users_post_field_validation(seeded_context, payload, status, code):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    response = client.post(
+        '/formation-users', headers=admin_headers, json=payload)
+    assert_error(response, status, code)

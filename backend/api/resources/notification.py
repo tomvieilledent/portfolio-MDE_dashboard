@@ -10,6 +10,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
 from backend.persistence.services import NotificationService
+from backend.models.notification import Notification as DomainNotification
 
 
 notification_service = NotificationService()
@@ -49,6 +50,11 @@ class NotificationListResource(Resource):
         content = data.get('content')
         if not recipient_id or not content:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'recipient_id and content are required', 400)
+        try:
+            notification = DomainNotification()
+            notification.content = content
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         notification = notification_service.facade.create(
             recipient_id, content, is_read=data.get('is_read', False))
         return {'notification': notification}, 201

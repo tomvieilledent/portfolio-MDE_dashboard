@@ -11,6 +11,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt import jwt_required
 from backend.persistence.services import MessageService
+from backend.models.message import Message as DomainMessage
 
 
 message_service = MessageService()
@@ -60,8 +61,12 @@ class ConversationMessagesResource(Resource):
         """
         data = request.get_json(silent=True) or {}
         content = data.get('content')
-        if not content:
-            return error_response(ERROR_CODES['BAD_REQUEST'], 'content is required', 400)
+        # validate content using domain model
+        try:
+            dm = DomainMessage()
+            dm.content = content
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         message = message_service.facade.create(
             author_id=data.get('author_id') or get_jwt_identity(),
             content=content,

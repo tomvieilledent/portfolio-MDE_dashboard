@@ -74,14 +74,16 @@ def create_app():
     # ensure sqlite file exists (best-effort)
     try:
         if engine.url.drivername == 'sqlite':
-            db_path = Path(engine.url.database)
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            if not db_path.exists():
-                db_path.touch()
-                try:
-                    db_path.chmod(0o644)
-                except Exception:
-                    pass
+            database_path = engine.url.database
+            if database_path:
+                db_path = Path(database_path)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                if not db_path.exists():
+                    db_path.touch()
+                    try:
+                        db_path.chmod(0o644)
+                    except Exception:
+                        pass
     except Exception:
         pass
     engine.dispose()
