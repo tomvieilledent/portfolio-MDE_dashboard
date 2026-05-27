@@ -1,3 +1,8 @@
+"""Company persistence facade.
+
+Provides `CompanyFacade` for creating, updating and listing companies.
+"""
+
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Company as ORMCompany
 from sqlalchemy.exc import IntegrityError
@@ -6,6 +11,8 @@ from typing import Any
 
 
 class CompanyFacade:
+    """Facade to manage company rows in the database."""
+
     def __init__(self):
         pass
 

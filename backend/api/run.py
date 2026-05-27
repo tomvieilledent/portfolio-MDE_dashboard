@@ -1,3 +1,9 @@
+"""Small runner for local development.
+
+Runs the Flask application created by `create_app()` when executed as a
+script. This file is intended for local development only.
+"""
+
 from backend.api.app import create_app
 
 app = create_app()

@@ -1,3 +1,9 @@
+"""Flask application factory and API route registration.
+
+This module exposes `create_app()` which configures Flask, JWT callbacks,
+error handlers and registers all API resources for the application.
+"""
+
 import os
 
 from flask import Flask, jsonify

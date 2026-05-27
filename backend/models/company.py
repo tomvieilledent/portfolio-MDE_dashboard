@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Domain model for companies.
+
+This module defines `Company`, a lightweight domain object used for input
+validation and higher-level business rules before persistence.
+"""
+
 import uuid
 
 from email_validator import EmailNotValidError, validate_email
@@ -9,10 +15,14 @@ from .base import BaseModel
 class Company(BaseModel):
     """Company model with field validation.
 
-    Creation flow:
-    - the service layer may receive an admin email as an input only.
-    - that email is used to resolve the related user UUID.
-    - the company stores the admin reference in admin_id.
+    Attributes
+    ----------
+    name : str
+        Company display name.
+    admin_email : str | None
+        Optional admin email used to resolve an admin user.
+    admin_id : str | None
+        Optional resolved admin user UUID as string.
     """
 
     def __init__(
@@ -138,5 +148,6 @@ class Company(BaseModel):
         try:
             validate_email(value, check_deliverability=False)
         except EmailNotValidError as exc:
-            raise ValueError("Admin email must be a valid email address") from exc
+            raise ValueError(
+                "Admin email must be a valid email address") from exc
         self._admin_email = value.lower()

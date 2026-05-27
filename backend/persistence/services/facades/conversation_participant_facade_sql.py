@@ -1,3 +1,8 @@
+"""Facade for conversation participant associations.
+
+Provides simple CRUD operations for the `ConversationParticipant` table.
+"""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -6,6 +11,8 @@ from ._common_sql import isoformat, session_scope
 
 
 class ConversationParticipantFacade:
+    """Manage participant rows linking users to conversations."""
+
     def __init__(self):
         pass
 

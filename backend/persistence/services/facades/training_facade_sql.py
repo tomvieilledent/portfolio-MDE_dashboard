@@ -1,3 +1,8 @@
+"""Facades for training persistence operations.
+
+Provides `TrainingFacade` which wraps SQLAlchemy access for trainings.
+"""
+
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Training as ORMTraining
 from sqlalchemy.exc import IntegrityError
@@ -6,8 +11,10 @@ from typing import Any
 
 
 class TrainingFacade:
+    """SQL-backed facade for training entities."""
+
     def __init__(self):
-    pass
+        pass
 
     def create(self, title, company_id=None, **kwargs):
         db = SessionLocal()

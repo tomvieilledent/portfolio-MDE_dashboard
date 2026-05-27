@@ -1,3 +1,9 @@
+"""User persistence facade (SQLAlchemy).
+
+Provides `UserFacade` which encapsulates common user database operations
+used by the service layer (create, lookup, update, deactivate).
+"""
+
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import User as ORMUser
 from werkzeug.security import generate_password_hash, check_password_hash

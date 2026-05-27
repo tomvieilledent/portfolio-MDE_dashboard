@@ -1,5 +1,11 @@
+"""Training-related API resources.
+
+Provide endpoints for listing trainings, creating trainings,
+enrolling users and listing enrollments.
+"""
+
 from flask import request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
@@ -14,13 +20,35 @@ user_service = UserService()
 
 
 class TrainingListResource(Resource):
+    """List trainings or create a new training.
+
+    Methods
+    -------
+    get(limit: int)
+        Return a paginated list of trainings.
+    post()
+        Create a training after validating the request body.
+    """
+
     @jwt_required()
     def get(self):
+        """Return a paginated list of trainings.
+
+        Query parameters
+        ----------------
+        limit : int
+            Maximum number of trainings to return (default 100).
+        """
         limit = request.args.get('limit', default=100, type=int)
         return {'trainings': training_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
+        """Validate and create a new training.
+
+        Expects JSON body with `title` (required) and optional
+        `description`, `picture`, `company_id`.
+        """
         data = request.get_json(silent=True) or {}
         title = data.get('title')
         if not title:
@@ -45,8 +73,11 @@ class TrainingListResource(Resource):
 
 
 class TrainingResource(Resource):
+    """Operations on a single training (get/patch/delete)."""
+
     @jwt_required()
     def get(self, training_id):
+        """Retrieve a training by id."""
         training = training_service.facade.get(training_id)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
@@ -54,6 +85,7 @@ class TrainingResource(Resource):
 
     @jwt_required()
     def patch(self, training_id):
+        """Partially update a training's fields."""
         data = request.get_json(silent=True) or {}
         training = training_service.facade.update(training_id, **data)
         if not training:
@@ -62,14 +94,22 @@ class TrainingResource(Resource):
 
     @jwt_required()
     def delete(self, training_id):
+        """Soft-deactivate a training (set `is_active` False)."""
         if not training_service.facade.deactivate(training_id, by=get_jwt_identity()):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
         return {'msg': 'training deactivated'}
 
 
 class TrainingEnrollResource(Resource):
+    """Enroll a user in a training (create a FormationUser relation)."""
+
     @jwt_required()
     def post(self, training_id):
+        """Create an enrollment for `training_id`.
+
+        JSON body may include `user_id`, `status`, `progress`. If `user_id`
+        is omitted the current authenticated user is used.
+        """
         data = request.get_json(silent=True) or {}
         user_id = data.get('user_id') or get_jwt_identity()
         training = training_service.facade.get(training_id)
@@ -83,6 +123,8 @@ class TrainingEnrollResource(Resource):
 
 
 class TrainingEnrollmentsResource(Resource):
+    """List enrollments for a given training."""
+
     @jwt_required()
     def get(self, training_id):
         training = training_service.facade.get(training_id)
@@ -92,6 +134,8 @@ class TrainingEnrollmentsResource(Resource):
 
 
 class UserTrainingsResource(Resource):
+    """List enrollments for a specific user."""
+
     @jwt_required()
     def get(self, user_id):
         user = user_service.get_by_id(user_id)
@@ -101,6 +145,8 @@ class UserTrainingsResource(Resource):
 
 
 class CurrentUserTrainingsResource(Resource):
+    """List enrollments for the current authenticated user."""
+
     @jwt_required()
     def get(self):
         return {'enrollments': formation_service.facade.list_by_user(get_jwt_identity())}

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+"""Domain model for user notifications.
+
+Simple container validating notification `content` length and type.
+"""
+
 from .base import BaseModel
 
 
 class Notification(BaseModel):
-    def __init__(self, recipient_id, content, is_read=False, **kwargs):
-        super().__init__(**kwargs)
-        self.recipient_id = recipient_id
-        self.content = content
-        self.is_read = is_read
+    """Notification entity with `recipient_id`, `content` and `is_read`."""
 
     @property
     def content(self):
@@ -21,5 +22,6 @@ class Notification(BaseModel):
         if not value:
             raise ValueError("Notification content cannot be empty")
         if len(value) > 1000:
-            raise ValueError("Notification content must be 1000 characters or fewer")
+            raise ValueError(
+                "Notification content must be 1000 characters or fewer")
         self._content = value

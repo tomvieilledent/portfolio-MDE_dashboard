@@ -1,3 +1,9 @@
+"""Database engine and session configuration for SQLAlchemy.
+
+This module centralizes the engine creation, the session factory
+(`SessionLocal`) and the declarative `Base` used by ORM models.
+"""
+
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base

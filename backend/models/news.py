@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
+"""Domain model for news items.
+
+Used to validate scraped or imported news prior to storage.
+"""
+
 from .base import BaseModel
 
 
 class News(BaseModel):
+    """News item with basic validation for title and optional metadata."""
+
     def __init__(self, title, source=None, summary=None, url=None, published_at=None, **kwargs):
         super().__init__(**kwargs)
         self.title = title

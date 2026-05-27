@@ -1,3 +1,9 @@
+"""Conversation persistence facade utilities.
+
+This module exposes `ConversationFacade` used for creating and managing
+conversation rows in the database.
+"""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -7,8 +13,10 @@ from ._common_sql import from_csv, isoformat, session_scope, to_csv
 
 
 class ConversationFacade:
+    """Facade for conversation CRUD and participant management."""
+
     def __init__(self):
-    pass
+        pass
 
     def create(self, participant_ids=None, **kwargs):
         with session_scope() as db:

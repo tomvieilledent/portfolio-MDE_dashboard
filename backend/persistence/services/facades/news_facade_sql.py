@@ -1,3 +1,5 @@
+"""News persistence facade for ingesting and listing news items."""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -6,6 +8,8 @@ from ._common_sql import isoformat, normalize_text, session_scope
 
 
 class NewsFacade:
+    """Facade handling CRUD operations for news items."""
+
     def __init__(self):
         pass
 

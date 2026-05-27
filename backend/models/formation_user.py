@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
+"""Domain model representing a user's enrollment in a training.
+
+`FormationUser` stores enrollment timestamp, status and progress.
+"""
+
 from .base import BaseModel
 from datetime import datetime, timezone
 
 
 class FormationUser(BaseModel):
-    """Association model linking a user to a training (formerly Enrollment).
-
-    Fields:
-    - user_id: required
-    - training_id: required
-    - enrolled_at: timestamp
-    """
+    """Association linking `user_id` and `training_id` with progress/state."""
 
     def __init__(self, user_id, training_id, enrolled_at=None, status=None, progress=None, **kwargs):
         super().__init__(**kwargs)

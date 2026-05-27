@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
+"""Model linking conversations and users for persistence.
+
+This association object is used when storing participant relationships in the
+database layer.
+"""
+
 from .base import BaseModel
 
 
 class ConversationParticipant(BaseModel):
-    """Association model linking conversations and user ids for persistent storage.
-
-    Fields:
-    - conversation_id: required
-    - user_id: required
-    """
+    """Association with `conversation_id` and `user_id` fields."""
 
     def __init__(self, conversation_id, user_id, **kwargs):
         super().__init__(**kwargs)

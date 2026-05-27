@@ -1,7 +1,12 @@
+"""Authentication endpoints: register, login, refresh and logout.
+
+Endpoints rely on `UserService` and return access/refresh tokens.
+"""
+
 from flask_restful import Resource
 from flask import request
 from backend.persistence.services import UserService
-from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, get_jwt_identity
 from backend.models.user import User as DomainUser
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.state import BLOCKLIST
@@ -12,6 +17,17 @@ service = UserService()
 
 
 class AuthRegisterResource(Resource):
+    """Register a new user.
+
+    POST body
+    ---------
+    email, password, first_name
+
+    Returns
+    -------
+    201 with user and tokens on success.
+    """
+
     def post(self):
         data = request.get_json() or {}
         email = data.get('email')
@@ -34,6 +50,17 @@ class AuthRegisterResource(Resource):
 
 
 class AuthLoginResource(Resource):
+    """Login and return access/refresh tokens.
+
+    POST body
+    ---------
+    email, password
+
+    Returns
+    -------
+    200 with tokens and user on success.
+    """
+
     def post(self):
         data = request.get_json() or {}
         email = data.get('email')
@@ -49,6 +76,8 @@ class AuthLoginResource(Resource):
 
 
 class AuthRefreshResource(Resource):
+    """Exchange a valid refresh token for a new access token."""
+
     @jwt_required(refresh=True)
     def post(self):
         user_id = get_jwt_identity()
@@ -56,6 +85,8 @@ class AuthRefreshResource(Resource):
 
 
 class AuthLogoutResource(Resource):
+    """Revoke the current JWT (add JTI to blocklist)."""
+
     @jwt_required()
     def post(self):
         jwt_data = get_jwt()

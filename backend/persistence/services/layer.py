@@ -1,3 +1,9 @@
+"""Service layer: lightweight wrappers around persistence facades.
+
+Services expose business-oriented methods and delegate persistence to
+the corresponding facade implementations.
+"""
+
 from typing import Any
 
 from backend.persistence.db import SessionLocal
@@ -16,6 +22,12 @@ from backend.persistence.services.facades import (
 
 
 class UserService:
+    """Service exposing common user workflows.
+
+    Methods map 1:1 to the underlying `UserFacade` but keep a stable
+    interface for API code to use.
+    """
+
     def __init__(self):
         self.facade = UserFacade()
 
@@ -58,40 +70,56 @@ class UserService:
 
 
 class CompanyService:
+    """Service facade for company-related operations."""
+
     def __init__(self):
         self.facade = CompanyFacade()
 
 
 class TrainingService:
+    """Service facade for training operations."""
+
     def __init__(self):
         self.facade = TrainingFacade()
 
 
 class MessageService:
+    """Service facade for message persistence operations."""
+
     def __init__(self):
         self.facade = MessageFacade()
 
 
 class ConversationService:
+    """Service facade for conversations."""
+
     def __init__(self):
         self.facade = ConversationFacade()
 
 
 class ConversationParticipantService:
+    """Service facade for conversation participant associations."""
+
     def __init__(self):
         self.facade = ConversationParticipantFacade()
 
 
 class NotificationService:
+    """Service facade for notifications."""
+
     def __init__(self):
         self.facade = NotificationFacade()
 
 
 class NewsService:
+    """Service facade for news ingestion and listing."""
+
     def __init__(self):
         self.facade = NewsFacade()
 
 
 class FormationUserService:
+    """Service facade for formation/user enrollment operations."""
+
     def __init__(self):
         self.facade = FormationUserFacade()

@@ -1,3 +1,5 @@
+"""News endpoints for listing, creating and syncing news items."""
+
 from flask import request
 from flask_jwt_extended import jwt_required
 from flask_restful import Resource
@@ -11,12 +13,25 @@ news_service = NewsService()
 
 
 class NewsListResource(Resource):
+    """List news items or create a new one."""
+
     def get(self):
+        """Return a paginated list of news items.
+
+        Query parameters
+        ----------------
+        limit : int
+            Max items to return (default 100).
+        """
         limit = request.args.get('limit', default=100, type=int)
         return {'news': news_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
+        """Create a news item from the request body.
+
+        Requires `title`. Optional fields: `source`, `summary`, `url`, `published_at`.
+        """
         data = request.get_json(silent=True) or {}
         title = data.get('title')
         if not title:
@@ -32,7 +47,10 @@ class NewsListResource(Resource):
 
 
 class NewsResource(Resource):
+    """Retrieve or delete a single news item."""
+
     def get(self, news_id):
+        """Return a news item by id."""
         article = news_service.facade.get(news_id)
         if not article:
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
@@ -40,12 +58,16 @@ class NewsResource(Resource):
 
     @jwt_required()
     def delete(self, news_id):
+        """Delete a news item (hard delete)."""
         if not news_service.facade.delete(news_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
         return {'msg': 'news item deleted'}
 
 
 class NewsSyncResource(Resource):
+    """Endpoint placeholder for syncing external news sources."""
+
     @jwt_required()
     def post(self):
+        """Not implemented: sync external news sources into the DB."""
         return error_response(ERROR_CODES['NOT_IMPLEMENTED'], 'news sync is not configured yet', 501)

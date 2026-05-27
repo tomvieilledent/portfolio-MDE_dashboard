@@ -1,3 +1,9 @@
+"""SQLAlchemy ORM models used for persistence.
+
+This module defines the tables and columns used by Alembic migrations and
+by the persistence layer.
+"""
+
 from sqlalchemy import Column, String, Boolean, DateTime
 from .db import Base
 import uuid

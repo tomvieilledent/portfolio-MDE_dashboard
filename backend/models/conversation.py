@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Domain model for conversations (chat rooms).
+
+`Conversation` represents a lightweight chat room composed of
+participant identifiers. This object is used by services handling
+real-time chat features; persistence is handled separately.
+"""
+
 from .base import BaseModel
 
 

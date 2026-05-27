@@ -1,3 +1,9 @@
+"""Facades for message persistence operations (SQLAlchemy).
+
+This module provides `MessageFacade` which encapsulates CRUD operations
+for the `Message` ORM model used by higher-level services.
+"""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,8 +15,14 @@ from ._common_sql import isoformat, normalize_text, session_scope
 
 
 class MessageFacade:
+    """SQL-backed facade for messages.
+
+    The facade returns dictionaries suitable for API responses and accepts
+    simple Python types for its inputs.
+    """
+
     def __init__(self):
-    pass
+        pass
 
     def create(self, author_id, content, recipient_id=None, conversation_id=None, **kwargs):
         with session_scope() as db:

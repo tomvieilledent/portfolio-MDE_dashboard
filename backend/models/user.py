@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
+"""Domain model representing application users.
+
+This module defines the `User` domain object used for input validation
+and simple field-level checks before the service layer performs hashing
+and persistence through the facades.
+"""
 
 from .base import BaseModel
 from email_validator import validate_email, EmailNotValidError
 
 
 class User(BaseModel):
-    """User model with field validation using properties.
+    """User model with property-based validation.
 
-    Fields validated:
-    - email: required, max 254 chars, simple format check
-    - password: required, stored as plain string here (hashing should occur in service layer)
-    - first_name / last_name: optional, max 100 chars
-    - phone: optional, max 30 chars
+    The `User` object validates email, password and optional profile fields.
+    Password hashing is intentionally not performed at this layer and should
+    be handled by the service or facade layer when persisting.
     """
 
     def __init__(self, email, password, first_name=None, last_name=None, **kwargs):

@@ -1,3 +1,8 @@
+"""Notification persistence facade.
+
+Wraps SQLAlchemy access for simple notification CRUD operations.
+"""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -7,8 +12,10 @@ from ._common_sql import isoformat, session_scope
 
 
 class NotificationFacade:
+    """Facade for notification create/list/mark/delete operations."""
+
     def __init__(self):
-    pass
+        pass
 
     def create(self, recipient_id, content, is_read=False, **kwargs):
         with session_scope() as db:

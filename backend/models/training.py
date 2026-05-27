@@ -1,8 +1,24 @@
 #!/usr/bin/env python3
+"""Domain model for trainings.
+
+`Training` validates title and optional description/picture fields used by
+the service layer before persistence.
+"""
+
 from .base import BaseModel
 
 
 class Training(BaseModel):
+    """Training metadata and validation.
+
+    Attributes
+    ----------
+    title : str
+        Training title (required).
+    company_id : str | None
+        Optional owning company id.
+    """
+
     def __init__(self, title, company_id=None, description=None, picture=None, **kwargs):
         super().__init__(**kwargs)
         self.title = title

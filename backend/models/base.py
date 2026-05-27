@@ -15,6 +15,8 @@ class BaseModel:
         self.created_at = kwargs.get(
             "created_at") or datetime.now(timezone.utc)
         self.updated_at = kwargs.get("updated_at")
+        # optional timestamp for when a resource/file was uploaded
+        self.uploaded_at = kwargs.get("uploaded_at")
         self.deactivate_by = kwargs.get("deactivate_by")
         self.delete_by = kwargs.get("delete_by")
 

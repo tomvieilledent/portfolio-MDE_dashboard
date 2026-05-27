@@ -1,5 +1,10 @@
+"""Company-related API resources.
+
+Create, list, update and deactivate companies; manage company users.
+"""
+
 from flask import request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
@@ -13,13 +18,21 @@ user_service = UserService()
 
 
 class CompanyListResource(Resource):
+    """List companies or create a new one.
+
+    POST requires `name`; optional fields: description, website_link,
+    company_picture, admin_email, admin_id.
+    """
+
     @jwt_required()
     def get(self):
+        """Return a list of companies, optional `limit` query param."""
         limit = request.args.get('limit', default=100, type=int)
         return {'companies': company_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
+        """Create a company after validating with domain model."""
         data = request.get_json(silent=True) or {}
         name = data.get('name')
         if not name:
@@ -48,8 +61,11 @@ class CompanyListResource(Resource):
 
 
 class CompanyResource(Resource):
+    """Retrieve, update or deactivate a company."""
+
     @jwt_required()
     def get(self, company_id):
+        """Return company details by id."""
         company = company_service.facade.get(company_id)
         if not company:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
@@ -57,6 +73,7 @@ class CompanyResource(Resource):
 
     @jwt_required()
     def patch(self, company_id):
+        """Partially update a company's fields from JSON body."""
         data = request.get_json(silent=True) or {}
         company = company_service.facade.update(company_id, **data)
         if not company:
@@ -65,14 +82,18 @@ class CompanyResource(Resource):
 
     @jwt_required()
     def delete(self, company_id):
+        """Soft-deactivate the company (set is_active False)."""
         if not company_service.facade.deactivate(company_id, by=get_jwt_identity()):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
         return {'msg': 'company deactivated'}
 
 
 class CompanyUsersResource(Resource):
+    """List users that belong to a company."""
+
     @jwt_required()
     def get(self, company_id):
+        """Return users for the given company id."""
         company = company_service.facade.get(company_id)
         if not company:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
@@ -81,8 +102,11 @@ class CompanyUsersResource(Resource):
 
 
 class CompanyAssignUserResource(Resource):
+    """Assign or remove a user from a company."""
+
     @jwt_required()
     def post(self, company_id, user_id):
+        """Assign a user to a company."""
         company = company_service.facade.get(company_id)
         if not company:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
@@ -93,6 +117,7 @@ class CompanyAssignUserResource(Resource):
 
     @jwt_required()
     def delete(self, company_id, user_id):
+        """Remove a user from a company (set company_id to None)."""
         updated = user_service.update(user_id, company_id=None)
         if not updated:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)

@@ -1,3 +1,5 @@
+"""Facade for formation/user enrollment relations."""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -6,6 +8,8 @@ from ._common_sql import isoformat, normalize_text, session_scope
 
 
 class FormationUserFacade:
+    """Manage FormationUser relations (enrollments)."""
+
     def __init__(self):
         pass
 

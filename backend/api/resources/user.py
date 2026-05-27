@@ -1,3 +1,8 @@
+"""User-related API resources.
+
+Includes listing, creation, retrieval, update, and password reset endpoints.
+"""
+
 from flask_restful import Resource
 from flask import request
 from backend.persistence.services import UserService
@@ -11,8 +16,17 @@ service = UserService()
 
 
 class UserListResource(Resource):
+    """List users or create a new user.
+
+    get()
+        Optionally filter by `company_id` and limit results.
+    post()
+        Create a new user (email and password required).
+    """
+
     @jwt_required()
     def get(self):
+        """Return list of users; optional `company_id` filter."""
         limit = request.args.get('limit', default=100, type=int)
         company_id = request.args.get('company_id')
         if company_id:
@@ -21,6 +35,7 @@ class UserListResource(Resource):
 
     @jwt_required()
     def post(self):
+        """Create a user from JSON body (email, password, first_name)."""
         data = request.get_json() or {}
         email = data.get('email')
         password = data.get('password')
@@ -35,8 +50,11 @@ class UserListResource(Resource):
 
 
 class UserMeResource(Resource):
+    """Operations on the current authenticated user."""
+
     @jwt_required()
     def get(self):
+        """Return current user profile."""
         user = service.get_by_id(get_jwt_identity())
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -44,6 +62,7 @@ class UserMeResource(Resource):
 
     @jwt_required()
     def patch(self):
+        """Partially update current user using provided JSON body."""
         data = request.get_json(silent=True) or {}
         user = service.update(get_jwt_identity(), **data)
         if not user:
@@ -52,8 +71,11 @@ class UserMeResource(Resource):
 
 
 class UserResource(Resource):
+    """Operations for a specific user identified by `user_id`."""
+
     @jwt_required()
     def get(self, user_id):
+        """Retrieve a user by id."""
         u = service.get_by_id(user_id)
         if not u:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -61,6 +83,7 @@ class UserResource(Resource):
 
     @jwt_required()
     def put(self, user_id):
+        """Replace name fields for the user."""
         data = request.get_json() or {}
         first_name: Any = data.get('first_name')
         last_name: Any = data.get('last_name')
@@ -72,6 +95,7 @@ class UserResource(Resource):
 
     @jwt_required()
     def patch(self, user_id):
+        """Partial update for the user using provided JSON body."""
         data = request.get_json(silent=True) or {}
         user = service.update(user_id, **data)
         if not user:
@@ -80,7 +104,7 @@ class UserResource(Resource):
 
     @jwt_required()
     def delete(self, user_id):
-        # soft delete / deactivate (by id or email)
+        """Soft-delete (deactivate) a user by id or email."""
         ok = service.deactivate(user_id, by='api')
         if not ok:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -88,8 +112,14 @@ class UserResource(Resource):
 
 
 class UserResetPasswordResource(Resource):
+    """Endpoint to reset a user's password."""
+
     @jwt_required()
     def post(self, user_id):
+        """Set a new password for the user.
+
+        JSON body should include `password`.
+        """
         data = request.get_json(silent=True) or {}
         password = data.get('password')
         if not password:

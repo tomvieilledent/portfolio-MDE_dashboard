@@ -1,3 +1,9 @@
+"""Model package exports.
+
+This module re-exports domain model classes for convenient imports like
+`from backend.models import User`.
+"""
+
 from .base import BaseModel
 from .user import User
 from .company import Company
