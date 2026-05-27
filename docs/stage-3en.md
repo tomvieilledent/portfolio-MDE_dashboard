@@ -116,7 +116,6 @@ erDiagram
 		uuid id PK
 		uuid company_id FK
 		bool is_super_admin
-		bool is_admin
 		string email
 		string password
 		string first_name

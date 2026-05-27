@@ -20,8 +20,8 @@ user_service = UserService()
 class CompanyListResource(Resource):
     """List companies or create a new one.
 
-    POST requires `name`; optional fields: description, website_link,
-    company_picture, admin_email, admin_id.
+    POST requires `name` and `admin_email`; optional fields: description,
+    website_link, company_picture, admin_id.
     """
 
     @jwt_required()
@@ -35,26 +35,31 @@ class CompanyListResource(Resource):
         """Create a company after validating with domain model."""
         data = request.get_json(silent=True) or {}
         name = data.get('name')
+        admin_email = data.get('admin_email')
         if not name:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'name is required', 400)
+        if not admin_email:
+            return error_response(ERROR_CODES['BAD_REQUEST'], 'admin_email is required', 400)
         try:
             DomainCompany(name=name,
                           description=data.get('description'),
                           website_link=data.get('website_link'),
                           company_picture=data.get('company_picture'),
-                          admin_email=data.get('admin_email'),
+                          admin_email=admin_email,
                           admin_id=data.get('admin_id'))
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         try:
             company = company_service.facade.create(
                 name,
-                admin_email=data.get('admin_email'),
+                admin_email=admin_email,
                 admin_id=data.get('admin_id'),
                 description=data.get('description'),
                 website_link=data.get('website_link'),
                 company_picture=data.get('company_picture'),
             )
+        except ValueError as exc:
+            return error_response(ERROR_CODES['BAD_REQUEST'], str(exc), 400)
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create company', 409, str(exc))
         return {'company': company}, 201

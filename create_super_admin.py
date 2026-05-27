@@ -2,8 +2,8 @@
 """Create or update the default super admin account.
 
 This script creates the `admin@admin.com` account with the password
-`admin` and marks it as both admin and super admin. If the account
-already exists, it updates the password and flags.
+`admin` and marks it as super admin. If the account already exists,
+it updates the password and flags.
 
 Usage:
     ./create_super_admin.py
@@ -35,7 +35,6 @@ def main() -> int:
                 first_name=DEFAULT_FIRST_NAME,
                 last_name=DEFAULT_LAST_NAME,
             )
-            setattr(user, "is_admin", True)
             setattr(user, "is_super_admin", True)
             setattr(user, "is_active", True)
             session.add(user)
@@ -46,7 +45,6 @@ def main() -> int:
         setattr(user, "password_hash", password_hash)
         setattr(user, "first_name", DEFAULT_FIRST_NAME)
         setattr(user, "last_name", DEFAULT_LAST_NAME)
-        setattr(user, "is_admin", True)
         setattr(user, "is_super_admin", True)
         setattr(user, "is_active", True)
         session.add(user)

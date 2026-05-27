@@ -51,6 +51,9 @@ class UserService:
     def update(self, user_id, **kwargs):
         return self.facade.update(user_id, **kwargs)
 
+    def delete(self, user_id):
+        return self.facade.delete(user_id)
+
     def reset_password(self, user_id, password):
         return self.facade.reset_password(user_id, password)
 

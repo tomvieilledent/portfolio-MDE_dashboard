@@ -4,7 +4,7 @@ Provides `CompanyFacade` for creating, updating and listing companies.
 """
 
 from backend.persistence.db import SessionLocal
-from backend.persistence.models import Company as ORMCompany
+from backend.persistence.models import Company as ORMCompany, User as ORMUser
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from typing import Any
@@ -19,10 +19,20 @@ class CompanyFacade:
     def create(self, name, admin_email=None, admin_id=None, **kwargs):
         db = SessionLocal()
         try:
+            resolved_admin_id = admin_id
+            normalized_admin_email = admin_email.lower().strip() if admin_email else None
+            if not normalized_admin_email:
+                raise ValueError('admin_email is required')
+            if normalized_admin_email and resolved_admin_id is None:
+                admin_user = db.query(ORMUser).filter(
+                    ORMUser.email == normalized_admin_email).first()
+                if not admin_user:
+                    raise ValueError('admin_email not found')
+                resolved_admin_id = admin_user.id
             c = ORMCompany(
                 name=name.strip(),
-                admin_email=admin_email.lower().strip() if admin_email else None,
-                admin_id=admin_id,
+                admin_email=normalized_admin_email,
+                admin_id=resolved_admin_id,
                 description=kwargs.get('description'),
                 website_link=kwargs.get('website_link'),
                 company_picture=kwargs.get('company_picture'),
@@ -33,6 +43,9 @@ class CompanyFacade:
             db.refresh(c)
             return self._to_dict(c)
         except IntegrityError:
+            db.rollback()
+            raise
+        except ValueError:
             db.rollback()
             raise
         finally:

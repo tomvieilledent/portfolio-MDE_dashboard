@@ -22,7 +22,6 @@ class User(Base):
     profile_picture = Column(String(256))
     business_card = Column(String(256))
     is_super_admin = Column(Boolean, default=False)
-    is_admin = Column(Boolean, default=False)
     company_id = Column(String(36))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),

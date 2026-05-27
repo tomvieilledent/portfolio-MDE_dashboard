@@ -12,6 +12,7 @@ from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError
 
 from backend.api.errors import ERROR_CODES, error_response
+from backend.api.swagger import OPENAPI_SPEC, SWAGGER_UI_HTML
 from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, AuthRefreshResource, AuthRegisterResource
 from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
 from backend.api.resources.conversation import ConversationListResource, ConversationResource
@@ -20,7 +21,7 @@ from backend.api.resources.message import ConversationMessagesResource, MessageL
 from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.training import CurrentUserTrainingsResource, TrainingEnrollResource, TrainingEnrollmentsResource, TrainingListResource, TrainingResource, UserTrainingsResource
-from backend.api.resources.user import UserListResource, UserMeResource, UserResetPasswordResource, UserResource
+from backend.api.resources.user import UserDeactivateResource, UserListResource, UserMeResource, UserResetPasswordResource, UserResource
 from backend.persistence.db import engine
 import backend.persistence.models  # ensure models are imported
 from pathlib import Path
@@ -92,6 +93,8 @@ def create_app():
     api.add_resource(UserListResource, '/users')
     api.add_resource(UserMeResource, '/users/me', '/me')
     api.add_resource(UserResource, '/users/<string:user_id>')
+    api.add_resource(UserDeactivateResource,
+                     '/users/<string:user_id>/deactivate')
     api.add_resource(UserResetPasswordResource,
                      '/users/<string:user_id>/reset-password')
 
@@ -139,5 +142,16 @@ def create_app():
     @app.route('/')
     def home():
         return jsonify({'ok': True})
+
+    @app.route('/openapi.json')
+    def openapi_json():
+        """Return the OpenAPI specification as JSON."""
+        return jsonify(OPENAPI_SPEC)
+
+    @app.route('/docs')
+    @app.route('/swagger')
+    def swagger_docs():
+        """Serve the Swagger UI page for interactive API testing."""
+        return SWAGGER_UI_HTML
 
     return app

@@ -28,7 +28,6 @@ class User(BaseModel):
         self.profile_picture = kwargs.get("profile_picture")
         self.business_card = kwargs.get("business_card")
         self.is_super_admin = kwargs.get("is_super_admin", False)
-        self.is_admin = kwargs.get("is_admin", False)
         self.company_id = kwargs.get("company_id")
 
     # Email

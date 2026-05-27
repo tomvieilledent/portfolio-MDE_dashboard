@@ -31,7 +31,6 @@ class UserFacade:
                 profile_picture=kwargs.get('profile_picture'),
                 business_card=kwargs.get('business_card'),
                 is_super_admin=kwargs.get('is_super_admin', False),
-                is_admin=kwargs.get('is_admin', False),
                 company_id=kwargs.get('company_id'),
                 is_active=kwargs.get('is_active', True),
                 created_at=datetime.now(timezone.utc)
@@ -113,8 +112,6 @@ class UserFacade:
             for field in ('first_name', 'last_name', 'phone', 'profile_picture', 'business_card', 'company_id'):
                 if field in kwargs:
                     setattr(u, field, kwargs.get(field))
-            if 'is_admin' in kwargs:
-                u.is_admin = bool(kwargs.get('is_admin'))
             if 'is_super_admin' in kwargs:
                 u.is_super_admin = bool(kwargs.get('is_super_admin'))
             if 'is_active' in kwargs:
@@ -124,6 +121,25 @@ class UserFacade:
             db.commit()
             db.refresh(u)
             return self._to_dict(u)
+        finally:
+            db.close()
+
+    def delete(self, user_id):
+        """Permanently delete a user by id.
+
+        Returns
+        -------
+        bool
+            True when a user row was deleted, False when no user was found.
+        """
+        db = SessionLocal()
+        try:
+            user: Any = db.query(ORMUser).filter(ORMUser.id == user_id).first()
+            if not user:
+                return False
+            db.delete(user)
+            db.commit()
+            return True
         finally:
             db.close()
 
@@ -148,6 +164,7 @@ class UserFacade:
             'first_name': u.first_name,
             'last_name': u.last_name,
             'phone': u.phone,
+            'is_super_admin': u.is_super_admin,
             'is_active': u.is_active,
             'created_at': u.created_at.isoformat() if u.created_at else None,
         }

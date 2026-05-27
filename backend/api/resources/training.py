@@ -49,6 +49,11 @@ class TrainingListResource(Resource):
         Expects JSON body with `title` (required) and optional
         `description`, `picture`, `company_id`.
         """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not current_user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        if not current_user.get('is_super_admin'):
+            return error_response(ERROR_CODES['FORBIDDEN'], 'only super admins can create trainings', 403)
         data = request.get_json(silent=True) or {}
         title = data.get('title')
         if not title:

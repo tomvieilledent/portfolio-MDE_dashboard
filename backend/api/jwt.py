@@ -7,7 +7,6 @@ responses.
 
 from functools import wraps
 
-from flask_jwt_extended import verify_jwt_in_request
 from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError
 
 from backend.api.errors import ERROR_CODES, error_response
@@ -30,6 +29,8 @@ def jwt_required(refresh: bool = False):
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
+            from flask_jwt_extended import verify_jwt_in_request
+
             try:
                 verify_jwt_in_request(refresh=refresh)
             except NoAuthorizationError as exc:

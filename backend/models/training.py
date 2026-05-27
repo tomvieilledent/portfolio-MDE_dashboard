@@ -55,3 +55,21 @@ class Training(BaseModel):
         if len(value) > 2000:
             raise ValueError("Description must be 2000 characters or fewer")
         self._description = value.strip()
+
+    @property
+    def picture(self):
+        return self._picture
+
+    @picture.setter
+    def picture(self, value):
+        if value is None:
+            self._picture = None
+            return
+        if not isinstance(value, str):
+            raise TypeError("Picture must be a string")
+        value = value.strip()
+        if not value:
+            raise ValueError("Picture cannot be empty")
+        if len(value) > 512:
+            raise ValueError("Picture must be 512 characters or fewer")
+        self._picture = value

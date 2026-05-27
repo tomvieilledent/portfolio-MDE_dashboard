@@ -104,7 +104,19 @@ class UserResource(Resource):
 
     @jwt_required()
     def delete(self, user_id):
-        """Soft-delete (deactivate) a user by id or email."""
+        """Permanently delete a user by id."""
+        ok = service.delete(user_id)
+        if not ok:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'msg': 'user deleted'}
+
+
+class UserDeactivateResource(Resource):
+    """Deactivate a user without deleting the row."""
+
+    @jwt_required()
+    def patch(self, user_id):
+        """Soft-deactivate a user by id."""
         ok = service.deactivate(user_id, by='api')
         if not ok:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
