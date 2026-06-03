@@ -6,12 +6,13 @@ error handlers and registers all API resources for the application.
 
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError
 
 from backend.api.errors import ERROR_CODES, error_response
+from backend.api.uploads import UPLOAD_ROOT, ensure_upload_dirs
 from backend.api.swagger import OPENAPI_SPEC, SWAGGER_UI_HTML
 from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, AuthRefreshResource, AuthRegisterResource
 from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
@@ -87,6 +88,11 @@ def create_app():
     except Exception:
         pass
     engine.dispose()
+    ensure_upload_dirs()
+
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        return send_from_directory(UPLOAD_ROOT, filename)
 
     api.add_resource(AuthRegisterResource, '/auth/register')
     api.add_resource(AuthLoginResource, '/auth/login')

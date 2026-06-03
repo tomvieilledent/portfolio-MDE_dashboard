@@ -91,6 +91,8 @@ class TrainingFacade:
             'id': t.id,
             'title': t.title,
             'company_id': t.company_id,
+            'description': t.description,
+            'picture': t.picture,
             'is_active': t.is_active,
             'created_at': isoformat(t.created_at),
             'updated_at': isoformat(getattr(t, 'updated_at', None)),
