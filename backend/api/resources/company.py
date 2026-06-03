@@ -9,12 +9,32 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.uploads import delete_uploaded_file, save_image_upload
 from backend.models.company import Company as DomainCompany
 from backend.persistence.services import CompanyService, UserService
 
 
 company_service = CompanyService()
 user_service = UserService()
+
+
+def _request_payload():
+    if request.mimetype and request.mimetype.startswith('multipart/form-data'):
+        return request.form.to_dict(flat=True)
+    return request.get_json(silent=True) or {}
+
+
+def _extract_company_picture(payload):
+    uploaded_file = request.files.get(
+        'company_picture_file') or request.files.get('company_picture')
+    if uploaded_file and uploaded_file.filename:
+        return save_image_upload(uploaded_file, 'companies')
+    return payload.get('company_picture')
+
+
+def _cleanup_replaced_upload(previous_path, new_path):
+    if new_path and previous_path and previous_path != new_path:
+        delete_uploaded_file(previous_path)
 
 
 class CompanyListResource(Resource):
@@ -33,7 +53,7 @@ class CompanyListResource(Resource):
     @jwt_required()
     def post(self):
         """Create a company after validating with domain model."""
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
         name = data.get('name')
         admin_email = data.get('admin_email')
         if not name:
@@ -52,11 +72,13 @@ class CompanyListResource(Resource):
             except Exception:
                 return error_response(ERROR_CODES['VALIDATION_ERROR'], 'Admin ID must be a valid UUID', 400)
 
+        company_picture = _extract_company_picture(data)
+
         try:
             DomainCompany(name=name,
                           description=data.get('description'),
                           website_link=data.get('website_link'),
-                          company_picture=data.get('company_picture'),
+                          company_picture=company_picture,
                           admin_email=admin_email,
                           admin_id=admin_id)
         except Exception as exc:
@@ -68,7 +90,7 @@ class CompanyListResource(Resource):
                 admin_id=admin_id,
                 description=data.get('description'),
                 website_link=data.get('website_link'),
-                company_picture=data.get('company_picture'),
+                company_picture=company_picture,
             )
         except ValueError as exc:
             return error_response(ERROR_CODES['BAD_REQUEST'], str(exc), 400)
@@ -91,12 +113,14 @@ class CompanyResource(Resource):
     @jwt_required()
     def patch(self, company_id):
         """Partially update a company's fields from JSON body."""
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
+        update_data: dict[str, object] = {}
 
         # fetch current state to perform domain validation for partial updates
         current = company_service.facade.get(company_id)
         if not current:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        previous_company_picture = current.get('company_picture')
 
         try:
             # initialize domain object with current values
@@ -112,12 +136,24 @@ class CompanyResource(Resource):
             for k, v in data.items():
                 if hasattr(domain, k):
                     setattr(domain, k, v)
+            uploaded_file = request.files.get(
+                'company_picture_file') or request.files.get('company_picture')
+            if uploaded_file and uploaded_file.filename:
+                update_data['company_picture'] = save_image_upload(
+                    uploaded_file, 'companies')
+            elif 'company_picture' in data:
+                update_data['company_picture'] = data.get('company_picture')
+            for field in ('name', 'description', 'website_link', 'admin_email', 'admin_id', 'is_active'):
+                if field in data:
+                    update_data[field] = data.get(field)
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        company = company_service.facade.update(company_id, **data)
+        company = company_service.facade.update(company_id, **update_data)
         if not company:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        _cleanup_replaced_upload(
+            previous_company_picture, update_data.get('company_picture'))
         return {'company': company}
 
     @jwt_required()
