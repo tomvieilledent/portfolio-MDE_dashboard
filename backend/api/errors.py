@@ -1,8 +1,4 @@
-"""Centralized API error codes and helpers.
-
-This module defines `ERROR_CODES` used throughout the API and helper
-functions to return consistent JSON payloads.
-"""
+"""Centralised API error codes and response helpers."""
 
 from __future__ import annotations
 
@@ -26,25 +22,19 @@ ERROR_CODES = {
 
 
 def error_response(code: str, message: str, status: int = 400, details: Any = None):
-    """Create a standardized error response payload.
+    """Build a standardised JSON error payload.
 
-    Parameters
-    ----------
-    code : str
-        One of the keys in `ERROR_CODES` describing the error type.
-    message : str
-        Human-readable error message.
-    status : int, optional
-        HTTP status code to return (default 400).
-    details : Any, optional
-        Optional extra error details to include in the payload.
+    Args:
+        code (str): One of the keys in :data:`ERROR_CODES`.
+        message (str): Human-readable error description.
+        status (int): HTTP status code to return. Defaults to 400.
+        details (Any | None): Optional extra information included in the
+            ``error`` object.
 
-    Returns
-    -------
-    tuple[dict, int]
-        JSON-serializable payload and HTTP status code.
+    Returns:
+        tuple[dict, int]: JSON-serialisable payload and HTTP status code.
     """
-    payload = {'error': {'code': code, 'message': message}}
+    payload: dict[str, Any] = {'error': {'code': code, 'message': message}}
     if details is not None:
         payload['error']['details'] = details
     return payload, status
@@ -53,16 +43,11 @@ def error_response(code: str, message: str, status: int = 400, details: Any = No
 def ok_response(data: Any, status: int = 200):
     """Return a successful response payload.
 
-    Parameters
-    ----------
-    data : Any
-        Data to return as JSON.
-    status : int, optional
-        HTTP status code (default 200).
+    Args:
+        data (Any): Data to return as JSON.
+        status (int): HTTP status code. Defaults to 200.
 
-    Returns
-    -------
-    tuple[Any, int]
-        Payload and HTTP status code.
+    Returns:
+        tuple[Any, int]: Payload and HTTP status code.
     """
     return data, status

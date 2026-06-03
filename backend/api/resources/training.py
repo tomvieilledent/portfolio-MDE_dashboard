@@ -1,8 +1,4 @@
-"""Training-related API resources.
-
-Provide endpoints for listing trainings, creating trainings,
-enrolling users and listing enrollments.
-"""
+"""Training-related API resources."""
 
 from flask import request
 from flask_jwt_extended import get_jwt_identity
@@ -10,7 +6,8 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.api.uploads import delete_uploaded_file, save_image_upload
+from backend.api.uploads import save_image_upload
+from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
 from backend.models.training import Training as DomainTraining
 from backend.persistence.services import FormationUserService, TrainingService, UserService
 
@@ -20,70 +17,58 @@ formation_service = FormationUserService()
 user_service = UserService()
 
 
-def _request_payload():
-    if request.mimetype and request.mimetype.startswith('multipart/form-data'):
-        return request.form.to_dict(flat=True)
-    return request.get_json(silent=True) or {}
-
-
 def _extract_training_picture(payload):
-    uploaded_file = request.files.get(
-        'picture_file') or request.files.get('picture')
+    uploaded_file = (request.files.get('picture_file')
+                     or request.files.get('picture'))
     if uploaded_file and uploaded_file.filename:
         return save_image_upload(uploaded_file, 'trainings')
     return payload.get('picture')
 
 
-def _cleanup_replaced_upload(previous_path, new_path):
-    if new_path and previous_path and previous_path != new_path:
-        delete_uploaded_file(previous_path)
-
-
 class TrainingListResource(Resource):
-    """List trainings or create a new training.
-
-    Methods
-    -------
-    get(limit: int)
-        Return a paginated list of trainings.
-    post()
-        Create a training after validating the request body.
-    """
+    """List trainings or create a new training (super admin only)."""
 
     @jwt_required()
     def get(self):
-        """Return a paginated list of trainings.
+        """Return a list of trainings.
 
-        Query parameters
-        ----------------
-        limit : int
-            Maximum number of trainings to return (default 100).
+        Query parameters:
+            limit (int): Max trainings to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{trainings}`` and 200.
         """
         limit = request.args.get('limit', default=100, type=int)
         return {'trainings': training_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
-        """Validate and create a new training.
+        """Create a training. Restricted to super admins.
 
-        Expects JSON body with `title` (required) and optional
-        `description`, `picture`, `company_id`.
+        Expected JSON body:
+            title (str): Training title (required).
+            description (str | None): Optional description.
+            picture (str | None): Optional picture path/URL.
+            company_id (str | None): Optional owning company UUID.
+
+        Returns:
+            tuple[dict, int]: ``{training}`` and 201, or 403.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
         if not current_user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         if not current_user.get('is_super_admin'):
-            return error_response(ERROR_CODES['FORBIDDEN'], 'only super admins can create trainings', 403)
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can create trainings', 403)
         data = _request_payload()
         picture = _extract_training_picture(data)
         title = data.get('title')
         if not title:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'title is required', 400)
         try:
-            DomainTraining(title=title,
-                           description=data.get('description'),
-                           picture=picture,
-                           company_id=data.get('company_id'))
+            DomainTraining(title=title, description=data.get('description'),
+                           picture=picture, company_id=data.get('company_id'))
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         try:
@@ -99,11 +84,18 @@ class TrainingListResource(Resource):
 
 
 class TrainingResource(Resource):
-    """Operations on a single training (get/patch/delete)."""
+    """Retrieve, update or deactivate a single training."""
 
     @jwt_required()
     def get(self, training_id):
-        """Retrieve a training by id."""
+        """Return a training by id.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{training}`` and 200, or 404.
+        """
         training = training_service.facade.get(training_id)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
@@ -111,11 +103,17 @@ class TrainingResource(Resource):
 
     @jwt_required()
     def patch(self, training_id):
-        """Partially update a training's fields."""
+        """Partially update a training's fields.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{training}`` and 200.
+        """
         data = _request_payload()
         update_data: dict[str, object] = {}
 
-        # fetch current training to validate partial updates via domain model
         current = training_service.facade.get(training_id)
         if not current:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
@@ -131,11 +129,10 @@ class TrainingResource(Resource):
             for k, v in data.items():
                 if hasattr(domain, k):
                     setattr(domain, k, v)
-            uploaded_file = request.files.get(
-                'picture_file') or request.files.get('picture')
+            uploaded_file = (request.files.get('picture_file')
+                             or request.files.get('picture'))
             if uploaded_file and uploaded_file.filename:
-                update_data['picture'] = save_image_upload(
-                    uploaded_file, 'trainings')
+                update_data['picture'] = save_image_upload(uploaded_file, 'trainings')
             elif 'picture' in data:
                 update_data['picture'] = data.get('picture')
             for field in ('title', 'description', 'company_id', 'is_active'):
@@ -152,32 +149,57 @@ class TrainingResource(Resource):
 
     @jwt_required()
     def delete(self, training_id):
-        """Soft-deactivate a training (set `is_active` False)."""
+        """Soft-deactivate a training.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
         if not training_service.facade.deactivate(training_id, by=get_jwt_identity()):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
         return {'msg': 'training deactivated'}
 
 
-class TrainingEnrollResource(Resource):
-    """Enroll a user in a training (create a FormationUser relation)."""
+class TrainingInterestResource(Resource):
+    """Express or withdraw interest in a training (for unscheduled sessions)."""
 
     @jwt_required()
     def post(self, training_id):
-        """Create an enrollment for `training_id`.
+        """Express interest in a training.
 
-        JSON body may include `user_id`, `status`, `progress`. If `user_id`
-        is omitted the current authenticated user is used.
+        Creates an ``interested`` FormationUser record. Idempotent — calling
+        again returns the existing record.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{interest}`` and 201, or 404.
         """
-        data = request.get_json(silent=True) or {}
-        user_id = data.get('user_id') or get_jwt_identity()
-        training = training_service.facade.get(training_id)
-        if not training:
+        if not training_service.facade.get(training_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
-        if not user_service.get_by_id(user_id):
-            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
-        enrollment = formation_service.facade.create(
-            user_id, training_id, status=data.get('status'), progress=data.get('progress'))
-        return {'enrollment': enrollment}, 201
+        result = formation_service.facade.express_interest(
+            get_jwt_identity(), training_id)
+        return {'interest': result}, 201
+
+    @jwt_required()
+    def delete(self, training_id):
+        """Remove interest in a training.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
+        if not training_service.facade.get(training_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        if not formation_service.facade.remove_interest(
+                get_jwt_identity(), training_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'interest not found', 404)
+        return {'msg': 'interest removed'}
 
 
 class TrainingEnrollmentsResource(Resource):
@@ -185,10 +207,24 @@ class TrainingEnrollmentsResource(Resource):
 
     @jwt_required()
     def get(self, training_id):
+        """Return enrollments for a training, optionally filtered by type.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Query parameters:
+            type (str): Filter by ``interested``, ``enrolled``, or
+                ``completed``.
+
+        Returns:
+            tuple[dict, int]: ``{enrollments}`` and 200, or 404.
+        """
         training = training_service.facade.get(training_id)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
-        return {'enrollments': formation_service.facade.list_by_training(training_id)}
+        type_filter = request.args.get('type')
+        return {'enrollments': formation_service.facade.list_by_training(
+            training_id, type_filter=type_filter)}
 
 
 class UserTrainingsResource(Resource):
@@ -196,15 +232,40 @@ class UserTrainingsResource(Resource):
 
     @jwt_required()
     def get(self, user_id):
+        """Return enrollments for a user.
+
+        Args:
+            user_id (str): User UUID path parameter.
+
+        Query parameters:
+            type (str): Filter by ``interested``, ``enrolled``, or
+                ``completed``.
+
+        Returns:
+            tuple[dict, int]: ``{enrollments}`` and 200, or 404.
+        """
         user = user_service.get_by_id(user_id)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
-        return {'enrollments': formation_service.facade.list_by_user(user_id)}
+        type_filter = request.args.get('type')
+        return {'enrollments': formation_service.facade.list_by_user(
+            user_id, type_filter=type_filter)}
 
 
 class CurrentUserTrainingsResource(Resource):
-    """List enrollments for the current authenticated user."""
+    """List enrollments for the currently authenticated user."""
 
     @jwt_required()
     def get(self):
-        return {'enrollments': formation_service.facade.list_by_user(get_jwt_identity())}
+        """Return the current user's enrollments.
+
+        Query parameters:
+            type (str): Filter by ``interested``, ``enrolled``, or
+                ``completed``.
+
+        Returns:
+            tuple[dict, int]: ``{enrollments}`` and 200.
+        """
+        type_filter = request.args.get('type')
+        return {'enrollments': formation_service.facade.list_by_user(
+            get_jwt_identity(), type_filter=type_filter)}
