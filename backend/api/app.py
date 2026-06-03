@@ -27,13 +27,14 @@ from backend.persistence.db import engine
 import backend.persistence.models  # ensure models are imported
 from pathlib import Path
 from backend.api.state import BLOCKLIST
-
+from .sockets import socketio
 
 def create_app():
     app = Flask(__name__)
     app.config['JWT_SECRET_KEY'] = os.getenv(
         'JWT_SECRET_KEY', 'change-this-secret-to-a-long-random-string-32chars-min')
     api = Api(app)
+    socketio.init_app(app)
     jwt = JWTManager(app)
 
     @jwt.token_in_blocklist_loader
