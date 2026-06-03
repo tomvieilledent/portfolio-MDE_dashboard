@@ -3,17 +3,7 @@ from typing import Any, cast
 import pytest
 
 from backend.api.errors import ERROR_CODES
-
-
-def assert_error(response, status, code):
-    payload = response.get_json()
-    assert response.status_code == status
-    assert payload['error']['code'] == code
-    return payload
-
-
-def make_text(length, char='a'):
-    return char * length
+from tests.helpers import assert_error, make_text
 
 
 def test_home_and_openapi_routes(app_bundle):

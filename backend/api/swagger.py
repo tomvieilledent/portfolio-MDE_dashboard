@@ -178,18 +178,6 @@ OPENAPI_SPEC = {
                     "is_active": {"type": "boolean", "nullable": True, "example": None, "description": "Expected type: boolean or null."},
                 },
             },
-            "CompanyUpdateMultipartRequest": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "description": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "website_link": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "company_picture_file": {"type": "string", "format": "binary", "nullable": True, "description": "Upload a company image file."},
-                    "admin_email": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "admin_id": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null. Optional admin user id."},
-                    "is_active": {"type": "boolean", "nullable": True, "example": None, "description": "Expected type: boolean or null."},
-                },
-            },
             "TrainingCreateRequest": {
                 "type": "object",
                 "required": ["title"],

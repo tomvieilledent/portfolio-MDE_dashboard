@@ -1,8 +1,4 @@
-"""Message-related API resources.
-
-List, create and delete messages; also list/create messages for a specific
-conversation.
-"""
+"""Message-related API resources."""
 
 from flask import request
 from flask_jwt_extended import get_jwt_identity
@@ -10,8 +6,8 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.persistence.services import MessageService
 from backend.models.message import Message as DomainMessage
+from backend.persistence.services import MessageService
 
 
 message_service = MessageService()
@@ -22,46 +18,83 @@ class MessageListResource(Resource):
 
     @jwt_required()
     def get(self):
-        """Return messages. Query parameters: `conversation_id`, `author_id`, `limit`."""
+        """Return messages with optional filters.
+
+        Query parameters:
+            conversation_id (str): Filter by conversation UUID.
+            author_id (str): Filter by author UUID.
+            limit (int): Max messages to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{messages}`` and 200.
+        """
         limit = request.args.get('limit', default=100, type=int)
         conversation_id = request.args.get('conversation_id')
         author_id = request.args.get('author_id')
         if conversation_id:
-            return {'messages': message_service.facade.list_by_conversation(conversation_id, limit=limit)}
+            return {'messages': message_service.facade.list_by_conversation(
+                conversation_id, limit=limit)}
         if author_id:
             return {'messages': message_service.facade.list_by_author(author_id, limit=limit)}
         return {'messages': message_service.facade.list(limit=limit)}
 
 
 class MessageResource(Resource):
-    """Endpoint to delete a single message by id."""
+    """Delete a single message by id."""
 
     @jwt_required()
     def delete(self, message_id):
-        """Delete a message; returns 404 if not found."""
+        """Permanently delete a message.
+
+        Args:
+            message_id (str): Message UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
         if not message_service.facade.delete(message_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
         return {'msg': 'message deleted'}
 
 
 class ConversationMessagesResource(Resource):
-    """List or post messages within a conversation."""
+    """List or post messages within a specific conversation."""
 
     @jwt_required()
     def get(self, conversation_id):
-        """List messages for a conversation, paginated by `limit`."""
+        """Return messages for a conversation in chronological order.
+
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Query parameters:
+            limit (int): Max messages to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{messages}`` and 200.
+        """
         limit = request.args.get('limit', default=100, type=int)
-        return {'messages': message_service.facade.list_by_conversation(conversation_id, limit=limit)}
+        return {'messages': message_service.facade.list_by_conversation(
+            conversation_id, limit=limit)}
 
     @jwt_required()
     def post(self, conversation_id):
-        """Create a message in the conversation.
+        """Create a message in a conversation.
 
-        JSON body: `content` (required), optional `recipient_id` and `author_id`.
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Expected JSON body:
+            content (str): Message text.
+            recipient_id (str | None): Optional direct recipient UUID.
+            author_id (str | None): Optional author UUID (defaults to the
+                authenticated user).
+
+        Returns:
+            tuple[dict, int]: ``{message}`` and 201.
         """
         data = request.get_json(silent=True) or {}
         content = data.get('content')
-        # validate content using domain model
         try:
             dm = DomainMessage()
             dm.content = content

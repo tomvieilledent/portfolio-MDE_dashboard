@@ -1,8 +1,4 @@
-"""Conversation persistence facade utilities.
-
-This module exposes `ConversationFacade` used for creating and managing
-conversation rows in the database.
-"""
+"""Conversation persistence facade (SQLAlchemy)."""
 
 from datetime import datetime, timezone
 from typing import Any
@@ -13,18 +9,27 @@ from ._common_sql import from_csv, isoformat, session_scope, to_csv
 
 
 class ConversationFacade:
-    """Facade for conversation CRUD and participant management."""
+    """SQLAlchemy-backed facade for conversation CRUD and participant management.
 
-    def __init__(self):
-        pass
+    Participant ids are stored as a comma-separated string in the database
+    and exposed as a list via :meth:`_to_dict`.
+    """
 
     def create(self, participant_ids=None, **kwargs):
+        """Persist a new conversation.
+
+        Args:
+            participant_ids (list[str] | None): Initial participant UUIDs.
+            **kwargs: Optional ``is_active`` and ``created_at`` overrides.
+
+        Returns:
+            dict: Newly created conversation as a serialisable dict.
+        """
         with session_scope() as db:
             conversation = ORMConversation(
                 participant_ids=to_csv(participant_ids or []),
                 is_active=kwargs.get('is_active', True),
-                created_at=kwargs.get(
-                    'created_at') or datetime.now(timezone.utc),
+                created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
             )
             db.add(conversation)
             db.flush()
@@ -32,18 +37,43 @@ class ConversationFacade:
             return self._to_dict(conversation)
 
     def get(self, conversation_id):
+        """Retrieve a conversation by primary key.
+
+        Args:
+            conversation_id (str): Conversation UUID.
+
+        Returns:
+            dict | None: Conversation dict, or ``None`` if not found.
+        """
         with session_scope() as db:
             conversation: Any = db.query(ORMConversation).filter(
                 ORMConversation.id == conversation_id).first()
             return self._to_dict(conversation) if conversation else None
 
     def list(self, limit=100):
+        """Return a list of conversations, newest first.
+
+        Args:
+            limit (int): Maximum number of rows. Defaults to 100.
+
+        Returns:
+            list[dict]: Serialised conversation dicts.
+        """
         with session_scope() as db:
             rows = db.query(ORMConversation).order_by(
                 ORMConversation.created_at.desc()).limit(limit).all()
             return [self._to_dict(row) for row in rows]
 
     def add_participant(self, conversation_id, user_id):
+        """Add a participant to a conversation (idempotent).
+
+        Args:
+            conversation_id (str): Conversation UUID.
+            user_id (str): User UUID to add.
+
+        Returns:
+            dict | None: Updated conversation dict, or ``None`` if not found.
+        """
         with session_scope() as db:
             conversation: Any = db.query(ORMConversation).filter(
                 ORMConversation.id == conversation_id).first()
@@ -59,6 +89,15 @@ class ConversationFacade:
             return self._to_dict(conversation)
 
     def remove_participant(self, conversation_id, user_id):
+        """Remove a participant from a conversation.
+
+        Args:
+            conversation_id (str): Conversation UUID.
+            user_id (str): User UUID to remove.
+
+        Returns:
+            dict | None: Updated conversation dict, or ``None`` if not found.
+        """
         with session_scope() as db:
             conversation: Any = db.query(ORMConversation).filter(
                 ORMConversation.id == conversation_id).first()
@@ -73,6 +112,14 @@ class ConversationFacade:
             return self._to_dict(conversation)
 
     def deactivate(self, conversation_id):
+        """Soft-deactivate a conversation.
+
+        Args:
+            conversation_id (str): Conversation UUID.
+
+        Returns:
+            bool: ``True`` when deactivated, ``False`` when not found.
+        """
         with session_scope() as db:
             conversation: Any = db.query(ORMConversation).filter(
                 ORMConversation.id == conversation_id).first()

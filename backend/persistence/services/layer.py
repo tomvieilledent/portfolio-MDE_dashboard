@@ -12,6 +12,7 @@ from backend.persistence.services.facades import (
     UserFacade,
     CompanyFacade,
     TrainingFacade,
+    TrainingSessionFacade,
     MessageFacade,
     ConversationFacade,
     ConversationParticipantFacade,
@@ -119,6 +120,13 @@ class NewsService:
 
     def __init__(self):
         self.facade = NewsFacade()
+
+
+class TrainingSessionService:
+    """Service facade for training session operations."""
+
+    def __init__(self):
+        self.facade = TrainingSessionFacade()
 
 
 class FormationUserService:

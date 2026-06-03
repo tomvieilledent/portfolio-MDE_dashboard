@@ -1,53 +1,42 @@
-"""API resources for conversations (rooms).
-
-Provides endpoints to list, create, update and deactivate conversations.
-
-Google-style docstrings are used for classes and methods.
-"""
+"""API resources for conversations (chat rooms)."""
 
 from flask import request
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.persistence.services import ConversationService
 from backend.models.conversation import Conversation as DomainConversation
+from backend.persistence.services import ConversationService
 
 
 conversation_service = ConversationService()
 
 
 class ConversationListResource(Resource):
-    """Resource for listing and creating conversations.
-
-    Methods
-    -------
-    get()
-        Return a list of conversations, paginated by `limit`.
-    post()
-        Create a new conversation with provided `participant_ids`.
-    """
+    """List or create conversations."""
 
     @jwt_required()
     def get(self):
         """Return a list of conversations.
 
-        Query parameters
-        ----------------
-        limit: int
-            Maximum number of conversations to return (default 100).
+        Query parameters:
+            limit (int): Max conversations to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{conversations}`` and 200.
         """
         limit = request.args.get('limit', default=100, type=int)
         return {'conversations': conversation_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
-        """Create a conversation.
+        """Create a new conversation.
 
-        JSON body
-        ---------
-        participant_ids: list[str]
-            Optional list of participant ids for the new conversation.
+        Expected JSON body:
+            participant_ids (list[str] | None): Initial participant UUIDs.
+
+        Returns:
+            tuple[dict, int]: ``{conversation}`` and 201.
         """
         data = request.get_json(silent=True) or {}
         try:
@@ -60,23 +49,17 @@ class ConversationListResource(Resource):
 
 
 class ConversationResource(Resource):
-    """Resource for operations on a single conversation.
-
-    Methods
-    -------
-    get(conversation_id)
-        Retrieve a conversation by id.
-    patch(conversation_id)
-        Add or remove participants from the conversation.
-    delete(conversation_id)
-        Soft-deactivate the conversation.
-    """
+    """Retrieve, update or deactivate a single conversation."""
 
     @jwt_required()
     def get(self, conversation_id):
-        """Get a conversation by id.
+        """Return a conversation by id.
 
-        Returns 404 if not found.
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{conversation}`` and 200, or 404.
         """
         conversation = conversation_service.facade.get(conversation_id)
         if not conversation:
@@ -85,16 +68,24 @@ class ConversationResource(Resource):
 
     @jwt_required()
     def patch(self, conversation_id):
-        """Modify participants of the conversation.
+        """Add or remove a participant from a conversation.
 
-        Expected JSON body: {"participant_id": str, "action": "add"|"remove"}.
-        Returns 404 if conversation not found.
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Expected JSON body:
+            participant_id (str): User UUID to add or remove.
+            action (str): ``"add"`` or ``"remove"``.
+
+        Returns:
+            tuple[dict, int]: ``{conversation}`` and 200, or 404.
         """
         data = request.get_json(silent=True) or {}
         participant_id = data.get('participant_id')
         if participant_id is not None:
             if not isinstance(participant_id, str):
-                return error_response(ERROR_CODES['VALIDATION_ERROR'], 'participant_id must be a string', 400)
+                return error_response(ERROR_CODES['VALIDATION_ERROR'],
+                                      'participant_id must be a string', 400)
             participant_id = participant_id.strip()
 
         if participant_id and data.get('action') == 'add':
@@ -113,7 +104,11 @@ class ConversationResource(Resource):
     def delete(self, conversation_id):
         """Soft-deactivate a conversation.
 
-        Returns 404 if the conversation does not exist.
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
         """
         if not conversation_service.facade.deactivate(conversation_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
