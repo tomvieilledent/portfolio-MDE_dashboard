@@ -1,13 +1,12 @@
 """News endpoints for listing, creating and syncing news items."""
 
 from flask import request
-from flask_jwt_extended import jwt_required
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.persistence.services import NewsService
 from backend.models.news import News as DomainNews
+from backend.persistence.services import NewsService
 
 
 news_service = NewsService()
@@ -19,19 +18,28 @@ class NewsListResource(Resource):
     def get(self):
         """Return a paginated list of news items.
 
-        Query parameters
-        ----------------
-        limit : int
-            Max items to return (default 100).
+        Query parameters:
+            limit (int): Max items to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{news}`` and 200.
         """
         limit = request.args.get('limit', default=100, type=int)
         return {'news': news_service.facade.list(limit=limit)}
 
     @jwt_required()
     def post(self):
-        """Create a news item from the request body.
+        """Create a news item.
 
-        Requires `title`. Optional fields: `source`, `summary`, `url`, `published_at`.
+        Expected JSON body:
+            title (str): Article headline (required).
+            source (str | None): Publisher name.
+            summary (str | None): Short summary.
+            url (str | None): Link to original article.
+            published_at (str | None): ISO 8601 publication datetime.
+
+        Returns:
+            tuple[dict, int]: ``{news_item}`` and 201.
         """
         data = request.get_json(silent=True) or {}
         title = data.get('title')
@@ -55,7 +63,14 @@ class NewsResource(Resource):
     """Retrieve or delete a single news item."""
 
     def get(self, news_id):
-        """Return a news item by id."""
+        """Return a news item by id.
+
+        Args:
+            news_id (str): News UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{news_item}`` and 200, or 404.
+        """
         article = news_service.facade.get(news_id)
         if not article:
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
@@ -63,16 +78,28 @@ class NewsResource(Resource):
 
     @jwt_required()
     def delete(self, news_id):
-        """Delete a news item (hard delete)."""
+        """Permanently delete a news item.
+
+        Args:
+            news_id (str): News UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
         if not news_service.facade.delete(news_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
         return {'msg': 'news item deleted'}
 
 
 class NewsSyncResource(Resource):
-    """Endpoint placeholder for syncing external news sources."""
+    """Placeholder for syncing external news sources."""
 
     @jwt_required()
     def post(self):
-        """Not implemented: sync external news sources into the DB."""
-        return error_response(ERROR_CODES['NOT_IMPLEMENTED'], 'news sync is not configured yet', 501)
+        """Not implemented: sync external news into the database.
+
+        Returns:
+            tuple[dict, int]: 501 error response.
+        """
+        return error_response(ERROR_CODES['NOT_IMPLEMENTED'],
+                              'news sync is not configured yet', 501)

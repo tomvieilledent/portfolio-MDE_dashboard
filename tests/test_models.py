@@ -1,20 +1,20 @@
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 
 from backend.models.base import BaseModel
 from backend.models.company import Company
 from backend.models.conversation import Conversation
+from backend.models.conversation_participant import ConversationParticipant
 from backend.models.formation_user import FormationUser
 from backend.models.message import Message
 from backend.models.news import News
 from backend.models.notification import Notification
 from backend.models.training import Training
+from backend.models.training_session import TrainingSession
 from backend.models.user import User
-
-
-def make_text(length, char='a'):
-    return char * length
+from tests.helpers import make_text
 
 
 def test_base_model_defaults_and_to_dict():
@@ -304,22 +304,17 @@ def test_news_model_rejects_invalid_title(title):
 
 def test_formation_user_validates_required_fields_and_ranges():
     relation = FormationUser(
-        user_id='user-id', training_id='training-id', status='pending', progress='42.5')
+        user_id='user-id', training_id='training-id', type='interested')
 
     assert relation.user_id == 'user-id'
     assert relation.training_id == 'training-id'
-    assert relation.status == 'pending'
-    assert relation.progress == 42.5
+    assert relation.type == 'interested'
 
 
-def test_formation_user_accepts_boundary_progress_values():
-    zero = FormationUser(
-        user_id='user-id', training_id='training-id', progress=0)
-    hundred = FormationUser(
-        user_id='user-id', training_id='training-id', progress=100)
-
-    assert zero.progress == 0.0
-    assert hundred.progress == 100.0
+def test_formation_user_accepts_all_valid_types():
+    for t in ('interested', 'enrolled', 'completed'):
+        fu = FormationUser(user_id='u', training_id='t', type=t)
+        assert fu.type == t
 
 
 @pytest.mark.parametrize(
@@ -327,12 +322,101 @@ def test_formation_user_accepts_boundary_progress_values():
     [
         {'user_id': None, 'training_id': 'training-id'},
         {'user_id': 'user-id', 'training_id': None},
-        {'user_id': 'user-id', 'training_id': 'training-id', 'status': 'unknown'},
-        {'user_id': 'user-id', 'training_id': 'training-id', 'progress': -1},
-        {'user_id': 'user-id', 'training_id': 'training-id', 'progress': 101},
-        {'user_id': 'user-id', 'training_id': 'training-id', 'progress': 'bad'},
+        {'user_id': 'user-id', 'training_id': 'training-id', 'type': 'unknown'},
     ],
 )
 def test_formation_user_rejects_invalid_values(kwargs):
     with pytest.raises((TypeError, ValueError)):
         FormationUser(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# TrainingSession model
+# ---------------------------------------------------------------------------
+
+_NOW = datetime(2027, 1, 10, 9, 0, tzinfo=timezone.utc)
+_END = datetime(2027, 1, 12, 17, 0, tzinfo=timezone.utc)
+
+
+def test_training_session_validates_required_fields():
+    sess = TrainingSession(
+        training_id='t-1',
+        start_date=_NOW,
+        end_date=_END,
+        max_participants=20,
+    )
+    assert sess.training_id == 't-1'
+    assert sess.max_participants == 20
+    assert sess.status == 'upcoming'
+
+
+def test_training_session_accepts_all_valid_statuses():
+    for status in ('upcoming', 'full', 'completed', 'cancelled'):
+        sess = TrainingSession('t', _NOW, _END, 5, status=status)
+        assert sess.status == status
+
+
+def test_training_session_coerces_max_participants_to_int():
+    sess = TrainingSession('t', _NOW, _END, '15')
+    assert sess.max_participants == 15
+
+
+def test_training_session_optional_fields_default_to_none():
+    sess = TrainingSession('t', _NOW, _END, 10)
+    assert sess.location is None
+    assert sess.link is None
+
+
+@pytest.mark.parametrize(
+    'kwargs',
+    [
+        {'training_id': '', 'start_date': _NOW, 'end_date': _END, 'max_participants': 5},
+        {'training_id': 't', 'start_date': None, 'end_date': _END, 'max_participants': 5},
+        {'training_id': 't', 'start_date': _NOW, 'end_date': None, 'max_participants': 5},
+        {'training_id': 't', 'start_date': _NOW, 'end_date': _END, 'max_participants': 0},
+        {'training_id': 't', 'start_date': _NOW, 'end_date': _END, 'max_participants': -1},
+        {'training_id': 't', 'start_date': _NOW, 'end_date': _END, 'max_participants': 'x'},
+        {'training_id': 't', 'start_date': _NOW, 'end_date': _END, 'max_participants': 5,
+         'status': 'unknown'},
+    ],
+)
+def test_training_session_rejects_invalid_values(kwargs):
+    with pytest.raises((TypeError, ValueError)):
+        TrainingSession(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# ConversationParticipant model
+# ---------------------------------------------------------------------------
+
+def test_conversation_participant_stores_ids():
+    cp = ConversationParticipant(conversation_id='conv-1', user_id='user-1')
+    assert cp.conversation_id == 'conv-1'
+    assert cp.user_id == 'user-1'
+
+
+def test_conversation_participant_strips_whitespace():
+    cp = ConversationParticipant(conversation_id='  conv-1  ', user_id='  user-1  ')
+    assert cp.conversation_id == 'conv-1'
+    assert cp.user_id == 'user-1'
+
+
+@pytest.mark.parametrize('kwargs', [
+    {'conversation_id': '', 'user_id': 'u'},
+    {'conversation_id': '  ', 'user_id': 'u'},
+    {'conversation_id': 123, 'user_id': 'u'},
+    {'conversation_id': 'c', 'user_id': ''},
+    {'conversation_id': 'c', 'user_id': 456},
+])
+def test_conversation_participant_rejects_invalid_ids(kwargs):
+    with pytest.raises((TypeError, ValueError)):
+        ConversationParticipant(**kwargs)
+
+
+def test_conversation_participant_validate_static_methods():
+    assert ConversationParticipant.validate_conversation_id('  abc  ') == 'abc'
+    assert ConversationParticipant.validate_user_id('  xyz  ') == 'xyz'
+    with pytest.raises(TypeError):
+        ConversationParticipant.validate_conversation_id(99)
+    with pytest.raises(ValueError):
+        ConversationParticipant.validate_user_id('  ')

@@ -3,6 +3,7 @@
 from .user_facade_sql import UserFacade
 from .company_facade_sql import CompanyFacade
 from .training_facade_sql import TrainingFacade
+from .training_session_facade_sql import TrainingSessionFacade
 from .message_facade_sql import MessageFacade
 from .conversation_facade_sql import ConversationFacade
 from .conversation_participant_facade_sql import ConversationParticipantFacade

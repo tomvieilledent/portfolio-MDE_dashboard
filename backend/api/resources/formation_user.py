@@ -1,58 +1,53 @@
-"""Endpoints for managing formation-user relations (enrollments)."""
+"""Endpoints for managing formation-user relations (admin only)."""
 
 from flask import request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.persistence.services import FormationUserService
-from backend.models.formation_user import FormationUser as DomainFormationUser
+from backend.persistence.services import FormationUserService, UserService
 
 
 formation_service = FormationUserService()
+user_service = UserService()
 
 
 class FormationUserListResource(Resource):
-    """List or create formation-user relations (enrollments)."""
+    """List all formation-user relations (super admin only)."""
 
     @jwt_required()
     def get(self):
-        """Return a paginated list of enrollments."""
+        """Return all formation-user relations.
+
+        Query parameters:
+            limit (int): Max rows to return (default 100).
+
+        Returns:
+            tuple[dict, int]: ``{formation_users}`` and 200, or 403.
+        """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not current_user or not current_user.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can list all relations', 403)
         limit = request.args.get('limit', default=100, type=int)
         return {'formation_users': formation_service.facade.list(limit=limit)}
 
-    @jwt_required()
-    def post(self):
-        """Create an enrollment linking `user_id` and `training_id`.
-
-        Expects JSON body with `user_id` and `training_id`.
-        """
-        data = request.get_json(silent=True) or {}
-        user_id = data.get('user_id')
-        training_id = data.get('training_id')
-        if not user_id or not training_id:
-            return error_response(ERROR_CODES['BAD_REQUEST'], 'user_id and training_id are required', 400)
-        try:
-            DomainFormationUser(user_id=user_id, training_id=training_id, status=data.get(
-                'status'), progress=data.get('progress'))
-        except Exception as exc:
-            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
-        relation = formation_service.facade.create(
-            user_id,
-            training_id,
-            status=data.get('status'),
-            progress=data.get('progress'),
-        )
-        return {'formation_user': relation}, 201
-
 
 class FormationUserResource(Resource):
-    """Retrieve, update or delete a specific enrollment."""
+    """Retrieve, revoke completion, or delete a formation-user relation."""
 
     @jwt_required()
     def get(self, relation_id):
-        """Return an enrollment by id."""
+        """Return a formation-user relation by id.
+
+        Args:
+            relation_id (str): FormationUser UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{formation_user}`` and 200, or 404.
+        """
         relation = formation_service.facade.get(relation_id)
         if not relation:
             return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
@@ -60,34 +55,44 @@ class FormationUserResource(Resource):
 
     @jwt_required()
     def patch(self, relation_id):
-        """Update enrollment fields (status/progress)."""
-        data = request.get_json(silent=True) or {}
+        """Revoke a completed enrollment, setting it back to enrolled.
 
-        current = formation_service.facade.get(relation_id)
-        if not current:
-            return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
+        Only super admins can perform this operation. Used when an admin
+        determines a user was marked as completed in error (absent).
 
-        try:
-            domain = DomainFormationUser(
-                user_id=current.get('user_id'),
-                training_id=current.get('training_id'),
-                status=current.get('status'),
-                progress=current.get('progress'),
-            )
-            for k, v in data.items():
-                if hasattr(domain, k):
-                    setattr(domain, k, v)
-        except Exception as exc:
-            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        Args:
+            relation_id (str): FormationUser UUID path parameter.
 
-        relation = formation_service.facade.update(relation_id, **data)
-        if not relation:
-            return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
-        return {'formation_user': relation}
+        Returns:
+            tuple[dict, int]: ``{formation_user}`` and 200, or 403/404.
+        """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not current_user or not current_user.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can revoke completions', 403)
+        result = formation_service.facade.revoke_completion(relation_id)
+        if not result:
+            return error_response(
+                ERROR_CODES['NOT_FOUND'],
+                'completed enrollment not found', 404)
+        return {'formation_user': result}
 
     @jwt_required()
     def delete(self, relation_id):
-        """Delete an enrollment by id."""
+        """Permanently delete a formation-user relation.
+
+        Args:
+            relation_id (str): FormationUser UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 403/404.
+        """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not current_user or not current_user.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can delete relations', 403)
         if not formation_service.facade.delete(relation_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
         return {'msg': 'enrollment deleted'}
