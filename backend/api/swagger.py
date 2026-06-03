@@ -22,6 +22,7 @@ OPENAPI_SPEC = {
         {"name": "Users"},
         {"name": "Companies"},
         {"name": "Trainings"},
+        {"name": "Training Sessions"},
         {"name": "Conversations"},
         {"name": "Messages"},
         {"name": "Notifications"},
@@ -266,22 +267,31 @@ OPENAPI_SPEC = {
                     "published_at": {"type": "string", "format": "date-time", "nullable": True, "example": None, "description": "Expected type: date-time string or null."},
                 },
             },
-            "EnrollmentCreateRequest": {
+            "TrainingSessionCreateRequest": {
                 "type": "object",
-                "required": ["user_id", "training_id"],
+                "required": ["start_date", "end_date", "max_participants"],
                 "properties": {
-                    "user_id": {"type": "string"},
-                    "training_id": {"type": "string"},
-                    "status": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "progress": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
+                    "start_date": {"type": "string", "format": "date-time", "example": "2027-09-01T09:00:00"},
+                    "end_date": {"type": "string", "format": "date-time", "example": "2027-09-03T17:00:00"},
+                    "max_participants": {"type": "integer", "example": 15},
+                    "location": {"type": "string", "nullable": True, "example": "Paris - Salle A"},
+                    "link": {"type": "string", "nullable": True, "example": "https://meet.example.com/xyz"},
                 },
             },
-            "EnrollmentUpdateRequest": {
+            "TrainingSessionUpdateRequest": {
                 "type": "object",
                 "properties": {
-                    "status": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "progress": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "enrolled_at": {"type": "string", "format": "date-time", "nullable": True, "example": None, "description": "Expected type: date-time string or null."},
+                    "start_date": {"type": "string", "format": "date-time", "nullable": True},
+                    "end_date": {"type": "string", "format": "date-time", "nullable": True},
+                    "max_participants": {"type": "integer", "nullable": True},
+                    "location": {"type": "string", "nullable": True},
+                    "link": {"type": "string", "nullable": True},
+                    "status": {
+                        "type": "string",
+                        "enum": ["upcoming", "full", "completed", "cancelled"],
+                        "nullable": True,
+                        "description": "Setting to 'completed' auto-validates all enrolled users.",
+                    },
                 },
             },
         },
@@ -376,11 +386,128 @@ OPENAPI_SPEC = {
         "/companies/{company_id}/users/{user_id}": {"post": {"tags": ["Companies"], "summary": "Assign user to company", "parameters": [{"name": "company_id", "in": "path", "required": True, "schema": {"type": "string"}}, {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["Companies"], "summary": "Remove user from company", "parameters": [{"name": "company_id", "in": "path", "required": True, "schema": {"type": "string"}}, {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
         "/trainings": {"get": {"tags": ["Trainings"], "summary": "List trainings", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["Trainings"], "summary": "Create training", "requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/TrainingCreateMultipartRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
         "/trainings/{training_id}": {"get": {"tags": ["Trainings"], "summary": "Get training", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "patch": {"tags": ["Trainings"], "summary": "Update training", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/TrainingUpdateMultipartRequest"}}}}, "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["Trainings"], "summary": "Deactivate training", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
-        "/trainings/{training_id}/enroll": {"post": {"tags": ["Trainings"], "summary": "Enroll user in training", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EnrollmentCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
-        "/trainings/{training_id}/join": {"post": {"tags": ["Trainings"], "summary": "Alias for enroll", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EnrollmentCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
-        "/trainings/{training_id}/enrollments": {"get": {"tags": ["Trainings"], "summary": "List enrollments for training", "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
-        "/users/{user_id}/trainings": {"get": {"tags": ["Trainings"], "summary": "List trainings for user", "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
-        "/me/trainings": {"get": {"tags": ["Trainings"], "summary": "List current user trainings", "responses": {"200": {"description": "OK"}}}},
+        "/trainings/{training_id}/interest": {
+            "post": {
+                "tags": ["Trainings"],
+                "summary": "Express interest in a training (no session required)",
+                "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"201": {"description": "Interest recorded"}, "404": {"description": "Training not found"}},
+            },
+            "delete": {
+                "tags": ["Trainings"],
+                "summary": "Remove interest in a training",
+                "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "Interest removed"}, "404": {"description": "Interest or training not found"}},
+            },
+        },
+        "/trainings/{training_id}/interested": {
+            "get": {
+                "tags": ["Trainings"],
+                "summary": "List users who expressed interest (admin only)",
+                "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}},
+            }
+        },
+        "/trainings/{training_id}/enrollments": {
+            "get": {
+                "tags": ["Trainings"],
+                "summary": "List enrollments for a training",
+                "parameters": [
+                    {"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                    {"name": "type", "in": "query", "required": False, "schema": {"type": "string", "enum": ["interested", "enrolled", "completed"]}, "description": "Filter by lifecycle type"},
+                ],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/trainings/{training_id}/sessions": {
+            "get": {
+                "tags": ["Training Sessions"],
+                "summary": "List sessions for a training",
+                "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "404": {"description": "Training not found"}},
+            },
+            "post": {
+                "tags": ["Training Sessions"],
+                "summary": "Create a session for a training (admin only)",
+                "parameters": [{"name": "training_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TrainingSessionCreateRequest"}}}},
+                "responses": {"201": {"description": "Session created"}, "400": {"description": "Validation error"}, "403": {"description": "Forbidden"}, "404": {"description": "Training not found"}},
+            },
+        },
+        "/trainings/completions": {
+            "get": {
+                "tags": ["Training Sessions"],
+                "summary": "List completed trainings (admin sees all, user sees own)",
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/training-sessions": {
+            "get": {
+                "tags": ["Training Sessions"],
+                "summary": "List all training sessions",
+                "parameters": [
+                    {"name": "training_id", "in": "query", "required": False, "schema": {"type": "string"}, "description": "Filter by training UUID"},
+                    {"name": "status", "in": "query", "required": False, "schema": {"type": "string", "enum": ["upcoming", "full", "completed", "cancelled"]}, "description": "Filter by status"},
+                ],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+        "/training-sessions/{session_id}": {
+            "get": {
+                "tags": ["Training Sessions"],
+                "summary": "Get a training session by id",
+                "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "404": {"description": "Session not found"}},
+            },
+            "patch": {
+                "tags": ["Training Sessions"],
+                "summary": "Update a session (admin only). Setting status=completed auto-validates all enrolled users.",
+                "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TrainingSessionUpdateRequest"}}}},
+                "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Session not found"}},
+            },
+            "delete": {
+                "tags": ["Training Sessions"],
+                "summary": "Cancel a session (admin only)",
+                "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "Session cancelled"}, "403": {"description": "Forbidden"}, "404": {"description": "Session not found"}},
+            },
+        },
+        "/training-sessions/{session_id}/enroll": {
+            "post": {
+                "tags": ["Training Sessions"],
+                "summary": "Enroll current user in a session. Auto-upgrades interest to enrolled. Rejected if session is full.",
+                "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"201": {"description": "Enrolled"}, "404": {"description": "Session not found"}, "409": {"description": "Session full or already enrolled"}},
+            },
+            "delete": {
+                "tags": ["Training Sessions"],
+                "summary": "Unenroll current user from a session. Reverts session from full to upcoming if applicable.",
+                "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "Unenrolled"}, "404": {"description": "Session or enrollment not found"}},
+            },
+        },
+        "/users/{user_id}/trainings": {
+            "get": {
+                "tags": ["Trainings"],
+                "summary": "List enrollments for a specific user",
+                "parameters": [
+                    {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                    {"name": "type", "in": "query", "required": False, "schema": {"type": "string", "enum": ["interested", "enrolled", "completed"]}, "description": "Filter by lifecycle type"},
+                ],
+                "responses": {"200": {"description": "OK"}, "404": {"description": "User not found"}},
+            }
+        },
+        "/me/trainings": {
+            "get": {
+                "tags": ["Trainings"],
+                "summary": "List current user's enrollments",
+                "parameters": [
+                    {"name": "type", "in": "query", "required": False, "schema": {"type": "string", "enum": ["interested", "enrolled", "completed"]}, "description": "Filter by lifecycle type"},
+                ],
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
         "/conversations": {"get": {"tags": ["Conversations"], "summary": "List conversations", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["Conversations"], "summary": "Create conversation", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ConversationCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
         "/rooms": {"get": {"tags": ["Conversations"], "summary": "Alias for list conversations", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["Conversations"], "summary": "Alias for create conversation", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ConversationCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
         "/conversations/{conversation_id}": {"get": {"tags": ["Conversations"], "summary": "Get conversation", "parameters": [{"name": "conversation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "patch": {"tags": ["Conversations"], "summary": "Modify conversation participants", "parameters": [{"name": "conversation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ConversationPatchRequest"}}}}, "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["Conversations"], "summary": "Deactivate conversation", "parameters": [{"name": "conversation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
@@ -394,8 +521,33 @@ OPENAPI_SPEC = {
         "/news": {"get": {"tags": ["News"], "summary": "List news", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["News"], "summary": "Create news item", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewsCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
         "/news/{news_id}": {"get": {"tags": ["News"], "summary": "Get news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["News"], "summary": "Delete news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
         "/news/sync": {"post": {"tags": ["News"], "summary": "Sync news (not implemented)", "responses": {"501": {"description": "Not implemented"}}}},
-        "/formation-users": {"get": {"tags": ["Formation Users"], "summary": "List enrollment relations", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["Formation Users"], "summary": "Create enrollment relation", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EnrollmentCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
-        "/formation-users/{relation_id}": {"get": {"tags": ["Formation Users"], "summary": "Get enrollment relation", "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "patch": {"tags": ["Formation Users"], "summary": "Update enrollment relation", "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EnrollmentUpdateRequest"}}}}, "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["Formation Users"], "summary": "Delete enrollment relation", "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
+        "/formation-users": {
+            "get": {
+                "tags": ["Formation Users"],
+                "summary": "List all formation-user relations (admin only)",
+                "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}},
+            }
+        },
+        "/formation-users/{relation_id}": {
+            "get": {
+                "tags": ["Formation Users"],
+                "summary": "Get a formation-user relation by id",
+                "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+            },
+            "patch": {
+                "tags": ["Formation Users"],
+                "summary": "Revoke a completion — sets type back to enrolled (admin only)",
+                "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Completed enrollment not found"}},
+            },
+            "delete": {
+                "tags": ["Formation Users"],
+                "summary": "Delete a formation-user relation (admin only)",
+                "parameters": [{"name": "relation_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Not found"}},
+            },
+        },
     },
 }
 
