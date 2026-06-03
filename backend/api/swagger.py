@@ -14,7 +14,7 @@ OPENAPI_SPEC = {
         "description": "Swagger/OpenAPI documentation for the Flask REST API.",
     },
     "servers": [
-        {"url": "http://127.0.0.1:5000", "description": "Local development"},
+        {"url": "http://127.0.0.1:8000", "description": "Local development"},
     ],
     "tags": [
         {"name": "Health"},
