@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
-"""Domain model for trainings.
-
-`Training` validates title and optional description/picture fields used by
-the service layer before persistence.
-"""
+"""Domain model for trainings."""
 
 from .base import BaseModel
 
 
 class Training(BaseModel):
-    """Training metadata and validation.
+    """Training metadata with field validation.
 
-    Attributes
-    ----------
-    title : str
-        Training title (required).
-    company_id : str | None
-        Optional owning company id.
+    Attributes:
+        title (str): Training title (required, max 200 chars).
+        company_id (str | None): Optional owning company id.
+        description (str | None): Optional description (max 2 000 chars).
+        picture (str | None): Optional picture path/URL (max 512 chars).
     """
 
     def __init__(self, title, company_id=None, description=None, picture=None, **kwargs):
@@ -32,6 +27,15 @@ class Training(BaseModel):
 
     @title.setter
     def title(self, value):
+        """Set and validate the training title.
+
+        Args:
+            value (str): Title text; must be non-empty and ≤ 200 chars.
+
+        Raises:
+            TypeError: If *value* is not a string.
+            ValueError: If *value* is empty or exceeds the length limit.
+        """
         if not isinstance(value, str):
             raise TypeError("Training title must be a string")
         value = value.strip()
@@ -47,6 +51,15 @@ class Training(BaseModel):
 
     @description.setter
     def description(self, value):
+        """Set and validate the optional description.
+
+        Args:
+            value (str | None): Description text; max 2 000 chars.
+
+        Raises:
+            TypeError: If *value* is not a string.
+            ValueError: If *value* exceeds the length limit.
+        """
         if value is None:
             self._description = None
             return
@@ -62,6 +75,15 @@ class Training(BaseModel):
 
     @picture.setter
     def picture(self, value):
+        """Set and validate the optional picture path.
+
+        Args:
+            value (str | None): Picture path or URL; max 512 chars.
+
+        Raises:
+            TypeError: If *value* is not a string.
+            ValueError: If *value* is empty or exceeds the length limit.
+        """
         if value is None:
             self._picture = None
             return

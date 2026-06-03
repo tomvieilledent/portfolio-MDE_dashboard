@@ -1,17 +1,7 @@
 import pytest
 
 from backend.api.errors import ERROR_CODES
-
-
-def assert_error(response, status, code):
-    payload = response.get_json()
-    assert response.status_code == status
-    assert payload['error']['code'] == code
-    return payload
-
-
-def make_text(length, char='a'):
-    return char * length
+from tests.helpers import assert_error, make_text
 
 
 def test_conversation_and_message_flow(seeded_context):
@@ -167,62 +157,68 @@ def test_news_flow_and_sync_placeholder(seeded_context):
 def test_formation_user_flow(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
+    member_headers = {'Authorization': f"Bearer {seeded_context['member_login']['access_token']}"}
+    member_id = seeded_context['member_user']['id']
 
-    company = client.post('/companies', headers=admin_headers, json={
-        'name': 'Enrollment Company',
-        'admin_email': 'company.admin@example.com',
-    }).get_json()['company']
     training = client.post('/trainings', headers=admin_headers, json={
         'title': 'Python Advanced',
-        'company_id': company['id'],
     }).get_json()['training']
+    training_id = training['id']
 
-    missing_fields = client.post(
-        '/formation-users', headers=admin_headers, json={})
-    assert_error(missing_fields, 400, ERROR_CODES['BAD_REQUEST'])
+    # express interest (no session scheduled yet)
+    interest = client.post(f'/trainings/{training_id}/interest', headers=member_headers)
+    assert interest.status_code == 201
+    assert interest.get_json()['interest']['type'] == 'interested'
 
-    create_relation = client.post('/formation-users', headers=admin_headers, json={
-        'user_id': seeded_context['member_user']['id'],
-        'training_id': training['id'],
-        'status': 'pending',
-        'progress': 15,
+    # admin can see interested users
+    interested = client.get(f'/trainings/{training_id}/interested', headers=admin_headers)
+    assert interested.status_code == 200
+    assert len(interested.get_json()['interested']) >= 1
+
+    # admin creates a session
+    session_resp = client.post(f'/trainings/{training_id}/sessions', headers=admin_headers, json={
+        'start_date': '2027-01-10T09:00:00',
+        'end_date': '2027-01-12T17:00:00',
+        'max_participants': 10,
+        'location': 'Paris',
     })
-    assert create_relation.status_code == 201
-    relation = create_relation.get_json()['formation_user']
-    relation_id = relation['id']
-    assert relation['user_id'] == seeded_context['member_user']['id']
-    assert relation['training_id'] == training['id']
-    assert relation['status'] == 'pending'
+    assert session_resp.status_code == 201
+    session_id = session_resp.get_json()['session']['id']
 
-    list_relations = client.get('/formation-users', headers=admin_headers)
-    assert list_relations.status_code == 200
-    assert len(list_relations.get_json()['formation_users']) >= 1
+    # member enrolls — interest is auto-upgraded to enrolled
+    enroll = client.post(f'/training-sessions/{session_id}/enroll', headers=member_headers)
+    assert enroll.status_code == 201
+    enrollment = enroll.get_json()['enrollment']
+    assert enrollment['type'] == 'enrolled'
+    assert enrollment['session_id'] == session_id
+    relation_id = enrollment['id']
 
-    get_relation = client.get(
-        f'/formation-users/{relation_id}', headers=admin_headers)
-    assert get_relation.status_code == 200
-
-    patch_relation = client.patch(f'/formation-users/{relation_id}', headers=admin_headers, json={
-        'status': 'active',
-        'progress': 42,
-    })
-    assert patch_relation.status_code == 200
-    assert patch_relation.get_json()['formation_user']['status'] == 'active'
-    assert patch_relation.get_json()['formation_user']['progress'] == '42'
-
-    user_trainings = client.get(
-        f"/users/{seeded_context['member_user']['id']}/trainings", headers=admin_headers)
+    # user sees their trainings
+    user_trainings = client.get(f'/users/{member_id}/trainings', headers=admin_headers)
     assert user_trainings.status_code == 200
     assert len(user_trainings.get_json()['enrollments']) >= 1
 
-    current_user_trainings = client.get('/me/trainings', headers={
-        'Authorization': f"Bearer {seeded_context['member_login']['access_token']}"
-    })
+    current_user_trainings = client.get('/me/trainings', headers=member_headers)
     assert current_user_trainings.status_code == 200
     assert len(current_user_trainings.get_json()['enrollments']) >= 1
 
-    delete_relation = client.delete(
-        f'/formation-users/{relation_id}', headers=admin_headers)
+    # admin marks session as completed → enrollment auto-completed
+    complete = client.patch(f'/training-sessions/{session_id}', headers=admin_headers, json={
+        'status': 'completed',
+    })
+    assert complete.status_code == 200
+
+    completions = client.get('/trainings/completions', headers=admin_headers)
+    assert completions.status_code == 200
+    assert len(completions.get_json()['completions']) >= 1
+
+    # admin revokes completion
+    revoke = client.patch(f'/formation-users/{relation_id}', headers=admin_headers)
+    assert revoke.status_code == 200
+    assert revoke.get_json()['formation_user']['type'] == 'enrolled'
+
+    # admin deletes the relation
+    delete_relation = client.delete(f'/formation-users/{relation_id}', headers=admin_headers)
     assert delete_relation.status_code == 200
     assert delete_relation.get_json() == {'msg': 'enrollment deleted'}
 
@@ -301,18 +297,9 @@ def test_news_post_field_validation(seeded_context, payload, status, code):
     assert_error(response, status, code)
 
 
-@pytest.mark.parametrize(
-    'payload, status, code',
-    [
-        ({}, 400, ERROR_CODES['BAD_REQUEST']),
-        ({'user_id': '', 'training_id': 't'}, 400, ERROR_CODES['BAD_REQUEST']),
-        ({'user_id': 'u', 'training_id': ''}, 400, ERROR_CODES['BAD_REQUEST']),
-    ],
-)
-def test_formation_users_post_field_validation(seeded_context, payload, status, code):
+def test_training_interest_missing_training(seeded_context):
     client = seeded_context['client']
-    admin_headers = seeded_context['admin_headers']
+    member_headers = {'Authorization': f"Bearer {seeded_context['member_login']['access_token']}"}
 
-    response = client.post(
-        '/formation-users', headers=admin_headers, json=payload)
-    assert_error(response, status, code)
+    response = client.post('/trainings/nonexistent-id/interest', headers=member_headers)
+    assert_error(response, 404, ERROR_CODES['NOT_FOUND'])

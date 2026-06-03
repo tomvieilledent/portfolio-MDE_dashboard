@@ -1,8 +1,4 @@
-"""JWT helper wrapper to return consistent JSON errors.
-
-This file replaces the previous `backend.api.jwt` module to avoid
-naming conflicts with the external `jwt` package (PyJWT).
-"""
+"""JWT decorator returning consistent JSON error responses."""
 
 from functools import wraps
 
@@ -12,17 +8,14 @@ from backend.api.errors import ERROR_CODES, error_response
 
 
 def jwt_required(refresh: bool = False):
-    """Decorator that enforces JWT presence and returns JSON errors.
+    """Enforce JWT presence and return structured JSON errors on failure.
 
-    Parameters
-    ----------
-    refresh : bool, optional
-        If True, requires a refresh token instead of an access token.
+    Args:
+        refresh (bool): When ``True``, requires a refresh token instead of
+            an access token. Defaults to ``False``.
 
-    Returns
-    -------
-    Callable
-        A decorator usable on Flask-RESTful resource methods.
+    Returns:
+        Callable: A decorator usable on Flask-RESTful resource methods.
     """
 
     def decorator(fn):

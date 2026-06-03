@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Domain model representing application users.
-
-This module defines the `User` domain object used for input validation
-and simple field-level checks before the service layer performs hashing
-and persistence through the facades.
-"""
+"""Domain model representing application users."""
 
 from .base import BaseModel
 from email_validator import validate_email, EmailNotValidError
@@ -13,9 +8,19 @@ from email_validator import validate_email, EmailNotValidError
 class User(BaseModel):
     """User model with property-based validation.
 
-    The `User` object validates email, password and optional profile fields.
-    Password hashing is intentionally not performed at this layer and should
-    be handled by the service or facade layer when persisting.
+    Password hashing is intentionally not performed at this layer and must
+    be handled by the service or facade layer before persistence.
+
+    Attributes:
+        email (str): Lowercase validated email address.
+        password (str): Plaintext password (8–256 chars). Not hashed here.
+        first_name (str | None): Optional first name (max 100 chars).
+        last_name (str | None): Optional last name (max 100 chars).
+        phone (str | None): Optional phone number.
+        profile_picture (str | None): Optional URL/path to profile picture.
+        business_card (str | None): Optional URL/path to business card image.
+        is_super_admin (bool): Super-admin flag, defaults to False.
+        company_id (str | None): Optional owning company UUID.
     """
 
     def __init__(self, email, password, first_name=None, last_name=None, **kwargs):
@@ -30,7 +35,6 @@ class User(BaseModel):
         self.is_super_admin = kwargs.get("is_super_admin", False)
         self.company_id = kwargs.get("company_id")
 
-    # Email
     @property
     def email(self):
         return self._email
@@ -43,7 +47,6 @@ class User(BaseModel):
         if not email:
             raise ValueError("Email cannot be empty.")
         try:
-            # validate_email raises EmailNotValidError on invalid
             validate_email(email, check_deliverability=False)
         except EmailNotValidError:
             raise ValueError("Invalid email address format.")
@@ -51,7 +54,6 @@ class User(BaseModel):
             raise ValueError("Email must be 254 characters or fewer")
         self._email = email.lower()
 
-    # Password - kept simple here; hashing should be applied elsewhere
     @property
     def password(self):
         return self._password
@@ -66,7 +68,6 @@ class User(BaseModel):
             raise ValueError("Password must be 256 characters or fewer")
         self._password = pwd
 
-    # First name
     @property
     def first_name(self):
         return self._first_name
@@ -85,7 +86,6 @@ class User(BaseModel):
             raise ValueError("First name cannot exceed 100 characters.")
         self._first_name = first_name
 
-    # Last name
     @property
     def last_name(self):
         return self._last_name
@@ -104,13 +104,19 @@ class User(BaseModel):
             raise ValueError("Last name cannot exceed 100 characters.")
         self._last_name = last_name
 
-    # Validation helpers for API/service reuse
     @staticmethod
     def validate_first_name(value):
-        """Validate a candidate first name.
+        """Validate and normalise a candidate first name.
 
-        Raises TypeError or ValueError on invalid input. Returns the
-        normalized string on success.
+        Args:
+            value (str | None): The first name to validate.
+
+        Returns:
+            str | None: Stripped first name, or ``None`` if *value* is ``None``.
+
+        Raises:
+            TypeError: If *value* is not a string.
+            ValueError: If *value* is empty or exceeds 100 characters.
         """
         if value is None:
             return None
@@ -125,10 +131,17 @@ class User(BaseModel):
 
     @staticmethod
     def validate_last_name(value):
-        """Validate a candidate last name.
+        """Validate and normalise a candidate last name.
 
-        Raises TypeError or ValueError on invalid input. Returns the
-        normalized string on success.
+        Args:
+            value (str | None): The last name to validate.
+
+        Returns:
+            str | None: Stripped last name, or ``None`` if *value* is ``None``.
+
+        Raises:
+            TypeError: If *value* is not a string.
+            ValueError: If *value* is empty or exceeds 100 characters.
         """
         if value is None:
             return None

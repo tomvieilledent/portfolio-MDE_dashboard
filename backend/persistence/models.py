@@ -4,7 +4,7 @@ This module defines the tables and columns used by Alembic migrations and
 by the persistence layer.
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, Integer
 from .db import Base
 import uuid
 from datetime import datetime, timezone
@@ -131,13 +131,32 @@ class News(Base):
                         default=lambda: datetime.now(timezone.utc))
 
 
+class TrainingSession(Base):
+    __tablename__ = 'training_sessions'
+    id = Column(String(36), primary_key=True,
+                default=lambda: str(uuid.uuid4()))
+    training_id = Column(String(36), nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    max_participants = Column(Integer(), nullable=False)
+    location = Column(String(512))
+    link = Column(String(512))
+    status = Column(String(50), default='upcoming')
+    created_by = Column(String(36))
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+
 class FormationUser(Base):
     __tablename__ = 'formation_users'
     id = Column(String(36), primary_key=True,
                 default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), nullable=False)
     training_id = Column(String(36), nullable=False)
+    session_id = Column(String(36))
+    type = Column(String(50))
     enrolled_at = Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
-    status = Column(String(50))
-    progress = Column(String(20))
+    completed_at = Column(DateTime(timezone=True))
