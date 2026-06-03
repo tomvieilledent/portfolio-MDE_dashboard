@@ -165,6 +165,8 @@ class UserFacade:
             'first_name': u.first_name,
             'last_name': u.last_name,
             'phone': u.phone,
+            'profile_picture': u.profile_picture,
+            'business_card': u.business_card,
             'is_super_admin': u.is_super_admin,
             'is_active': u.is_active,
             'created_at': isoformat(u.created_at),

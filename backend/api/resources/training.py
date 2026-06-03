@@ -10,6 +10,7 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.uploads import delete_uploaded_file, save_image_upload
 from backend.models.training import Training as DomainTraining
 from backend.persistence.services import FormationUserService, TrainingService, UserService
 
@@ -17,6 +18,25 @@ from backend.persistence.services import FormationUserService, TrainingService, 
 training_service = TrainingService()
 formation_service = FormationUserService()
 user_service = UserService()
+
+
+def _request_payload():
+    if request.mimetype and request.mimetype.startswith('multipart/form-data'):
+        return request.form.to_dict(flat=True)
+    return request.get_json(silent=True) or {}
+
+
+def _extract_training_picture(payload):
+    uploaded_file = request.files.get(
+        'picture_file') or request.files.get('picture')
+    if uploaded_file and uploaded_file.filename:
+        return save_image_upload(uploaded_file, 'trainings')
+    return payload.get('picture')
+
+
+def _cleanup_replaced_upload(previous_path, new_path):
+    if new_path and previous_path and previous_path != new_path:
+        delete_uploaded_file(previous_path)
 
 
 class TrainingListResource(Resource):
@@ -54,14 +74,15 @@ class TrainingListResource(Resource):
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         if not current_user.get('is_super_admin'):
             return error_response(ERROR_CODES['FORBIDDEN'], 'only super admins can create trainings', 403)
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
+        picture = _extract_training_picture(data)
         title = data.get('title')
         if not title:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'title is required', 400)
         try:
             DomainTraining(title=title,
                            description=data.get('description'),
-                           picture=data.get('picture'),
+                           picture=picture,
                            company_id=data.get('company_id'))
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
@@ -70,7 +91,7 @@ class TrainingListResource(Resource):
                 title,
                 company_id=data.get('company_id'),
                 description=data.get('description'),
-                picture=data.get('picture'),
+                picture=picture,
             )
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create training', 409, str(exc))
@@ -91,12 +112,14 @@ class TrainingResource(Resource):
     @jwt_required()
     def patch(self, training_id):
         """Partially update a training's fields."""
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
+        update_data: dict[str, object] = {}
 
         # fetch current training to validate partial updates via domain model
         current = training_service.facade.get(training_id)
         if not current:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        previous_picture = current.get('picture')
 
         try:
             domain = DomainTraining(
@@ -108,12 +131,23 @@ class TrainingResource(Resource):
             for k, v in data.items():
                 if hasattr(domain, k):
                     setattr(domain, k, v)
+            uploaded_file = request.files.get(
+                'picture_file') or request.files.get('picture')
+            if uploaded_file and uploaded_file.filename:
+                update_data['picture'] = save_image_upload(
+                    uploaded_file, 'trainings')
+            elif 'picture' in data:
+                update_data['picture'] = data.get('picture')
+            for field in ('title', 'description', 'company_id', 'is_active'):
+                if field in data:
+                    update_data[field] = data.get(field)
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        training = training_service.facade.update(training_id, **data)
+        training = training_service.facade.update(training_id, **update_data)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        _cleanup_replaced_upload(previous_picture, update_data.get('picture'))
         return {'training': training}
 
     @jwt_required()

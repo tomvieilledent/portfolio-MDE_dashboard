@@ -37,6 +37,12 @@ instance/
 .DS_Store
 Thumbs.db
 
+# Uploaded files (dynamic content, not code)
+backend/uploads/**/*.jpg
+backend/uploads/**/*.jpeg
+backend/uploads/**/*.png
+backend/uploads/**/*.gif
+backend/uploads/**/*.webp
 
 test.txt
 .gitignore
