@@ -1,30 +1,46 @@
-"""Company persistence facade.
+"""Company persistence facade (SQLAlchemy)."""
 
-Provides `CompanyFacade` for creating, updating and listing companies.
-"""
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy.exc import IntegrityError
 
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Company as ORMCompany, User as ORMUser
-from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
-from typing import Any
 from ._common_sql import isoformat
 
 
 class CompanyFacade:
-    """Facade to manage company rows in the database."""
+    """SQLAlchemy-backed facade for company entities.
 
-    def __init__(self):
-        pass
+    Admin resolution is performed during creation: when *admin_id* is not
+    provided, the facade looks up the user whose email matches *admin_email*.
+    """
 
     def create(self, name, admin_email=None, admin_id=None, **kwargs):
+        """Persist a new company, resolving admin_id from admin_email if needed.
+
+        Args:
+            name (str): Company display name.
+            admin_email (str | None): Admin email used to resolve *admin_id*.
+            admin_id (str | None): Explicit admin user UUID; overrides lookup.
+            **kwargs: Optional fields — ``description``, ``website_link``,
+                ``company_picture``.
+
+        Returns:
+            dict: Newly created company as a serialisable dict.
+
+        Raises:
+            ValueError: If *admin_email* is missing or not found in the DB.
+            sqlalchemy.exc.IntegrityError: On database constraint violation.
+        """
         db = SessionLocal()
         try:
             resolved_admin_id = admin_id
             normalized_admin_email = admin_email.lower().strip() if admin_email else None
             if not normalized_admin_email:
                 raise ValueError('admin_email is required')
-            if normalized_admin_email and resolved_admin_id is None:
+            if resolved_admin_id is None:
                 admin_user = db.query(ORMUser).filter(
                     ORMUser.email == normalized_admin_email).first()
                 if not admin_user:
@@ -37,7 +53,7 @@ class CompanyFacade:
                 description=kwargs.get('description'),
                 website_link=kwargs.get('website_link'),
                 company_picture=kwargs.get('company_picture'),
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             )
             db.add(c)
             db.commit()
@@ -53,26 +69,53 @@ class CompanyFacade:
             db.close()
 
     def get(self, company_id):
+        """Retrieve a company by primary key.
+
+        Args:
+            company_id (str): Company UUID.
+
+        Returns:
+            dict | None: Company dict, or ``None`` if not found.
+        """
         db = SessionLocal()
-        c: Any = db.query(ORMCompany).filter(
-            ORMCompany.id == company_id).first()
+        c: Any = db.query(ORMCompany).filter(ORMCompany.id == company_id).first()
         db.close()
         return self._to_dict(c) if c else None
 
     def list(self, limit=100):
+        """Return a list of companies.
+
+        Args:
+            limit (int): Maximum number of rows. Defaults to 100.
+
+        Returns:
+            list[dict]: Serialised company dicts.
+        """
         db = SessionLocal()
         rows = db.query(ORMCompany).limit(limit).all()
         db.close()
         return [self._to_dict(r) for r in rows]
 
     def update(self, company_id, **kwargs):
+        """Partially update a company's mutable fields.
+
+        Args:
+            company_id (str): Primary key of the company.
+            **kwargs: Fields to update — ``name``, ``description``,
+                ``website_link``, ``company_picture``, ``admin_email``,
+                ``admin_id``, ``is_active``.
+
+        Returns:
+            dict | None: Updated company dict, or ``None`` if not found.
+        """
         db = SessionLocal()
         try:
             company: Any = db.query(ORMCompany).filter(
                 ORMCompany.id == company_id).first()
             if not company:
                 return None
-            for field in ('name', 'description', 'website_link', 'company_picture', 'admin_email', 'admin_id'):
+            for field in ('name', 'description', 'website_link',
+                          'company_picture', 'admin_email', 'admin_id'):
                 if field in kwargs:
                     setattr(company, field, kwargs.get(field))
             if 'is_active' in kwargs:
@@ -86,9 +129,26 @@ class CompanyFacade:
             db.close()
 
     def deactivate(self, company_id, by=None):
+        """Soft-deactivate a company.
+
+        Args:
+            company_id (str): Company UUID.
+            by (str | None): Id of the actor performing the action.
+
+        Returns:
+            dict | None: Updated company dict, or ``None`` if not found.
+        """
         return self.update(company_id, is_active=False)
 
     def delete(self, company_id):
+        """Permanently delete a company row.
+
+        Args:
+            company_id (str): Company UUID.
+
+        Returns:
+            bool: ``True`` when deleted, ``False`` when not found.
+        """
         db = SessionLocal()
         try:
             company: Any = db.query(ORMCompany).filter(

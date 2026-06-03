@@ -4,6 +4,7 @@ from .layer import (
     UserService,
     CompanyService,
     TrainingService,
+    TrainingSessionService,
     MessageService,
     ConversationService,
     ConversationParticipantService,

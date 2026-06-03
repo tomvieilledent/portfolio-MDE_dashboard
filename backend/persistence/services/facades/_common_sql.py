@@ -1,8 +1,4 @@
-"""Small SQL helper utilities used by the persistence facades.
-
-This module contains a context manager for scoped sessions and a few
-helpers to normalize and serialize values for the database layer.
-"""
+"""Small SQL helper utilities shared across all persistence facades."""
 
 from contextlib import contextmanager
 from datetime import datetime
@@ -15,11 +11,15 @@ from backend.persistence.db import SessionLocal
 def session_scope():
     """Provide a transactional scope around a series of operations.
 
-    Yields
-    ------
-    sqlalchemy.orm.Session
-        A session bound to the configured engine. The session is committed
-        if the context exits normally and rolled back on exception.
+    Commits on clean exit and rolls back on any exception, then always
+    closes the session.
+
+    Yields:
+        sqlalchemy.orm.Session: A session bound to the configured engine.
+
+    Raises:
+        Exception: Re-raises any exception that occurs inside the block
+            after rolling back.
     """
     session = SessionLocal()
     try:
@@ -33,13 +33,14 @@ def session_scope():
 
 
 def isoformat(value: Any) -> Optional[str]:
-    """Return an ISO8601 string for datetimes, pass-through otherwise.
+    """Return an ISO 8601 string for datetimes, pass-through otherwise.
 
-    Parameters
-    ----------
-    value : Any
-        Value to convert. If it's a `datetime` the ISO formatted string is
-        returned; `None` returns `None`.
+    Args:
+        value (Any): Value to convert. ``datetime`` instances are formatted;
+            ``None`` is returned as ``None``.
+
+    Returns:
+        str | None: ISO-formatted string, or ``None`` when *value* is ``None``.
     """
     if value is None:
         return None
@@ -49,9 +50,14 @@ def isoformat(value: Any) -> Optional[str]:
 
 
 def normalize_text(value: Optional[str]) -> Optional[str]:
-    """Strip a string value or return `None` when input is `None`.
+    """Strip a string value or return ``None`` when input is ``None``.
 
-    Keeps non-string values unchanged.
+    Args:
+        value (str | None): Text to normalise. Non-string values are returned
+            unchanged.
+
+    Returns:
+        str | None: Stripped string, or ``None``.
     """
     if value is None:
         return None
@@ -59,9 +65,13 @@ def normalize_text(value: Optional[str]) -> Optional[str]:
 
 
 def to_csv(values: Optional[Iterable]) -> Optional[str]:
-    """Serialize an iterable of values to a comma-separated string.
+    """Serialise an iterable of values to a comma-separated string.
 
-    Empty input returns `None`.
+    Args:
+        values (Iterable | None): Items to join. Empty input returns ``None``.
+
+    Returns:
+        str | None: Comma-separated string, or ``None`` for empty/falsy input.
     """
     if not values:
         return None
@@ -71,7 +81,11 @@ def to_csv(values: Optional[Iterable]) -> Optional[str]:
 def from_csv(value: Optional[str]) -> List[str]:
     """Parse a comma-separated string back to a list of non-empty items.
 
-    Returns an empty list for falsy input.
+    Args:
+        value (str | None): Comma-separated string. Falsy input returns ``[]``.
+
+    Returns:
+        list[str]: List of non-empty stripped tokens.
     """
     if not value:
         return []

@@ -1,23 +1,32 @@
-"""Facades for training persistence operations.
+"""Training persistence facade (SQLAlchemy)."""
 
-Provides `TrainingFacade` which wraps SQLAlchemy access for trainings.
-"""
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy.exc import IntegrityError
 
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Training as ORMTraining
-from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
-from typing import Any
 from ._common_sql import isoformat
 
 
 class TrainingFacade:
-    """SQL-backed facade for training entities."""
-
-    def __init__(self):
-        pass
+    """SQLAlchemy-backed facade for training entities."""
 
     def create(self, title, company_id=None, **kwargs):
+        """Persist a new training.
+
+        Args:
+            title (str): Training title (stripped before storage).
+            company_id (str | None): Optional owning company UUID.
+            **kwargs: Optional fields — ``description``, ``picture``.
+
+        Returns:
+            dict: Newly created training as a serialisable dict.
+
+        Raises:
+            sqlalchemy.exc.IntegrityError: On database constraint violation.
+        """
         db = SessionLocal()
         try:
             t = ORMTraining(
@@ -25,7 +34,7 @@ class TrainingFacade:
                 company_id=company_id,
                 description=kwargs.get('description'),
                 picture=kwargs.get('picture'),
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             )
             db.add(t)
             db.commit()
@@ -38,6 +47,14 @@ class TrainingFacade:
             db.close()
 
     def get(self, training_id):
+        """Retrieve a training by primary key.
+
+        Args:
+            training_id (str): Training UUID.
+
+        Returns:
+            dict | None: Training dict, or ``None`` if not found.
+        """
         db = SessionLocal()
         t: Any = db.query(ORMTraining).filter(
             ORMTraining.id == training_id).first()
@@ -45,12 +62,30 @@ class TrainingFacade:
         return self._to_dict(t) if t else None
 
     def list(self, limit=100):
+        """Return a list of trainings.
+
+        Args:
+            limit (int): Maximum number of rows. Defaults to 100.
+
+        Returns:
+            list[dict]: Serialised training dicts.
+        """
         db = SessionLocal()
         rows = db.query(ORMTraining).limit(limit).all()
         db.close()
         return [self._to_dict(r) for r in rows]
 
     def update(self, training_id, **kwargs):
+        """Partially update a training's mutable fields.
+
+        Args:
+            training_id (str): Training UUID.
+            **kwargs: Fields to update — ``title``, ``company_id``,
+                ``description``, ``picture``, ``is_active``.
+
+        Returns:
+            dict | None: Updated training dict, or ``None`` if not found.
+        """
         db = SessionLocal()
         try:
             training: Any = db.query(ORMTraining).filter(
@@ -71,9 +106,26 @@ class TrainingFacade:
             db.close()
 
     def deactivate(self, training_id, by=None):
+        """Soft-deactivate a training.
+
+        Args:
+            training_id (str): Training UUID.
+            by (str | None): Id of the actor performing the action.
+
+        Returns:
+            dict | None: Updated training dict, or ``None`` if not found.
+        """
         return self.update(training_id, is_active=False)
 
     def delete(self, training_id):
+        """Permanently delete a training row.
+
+        Args:
+            training_id (str): Training UUID.
+
+        Returns:
+            bool: ``True`` when deleted, ``False`` when not found.
+        """
         db = SessionLocal()
         try:
             training: Any = db.query(ORMTraining).filter(
