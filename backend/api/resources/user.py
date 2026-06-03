@@ -10,10 +10,38 @@ from flask_jwt_extended import get_jwt_identity
 from typing import Any
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.uploads import delete_uploaded_file, save_image_upload
 from backend.models.user import User as DomainUser
 
 
 service = UserService()
+
+
+def _request_payload():
+    if request.mimetype and request.mimetype.startswith('multipart/form-data'):
+        return request.form.to_dict(flat=True)
+    return request.get_json(silent=True) or {}
+
+
+def _extract_profile_picture(payload):
+    uploaded_file = request.files.get(
+        'profile_picture_file') or request.files.get('profile_picture')
+    if uploaded_file and uploaded_file.filename:
+        return save_image_upload(uploaded_file, 'users/profile_pictures')
+    return payload.get('profile_picture')
+
+
+def _extract_business_card(payload):
+    uploaded_file = request.files.get(
+        'business_card_file') or request.files.get('business_card')
+    if uploaded_file and uploaded_file.filename:
+        return save_image_upload(uploaded_file, 'users/business_cards')
+    return payload.get('business_card')
+
+
+def _cleanup_replaced_upload(previous_path, new_path):
+    if new_path and previous_path and previous_path != new_path:
+        delete_uploaded_file(previous_path)
 
 
 class UserListResource(Resource):
@@ -37,10 +65,12 @@ class UserListResource(Resource):
     @jwt_required()
     def post(self):
         """Create a user from JSON body (email, password, first_name)."""
-        data = request.get_json() or {}
+        data = _request_payload()
         email = data.get('email')
         password = data.get('password')
         first_name = data.get('first_name')
+        profile_picture = _extract_profile_picture(data)
+        business_card = _extract_business_card(data)
         if not email or not password:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'email and password required', 400)
         # Validate using domain model to ensure consistent field checks
@@ -49,7 +79,13 @@ class UserListResource(Resource):
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         try:
-            user = service.register(email, password, first_name=first_name)
+            user = service.register(
+                email,
+                password,
+                first_name=first_name,
+                profile_picture=profile_picture,
+                business_card=business_card,
+            )
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create user', 409, str(exc))
         return {'user': user}, 201
@@ -69,20 +105,48 @@ class UserMeResource(Resource):
     @jwt_required()
     def patch(self):
         """Partially update current user using provided JSON body."""
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
+        current_user = service.get_by_id(get_jwt_identity())
+        if not current_user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        update_data: dict[str, Any] = {}
+        previous_profile_picture = current_user.get('profile_picture')
+        previous_business_card = current_user.get('business_card')
         try:
             if 'first_name' in data:
-                data['first_name'] = DomainUser.validate_first_name(
+                first_name = DomainUser.validate_first_name(
                     data.get('first_name'))
+                if first_name is not None:
+                    update_data['first_name'] = first_name
             if 'last_name' in data:
-                data['last_name'] = DomainUser.validate_last_name(
+                last_name = DomainUser.validate_last_name(
                     data.get('last_name'))
+                if last_name is not None:
+                    update_data['last_name'] = last_name
+            uploaded_file = request.files.get(
+                'profile_picture_file') or request.files.get('profile_picture')
+            if uploaded_file and uploaded_file.filename:
+                update_data['profile_picture'] = save_image_upload(
+                    uploaded_file, 'users/profile_pictures')
+            elif 'profile_picture' in data:
+                update_data['profile_picture'] = data.get('profile_picture')
+            uploaded_file = request.files.get(
+                'business_card_file') or request.files.get('business_card')
+            if uploaded_file and uploaded_file.filename:
+                update_data['business_card'] = save_image_upload(
+                    uploaded_file, 'users/business_cards')
+            elif 'business_card' in data:
+                update_data['business_card'] = data.get('business_card')
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        user = service.update(get_jwt_identity(), **data)
+        user = service.update(get_jwt_identity(), **update_data)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        _cleanup_replaced_upload(
+            previous_profile_picture, update_data.get('profile_picture'))
+        _cleanup_replaced_upload(
+            previous_business_card, update_data.get('business_card'))
         return {'user': user}
 
 
@@ -100,7 +164,10 @@ class UserResource(Resource):
     @jwt_required()
     def put(self, user_id):
         """Replace name fields for the user."""
-        data = request.get_json() or {}
+        data = _request_payload()
+        current_user = service.get_by_id(user_id)
+        if not current_user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         first_name: Any = data.get('first_name')
         last_name: Any = data.get('last_name')
         # validate name fields to keep parity with creation checks
@@ -110,29 +177,78 @@ class UserResource(Resource):
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        user = service.update(user_id, first_name=fn, last_name=ln)
+        update_data: dict[str, Any] = {'first_name': fn, 'last_name': ln}
+        previous_profile_picture = current_user.get('profile_picture')
+        previous_business_card = current_user.get('business_card')
+        uploaded_file = request.files.get(
+            'profile_picture_file') or request.files.get('profile_picture')
+        if uploaded_file and uploaded_file.filename:
+            update_data['profile_picture'] = save_image_upload(
+                uploaded_file, 'users/profile_pictures')
+        elif 'profile_picture' in data:
+            update_data['profile_picture'] = data.get('profile_picture')
+        uploaded_file = request.files.get(
+            'business_card_file') or request.files.get('business_card')
+        if uploaded_file and uploaded_file.filename:
+            update_data['business_card'] = save_image_upload(
+                uploaded_file, 'users/business_cards')
+        elif 'business_card' in data:
+            update_data['business_card'] = data.get('business_card')
+        user = service.update(user_id, **update_data)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        _cleanup_replaced_upload(
+            previous_profile_picture, update_data.get('profile_picture'))
+        _cleanup_replaced_upload(
+            previous_business_card, update_data.get('business_card'))
         return {'user': user}
 
     @jwt_required()
     def patch(self, user_id):
         """Partial update for the user using provided JSON body."""
-        data = request.get_json(silent=True) or {}
+        data = _request_payload()
+        current_user = service.get_by_id(user_id)
+        if not current_user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        update_data: dict[str, Any] = {}
         # validate optional name fields when provided
+        previous_profile_picture = current_user.get('profile_picture')
+        previous_business_card = current_user.get('business_card')
         try:
             if 'first_name' in data:
-                data['first_name'] = DomainUser.validate_first_name(
+                first_name = DomainUser.validate_first_name(
                     data.get('first_name'))
+                if first_name is not None:
+                    update_data['first_name'] = first_name
             if 'last_name' in data:
-                data['last_name'] = DomainUser.validate_last_name(
+                last_name = DomainUser.validate_last_name(
                     data.get('last_name'))
+                if last_name is not None:
+                    update_data['last_name'] = last_name
+            uploaded_file = request.files.get(
+                'profile_picture_file') or request.files.get('profile_picture')
+            if uploaded_file and uploaded_file.filename:
+                update_data['profile_picture'] = save_image_upload(
+                    uploaded_file, 'users/profile_pictures')
+            elif 'profile_picture' in data:
+                update_data['profile_picture'] = data.get('profile_picture')
+            uploaded_file = request.files.get(
+                'business_card_file') or request.files.get('business_card')
+            if uploaded_file and uploaded_file.filename:
+                update_data['business_card'] = save_image_upload(
+                    uploaded_file, 'users/business_cards')
+            elif 'business_card' in data:
+                update_data['business_card'] = data.get('business_card')
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        user = service.update(user_id, **data)
+        user = service.update(user_id, **update_data)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        _cleanup_replaced_upload(
+            previous_profile_picture, update_data.get('profile_picture'))
+        _cleanup_replaced_upload(
+            previous_business_card, update_data.get('business_card'))
         return {'user': user}
 
     @jwt_required()
