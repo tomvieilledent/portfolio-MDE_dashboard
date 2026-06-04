@@ -261,10 +261,16 @@ OPENAPI_SPEC = {
                 "required": ["title"],
                 "properties": {
                     "title": {"type": "string"},
-                    "source": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "summary": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "url": {"type": "string", "nullable": True, "example": None, "description": "Expected type: string or null."},
-                    "published_at": {"type": "string", "format": "date-time", "nullable": True, "example": None, "description": "Expected type: date-time string or null."},
+                    "source": {"type": "string", "nullable": True, "example": None},
+                    "summary": {"type": "string", "nullable": True, "example": None},
+                    "url": {"type": "string", "nullable": True, "example": None},
+                    "published_at": {"type": "string", "format": "date-time", "nullable": True, "example": None},
+                    "category": {
+                        "type": "string",
+                        "nullable": True,
+                        "enum": ["réglementation", "vie-entreprises", "opportunités", "territoire"],
+                        "example": "réglementation",
+                    },
                 },
             },
             "TrainingSessionCreateRequest": {
@@ -518,9 +524,46 @@ OPENAPI_SPEC = {
         "/messages/{message_id}": {"delete": {"tags": ["Messages"], "summary": "Delete message", "parameters": [{"name": "message_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
         "/notifications": {"get": {"tags": ["Notifications"], "summary": "List notifications", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["Notifications"], "summary": "Create notification", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
         "/notifications/{notification_id}": {"patch": {"tags": ["Notifications"], "summary": "Mark notification as read", "parameters": [{"name": "notification_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object", "properties": {"is_read": {"type": "boolean"}}}}}}, "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["Notifications"], "summary": "Delete notification", "parameters": [{"name": "notification_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
-        "/news": {"get": {"tags": ["News"], "summary": "List news", "responses": {"200": {"description": "OK"}}}, "post": {"tags": ["News"], "summary": "Create news item", "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewsCreateRequest"}}}}, "responses": {"201": {"description": "Created"}}}},
-        "/news/{news_id}": {"get": {"tags": ["News"], "summary": "Get news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}, "delete": {"tags": ["News"], "summary": "Delete news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}}},
-        "/news/sync": {"post": {"tags": ["News"], "summary": "Sync news (not implemented)", "responses": {"501": {"description": "Not implemented"}}}},
+        "/news": {
+            "get": {
+                "tags": ["News"],
+                "summary": "List news items",
+                "parameters": [
+                    {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "description": "Filter by category",
+                        "schema": {"type": "string", "enum": ["réglementation", "vie-entreprises", "opportunités", "territoire"]},
+                    },
+                    {"name": "source", "in": "query", "description": "Filter by source name (e.g. BODACC, BOAMP)", "schema": {"type": "string"}},
+                ],
+                "responses": {"200": {"description": "OK"}},
+            },
+            "post": {
+                "tags": ["News"],
+                "summary": "Create news item",
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewsCreateRequest"}}}},
+                "responses": {"201": {"description": "Created"}},
+                "security": [{"BearerAuth": []}],
+            },
+        },
+        "/news/{news_id}": {
+            "get": {"tags": ["News"], "summary": "Get news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}},
+            "delete": {"tags": ["News"], "summary": "Delete news item", "parameters": [{"name": "news_id", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "OK"}}, "security": [{"BearerAuth": []}]},
+        },
+        "/news/sync": {
+            "post": {
+                "tags": ["News"],
+                "summary": "Trigger external news sync",
+                "description": "Fetches latest items from BODACC, BOAMP, Journal Officiel, BOFiP and URSSAF and stores new entries.",
+                "responses": {
+                    "200": {"description": "Sync completed", "content": {"application/json": {"schema": {"type": "object", "properties": {"synced": {"type": "integer", "description": "Number of new items inserted"}}}}}},
+                    "500": {"description": "Sync failed"},
+                },
+                "security": [{"BearerAuth": []}],
+            }
+        },
         "/formation-users": {
             "get": {
                 "tags": ["Formation Users"],
