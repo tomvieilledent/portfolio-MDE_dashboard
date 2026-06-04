@@ -268,7 +268,7 @@ OPENAPI_SPEC = {
                     "category": {
                         "type": "string",
                         "nullable": True,
-                        "enum": ["réglementation", "vie-entreprises", "opportunités", "territoire"],
+                        "enum": ["actualités", "réglementation", "vie-entreprises", "opportunités", "territoire"],
                         "example": "réglementation",
                     },
                 },
@@ -534,7 +534,7 @@ OPENAPI_SPEC = {
                         "name": "category",
                         "in": "query",
                         "description": "Filter by category",
-                        "schema": {"type": "string", "enum": ["réglementation", "vie-entreprises", "opportunités", "territoire"]},
+                        "schema": {"type": "string", "enum": ["actualités", "réglementation", "vie-entreprises", "opportunités", "territoire"]},
                     },
                     {"name": "source", "in": "query", "description": "Filter by source name (e.g. BODACC, BOAMP)", "schema": {"type": "string"}},
                 ],

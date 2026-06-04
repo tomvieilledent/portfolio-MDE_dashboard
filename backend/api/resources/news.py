@@ -12,7 +12,7 @@ from backend.persistence.services import NewsService
 news_service = NewsService()
 
 # Valid category values (mirrors news_sync.SOURCES categories)
-VALID_CATEGORIES = {'réglementation', 'vie-entreprises', 'opportunités', 'territoire'}
+VALID_CATEGORIES = {'actualités', 'réglementation', 'vie-entreprises', 'opportunités', 'territoire'}
 
 
 class NewsListResource(Resource):
@@ -30,10 +30,11 @@ class NewsListResource(Resource):
         Returns:
             tuple[dict, int]: ``{news}`` and 200.
         """
-        limit = request.args.get('limit', default=100, type=int)
+        limit = request.args.get('limit', default=20, type=int)
+        offset = request.args.get('offset', default=0, type=int)
         category = request.args.get('category') or None
         source = request.args.get('source') or None
-        return {'news': news_service.facade.list(limit=limit, category=category, source=source)}
+        return news_service.facade.list(limit=limit, offset=offset, category=category, source=source)
 
     @jwt_required()
     def post(self):
