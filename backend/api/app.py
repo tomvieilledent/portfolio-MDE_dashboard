@@ -174,7 +174,7 @@ def create_app():
     api.add_resource(FormationUserResource,
                      '/formation-users/<string:relation_id>')
 
-    @app.route('/')
+    @app.route('/status')
     def home():
         return jsonify({'ok': True})
 
@@ -183,6 +183,7 @@ def create_app():
         """Return the OpenAPI specification as JSON."""
         return jsonify(OPENAPI_SPEC)
 
+    @app.route('/')
     @app.route('/docs')
     @app.route('/swagger')
     def swagger_docs():
