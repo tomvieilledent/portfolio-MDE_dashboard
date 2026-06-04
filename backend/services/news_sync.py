@@ -1,60 +1,67 @@
-"""Hourly sync of French economic news from public sources.
+"""Hourly sync of French economic news — réglementation et vie des entreprises.
 
-Categories:
-    réglementation  — JO, BOFiP, URSSAF
-    vie-entreprises — BODACC (créations, faillites, cessions)
-    opportunités    — BOAMP (marchés publics), subventions
-    territoire      — emploi, données territoriales
+Sources actives (RSS presse spécialisée) :
+    réglementation  — Figaro Entreprises, BFM Entreprises, Le Monde Éco, Challenges, Capital
+Sources officielles (best-effort, souvent bloquées) :
+    réglementation  — Journal Officiel, BOFiP, URSSAF
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import mktime
 
 import feedparser
 import requests
 
+from backend.persistence.db import SessionLocal
+from backend.persistence.models import News as ORMNews
 from backend.persistence.services.facades.news_facade_sql import NewsFacade
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT = 10  # seconds per source
+TIMEOUT = 10
 
-SOURCES = [
+RSS_SOURCES = [
     {
-        'name': 'BOAMP',
-        'category': 'opportunités',
-        'type': 'rss',
-        'url': 'https://www.boamp.fr/avis/feed/',
+        'name': 'Net-Entreprises',
+        'category': 'réglementation',
+        'url': 'https://www.net-entreprises.fr/actualites/rss/',
+        'check_url': True,
+    },
+    {
+        'name': 'Ministère du Travail',
+        'category': 'réglementation',
+        'url': 'https://travail-emploi.gouv.fr/rss.xml',
+        'check_url': False,  # bloque les HEAD/GET Python (TLS fingerprinting)
+    },
+    {
+        'name': 'Douanes',
+        'category': 'réglementation',
+        'url': 'https://www.douane.gouv.fr/rss.xml',
+        'check_url': True,  # vraies 404 sur les vieilles URLs
+    },
+    {
+        'name': 'INPI',
+        'category': 'réglementation',
+        'url': 'https://www.inpi.fr/rss.xml',
+        'check_url': True,
     },
     {
         'name': 'Journal Officiel',
         'category': 'réglementation',
-        'type': 'rss',
         'url': 'https://www.legifrance.gouv.fr/feeds/jorf',
+        'check_url': False,
     },
     {
         'name': 'BOFiP',
         'category': 'réglementation',
-        'type': 'rss',
-        'url': 'https://bofip.impots.gouv.fr/bofip/rss/actualites',
-    },
-    {
-        'name': 'URSSAF',
-        'category': 'réglementation',
-        'type': 'rss',
-        'url': 'https://www.urssaf.fr/portail/files/live/sites/urssalfr/files/rss/ActualitesDerniers.xml',
-    },
-    {
-        'name': 'BODACC',
-        'category': 'vie-entreprises',
-        'type': 'bodacc',
+        'url': 'https://bofip.impots.gouv.fr/rss.xml',
+        'check_url': False,
     },
 ]
 
 
 def _parse_date(parsed_time):
-    """Convert feedparser time tuple to UTC datetime."""
     if not parsed_time:
         return None
     try:
@@ -63,24 +70,63 @@ def _parse_date(parsed_time):
         return None
 
 
+def _parse_iso(date_str):
+    if not date_str:
+        return None
+    try:
+        dt = datetime.fromisoformat(date_str)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+_HEAD_HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+
+
+def _url_reachable(url):
+    """Return True if the URL responds with a 2xx or 3xx status code."""
+    try:
+        r = requests.head(url, timeout=5, headers=_HEAD_HEADERS, allow_redirects=True)
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
+def _strip_html(text):
+    import re
+    return re.sub(r'<[^>]+>', ' ', text).strip()
+
+
 def _fetch_rss(source, facade):
-    feed = feedparser.parse(source['url'])
-    if feed.bozo and not feed.entries:
-        logger.warning("RSS %s: parse error — %s", source['name'], feed.bozo_exception)
+    try:
+        resp = requests.get(source['url'], timeout=TIMEOUT,
+                            headers=_HEAD_HEADERS)
+        feed = feedparser.parse(resp.text)
+    except Exception as exc:
+        logger.warning("RSS %s: %s", source['name'], exc)
         return 0
+
     count = 0
     for entry in feed.entries[:20]:
-        url = entry.get('link', '').strip()
+        url = str(entry.get('link') or '').strip()
         if not url or facade.url_exists(url):
             continue
-        title = entry.get('title', '').strip()
+        title = str(entry.get('title') or '').strip()
         if not title:
             continue
-        summary = (entry.get('summary') or entry.get('description') or '').strip()
+        raw_summary = str(entry.get('summary') or entry.get('description') or '').strip()
+        summary = _strip_html(raw_summary)
+        # skip articles without body
+        if not summary:
+            continue
+        # skip articles with broken URLs (only for sources where check_url=True)
+        if source.get('check_url') and not _url_reachable(url):
+            logger.info("RSS %s: skipping unreachable %s", source['name'], url)
+            continue
         facade.create(
             title=title[:500],
             source=source['name'],
-            summary=summary[:2000] or None,
+            summary=summary[:2000],
             url=url,
             published_at=_parse_date(entry.get('published_parsed')),
             category=source['category'],
@@ -90,7 +136,7 @@ def _fetch_rss(source, facade):
 
 
 def _fetch_bodacc(facade):
-    """Fetch latest BODACC announcements (créations, faillites, cessions)."""
+    """Créations, cessions, liquidations depuis BODACC OpenDataSoft."""
     url = (
         'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1'
         '/catalog/datasets/annonces-commerciales/records'
@@ -100,63 +146,101 @@ def _fetch_bodacc(facade):
         resp = requests.get(url, params=params, timeout=TIMEOUT)
         resp.raise_for_status()
     except Exception as exc:
-        logger.warning("BODACC request failed: %s", exc)
+        logger.warning("BODACC: %s", exc)
         return 0
 
     count = 0
-    for record in resp.json().get('results', []):
-        num = record.get('numenregistrement', '').strip()
-        if not num:
-            continue
-        canonical_url = f"https://www.bodacc.fr/pages/annonces-commerciales-detail/?q.id=id:{num}"
-        if facade.url_exists(canonical_url):
+    for rec in resp.json().get('results', []):
+        canonical_url = str(rec.get('url_complete') or '').strip()
+        if not canonical_url or facade.url_exists(canonical_url):
             continue
 
-        nom = record.get('nomEntreprise', '').strip()
-        famille = record.get('familleavis', '').strip()
-        type_avis = record.get('typeavis', '').strip()
-        tribunal = record.get('tribunal', '').strip()
-        pub = record.get('publicationavis', '').strip()
-        date_str = record.get('dateparution', '')
+        commercant = str(rec.get('commercant') or '').strip()
+        famille_lib = str(rec.get('familleavis_lib') or '').strip()
+        type_lib = str(rec.get('typeavis_lib') or '').strip()
+        tribunal = str(rec.get('tribunal') or '').strip()
+        ville = str(rec.get('ville') or '').strip()
 
-        title = ' — '.join(filter(None, [famille, nom or type_avis]))
+        title = ' — '.join(filter(None, [famille_lib, commercant]))
         if not title:
             continue
 
-        published_at = None
-        if date_str:
-            try:
-                published_at = datetime.fromisoformat(date_str)
-                if published_at.tzinfo is None:
-                    published_at = published_at.replace(tzinfo=timezone.utc)
-            except Exception:
-                pass
-
-        summary_parts = filter(None, [type_avis, tribunal, pub])
+        summary_parts = list(filter(None, [type_lib, tribunal, ville]))
         facade.create(
             title=title[:500],
             source='BODACC',
             summary=' | '.join(summary_parts)[:2000] or None,
             url=canonical_url,
-            published_at=published_at,
+            published_at=_parse_iso(rec.get('dateparution')),
             category='vie-entreprises',
         )
         count += 1
     return count
 
 
+def _fetch_boamp(facade):
+    """Marchés publics depuis BOAMP OpenDataSoft."""
+    url = (
+        'https://boamp-datadila.opendatasoft.com/api/explore/v2.1'
+        '/catalog/datasets/boamp/records'
+    )
+    params = {'limit': 20, 'order_by': 'dateparution desc', 'timezone': 'UTC'}
+    try:
+        resp = requests.get(url, params=params, timeout=TIMEOUT)
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.warning("BOAMP: %s", exc)
+        return 0
+
+    count = 0
+    for rec in resp.json().get('results', []):
+        canonical_url = str(rec.get('url_avis') or '').strip()
+        rec_id = str(rec.get('id') or '').strip()
+        if not canonical_url:
+            if not rec_id:
+                continue
+            canonical_url = f"https://www.boamp.fr/avis/detail/{rec_id}"
+
+        if facade.url_exists(canonical_url):
+            continue
+
+        objet = str(rec.get('objet') or '').strip()
+        acheteur = str(rec.get('nomacheteur') or '').strip()
+        nature_lib = str(rec.get('nature_libelle') or '').strip()
+        famille_lib = str(rec.get('famille_libelle') or '').strip()
+
+        title = objet or acheteur
+        if not title:
+            continue
+
+        summary_parts = list(filter(None, [nature_lib, famille_lib, acheteur]))
+        facade.create(
+            title=title[:500],
+            source='BOAMP',
+            summary=' | '.join(summary_parts)[:2000] or None,
+            url=canonical_url,
+            published_at=_parse_iso(rec.get('dateparution')),
+            category='opportunités',
+        )
+        count += 1
+    return count
+
+
 def sync_all():
-    """Fetch all sources and store new items. Returns total inserted count."""
+    """Purge articles older than 30 days then fetch all sources."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    db = SessionLocal()
+    try:
+        db.query(ORMNews).filter(ORMNews.created_at < cutoff).delete()
+        db.commit()
+    finally:
+        db.close()
+
     facade = NewsFacade()
     total = 0
-    for source in SOURCES:
+    for source in RSS_SOURCES:
         try:
-            if source['type'] == 'rss':
-                n = _fetch_rss(source, facade)
-            elif source['type'] == 'bodacc':
-                n = _fetch_bodacc(facade)
-            else:
-                n = 0
+            n = _fetch_rss(source, facade)
             logger.info("news_sync: %s → %d new items", source['name'], n)
             total += n
         except Exception as exc:

@@ -32,15 +32,22 @@ class NewsFacade:
             news: Any = db.query(ORMNews).filter(ORMNews.id == news_id).first()
             return self._to_dict(news) if news else None
 
-    def list(self, limit=100, category=None, source=None):
+    def list(self, limit=20, offset=0, category=None, source=None):
         with session_scope() as db:
             q = db.query(ORMNews)
             if category:
                 q = q.filter(ORMNews.category == category)
             if source:
                 q = q.filter(ORMNews.source == source)
-            rows = q.order_by(ORMNews.created_at.desc()).limit(limit).all()
-            return [self._to_dict(row) for row in rows]
+            total = q.count()
+            rows = q.order_by(ORMNews.created_at.desc()).offset(offset).limit(limit).all()
+            return {
+                'items': [self._to_dict(row) for row in rows],
+                'total': total,
+                'offset': offset,
+                'limit': limit,
+                'has_more': offset + limit < total,
+            }
 
     def url_exists(self, url):
         if not url:

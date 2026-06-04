@@ -110,6 +110,7 @@ def create_app():
     def uploaded_file(filename):
         return send_from_directory(UPLOAD_ROOT, filename)
 
+
     api.add_resource(AuthRegisterResource, '/auth/register')
     api.add_resource(AuthLoginResource, '/auth/login')
     api.add_resource(AuthRefreshResource, '/auth/refresh')
@@ -192,16 +193,17 @@ def create_app():
     # parent process so the job only runs once per server instance).
     if not app.testing and os.environ.get('WERKZEUG_RUN_MAIN', 'true') == 'true':
         try:
+            from datetime import datetime, timezone
             from apscheduler.schedulers.background import BackgroundScheduler
             from backend.services.news_sync import sync_all
 
             scheduler = BackgroundScheduler(daemon=True)
-            # Run immediately on startup, then every hour
             scheduler.add_job(sync_all, 'interval', hours=1,
-                               id='news_sync', replace_existing=True)
+                               id='news_sync', replace_existing=True,
+                               next_run_time=datetime.now(timezone.utc))
             scheduler.start()
             atexit.register(scheduler.shutdown)
         except Exception:
-            pass  # APScheduler not installed or import error — skip silently
+            pass
 
     return app
