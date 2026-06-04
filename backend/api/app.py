@@ -4,6 +4,7 @@ This module exposes `create_app()` which configures Flask, JWT callbacks,
 error handlers and registers all API resources for the application.
 """
 
+import atexit
 import os
 
 from flask import Flask, jsonify, send_from_directory
@@ -186,5 +187,21 @@ def create_app():
     def swagger_docs():
         """Serve the Swagger UI page for interactive API testing."""
         return SWAGGER_UI_HTML
+
+    # Start hourly news sync scheduler (skip in test mode and in the reloader
+    # parent process so the job only runs once per server instance).
+    if not app.testing and os.environ.get('WERKZEUG_RUN_MAIN', 'true') == 'true':
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from backend.services.news_sync import sync_all
+
+            scheduler = BackgroundScheduler(daemon=True)
+            # Run immediately on startup, then every hour
+            scheduler.add_job(sync_all, 'interval', hours=1,
+                               id='news_sync', replace_existing=True)
+            scheduler.start()
+            atexit.register(scheduler.shutdown)
+        except Exception:
+            pass  # APScheduler not installed or import error — skip silently
 
     return app

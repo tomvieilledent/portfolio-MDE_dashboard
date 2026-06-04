@@ -5,7 +5,7 @@ This module centralizes the engine creation, the session factory
 """
 
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 
@@ -66,5 +66,16 @@ try:
             _models.Base.metadata.create_all(bind=engine)
         except Exception:
             pass
+except Exception:
+    pass
+
+# Add missing columns to existing tables (safe ALTER TABLE migrations)
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('news')"))
+        news_cols = [row[1] for row in res]
+        if 'category' not in news_cols:
+            conn.execute(text("ALTER TABLE news ADD COLUMN category VARCHAR(100)"))
+            conn.commit()
 except Exception:
     pass

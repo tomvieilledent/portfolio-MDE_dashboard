@@ -126,6 +126,7 @@ class News(Base):
     source = Column(String(200))
     summary = Column(String(2000))
     url = Column(String(512))
+    category = Column(String(100))
     published_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
