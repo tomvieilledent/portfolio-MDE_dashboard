@@ -1,7 +1,9 @@
 from flask import request
 from flask_socketio import emit, join_room, leave_room
-from backend.api.auth import verify_token
+# socket auth helper verifies JWT for socket connections
+from backend.api.socket_auth import verify_token
 from backend.api.sockets import socketio
+from backend.persistence.services import MessageService
 # Use the built-in ConnectionRefusedError exception
 
 
@@ -43,14 +45,63 @@ def handle_disconnect():
 
 @socketio.on("join_conversation")
 def handle_join_conversation(data):
-    ...
+    conversation_id = (data or {}).get('conversation_id')
+    if not conversation_id:
+        return
+    sid = request.sid  # type: ignore[attr-defined]
+    user_id = connected_users.get(sid)
+    if not user_id:
+        return
+    room = conversation_room(conversation_id)
+    join_room(room)
+    print(f"User {user_id} joined room {room}")
+    emit('joined_conversation', {'conversation_id': conversation_id}, to=sid)
 
 
 @socketio.on("leave_conversation")
 def handle_leave_conversation(data):
-    ...
+    conversation_id = (data or {}).get('conversation_id')
+    if not conversation_id:
+        return
+    sid = request.sid  # type: ignore[attr-defined]
+    user_id = connected_users.get(sid)
+    if not user_id:
+        return
+    room = conversation_room(conversation_id)
+    leave_room(room)
+    print(f"User {user_id} left room {room}")
+    emit('left_conversation', {'conversation_id': conversation_id}, to=sid)
 
 
 @socketio.on("send_message")
 def handle_send_message(data):
-    ...
+    # Expected data: { content, conversation_id, recipient_id? }
+    sid = request.sid  # type: ignore[attr-defined]
+    user_id = connected_users.get(sid)
+    if not user_id:
+        return
+    payload = data or {}
+    content = payload.get('content')
+    conversation_id = payload.get('conversation_id')
+    recipient_id = payload.get('recipient_id')
+    if not content:
+        return
+    # persist message
+    service = MessageService()
+    try:
+        message = service.facade.create(
+            author_id=user_id,
+            content=content,
+            recipient_id=recipient_id,
+            conversation_id=conversation_id,
+        )
+    except Exception as exc:
+        print('Failed to persist message:', exc)
+        return
+
+    # emit to conversation room if available, otherwise to sender only
+    if conversation_id:
+        room = conversation_room(conversation_id)
+        socketio.emit('new_message', {'message': message}, to=room)
+    else:
+        emit('new_message', {'message': message}, to=sid)
