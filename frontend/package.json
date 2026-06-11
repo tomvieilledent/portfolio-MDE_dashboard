@@ -1,0 +1,22 @@
+{
+  "name": "portfolio-mde-dashboard-frontend",
+  "version": "1.0.0",
+  "description": "Frontend pour le tableau de bord MDE avec messagerie",
+  "main": "index.html",
+  "scripts": {
+    "dev": "http-server -p 8000 -c-1",
+    "build": "echo 'Frontend est prêt à être déployé'",
+    "start": "http-server -p 8000"
+  },
+  "keywords": [
+    "messagerie",
+    "chat",
+    "mde",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
