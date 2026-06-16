@@ -19,7 +19,14 @@ from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, Au
 from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
 from backend.api.resources.conversation import ConversationListResource, ConversationResource
 from backend.api.resources.formation_user import FormationUserListResource, FormationUserResource
-from backend.api.resources.message import ConversationMessagesResource, MessageListResource, MessageResource
+from backend.api.resources.message import (
+    ConversationMessagesResource,
+    ConversationReadResource,
+    MessageListResource,
+    MessageReadResource,
+    MessageResource,
+    UnreadCountResource,
+)
 from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.training import (
@@ -162,8 +169,13 @@ def create_app():
     api.add_resource(ConversationMessagesResource,
                      '/conversations/<string:conversation_id>/messages',
                      '/rooms/<string:conversation_id>/messages')
+    api.add_resource(ConversationReadResource,
+                     '/conversations/<string:conversation_id>/read',
+                     '/rooms/<string:conversation_id>/read')
 
     api.add_resource(MessageListResource, '/messages')
+    api.add_resource(UnreadCountResource, '/messages/unread')
+    api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')
     api.add_resource(MessageResource, '/messages/<string:message_id>')
 
     api.add_resource(NotificationListResource, '/notifications')

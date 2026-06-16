@@ -136,6 +136,64 @@ def test_conversation_rest_enforces_membership(seeded_context):
                          headers=member_headers).status_code == 200
 
 
+def test_conversation_read_and_unread_flow(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    outsider_headers = seeded_context['company_admin_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    # Member sends two messages; admin authors none here.
+    for _ in range(2):
+        posted = client.post(f'/conversations/{conversation_id}/messages',
+                             headers=member_headers, json={'content': 'hi'})
+        assert posted.status_code == 201
+        assert posted.get_json()['message']['is_read'] is False
+
+    # Admin has 2 unread; the author (member) has 0.
+    assert client.get('/messages/unread', headers=admin_headers).get_json() == {
+        'unread': 2, 'conversations': 2, 'direct': 0}
+    assert client.get('/messages/unread', headers=member_headers).get_json()[
+        'unread'] == 0
+    # An outsider sees nothing.
+    assert client.get('/messages/unread', headers=outsider_headers).get_json()[
+        'unread'] == 0
+
+    # Outsider cannot mark the conversation read.
+    assert_error(client.post(f'/conversations/{conversation_id}/read',
+                             headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+
+    # Admin marks the whole conversation read.
+    mark = client.post(f'/conversations/{conversation_id}/read', headers=admin_headers)
+    assert mark.status_code == 200
+    assert mark.get_json() == {'updated': 2}
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    # Idempotent: nothing left to mark.
+    assert client.post(f'/conversations/{conversation_id}/read',
+                       headers=admin_headers).get_json() == {'updated': 0}
+
+    # A fresh message is unread again, and can be marked read one by one.
+    new_id = client.post(f'/conversations/{conversation_id}/messages',
+                         headers=member_headers, json={'content': 'again'}
+                         ).get_json()['message']['id']
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 1
+    read_one = client.post(f'/messages/{new_id}/read', headers=admin_headers)
+    assert read_one.status_code == 200
+    assert read_one.get_json()['message']['is_read'] is True
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    # Outsider may not mark an individual message in a conversation they're not in.
+    assert_error(client.post(f'/messages/{new_id}/read', headers=outsider_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+
 def test_notifications_flow(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']

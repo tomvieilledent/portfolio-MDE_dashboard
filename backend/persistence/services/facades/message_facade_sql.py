@@ -108,6 +108,87 @@ class MessageFacade:
             )
             return [self._to_dict(row) for row in rows]
 
+    def mark_read(self, message_id, user_id):
+        """Mark a single message as read on behalf of a reader.
+
+        A message is only flagged when the reader is *not* its author
+        (you don't "read" your own message). Idempotent.
+
+        Args:
+            message_id (str): Message UUID.
+            user_id (str): UUID of the reader.
+
+        Returns:
+            dict | None: Updated message dict, or ``None`` if not found.
+        """
+        with session_scope() as db:
+            message: Any = db.query(ORMMessage).filter(
+                ORMMessage.id == message_id).first()
+            if not message:
+                return None
+            if message.author_id != user_id and not message.is_read:
+                message.is_read = True
+                db.flush()
+                db.refresh(message)
+            return self._to_dict(message)
+
+    def mark_conversation_read(self, conversation_id, user_id):
+        """Mark every message in a conversation as read for a given user.
+
+        Only messages the user did not author are affected.
+
+        Args:
+            conversation_id (str): Conversation UUID.
+            user_id (str): UUID of the reader.
+
+        Returns:
+            int: Number of messages newly marked as read.
+        """
+        with session_scope() as db:
+            return db.query(ORMMessage).filter(
+                ORMMessage.conversation_id == conversation_id,
+                ORMMessage.author_id != user_id,
+                ORMMessage.is_read.is_(False),
+            ).update({ORMMessage.is_read: True}, synchronize_session=False)
+
+    def count_unread_for_conversations(self, conversation_ids, user_id):
+        """Count unread messages across the given conversations for a user.
+
+        Args:
+            conversation_ids (list[str]): Conversation UUIDs to scan.
+            user_id (str): UUID of the reader.
+
+        Returns:
+            int: Number of unread messages not authored by the user.
+        """
+        if not conversation_ids:
+            return 0
+        with session_scope() as db:
+            return db.query(ORMMessage).filter(
+                ORMMessage.conversation_id.in_(conversation_ids),
+                ORMMessage.author_id != user_id,
+                ORMMessage.is_read.is_(False),
+            ).count()
+
+    def count_unread_dms(self, user_id):
+        """Count unread direct messages addressed to a user.
+
+        Direct messages are those with a ``recipient_id`` and no
+        ``conversation_id``.
+
+        Args:
+            user_id (str): Recipient UUID.
+
+        Returns:
+            int: Number of unread direct messages.
+        """
+        with session_scope() as db:
+            return db.query(ORMMessage).filter(
+                ORMMessage.recipient_id == user_id,
+                ORMMessage.conversation_id.is_(None),
+                ORMMessage.is_read.is_(False),
+            ).count()
+
     def delete(self, message_id):
         """Permanently delete a message row.
 
@@ -132,6 +213,7 @@ class MessageFacade:
             'recipient_id': message.recipient_id,
             'conversation_id': message.conversation_id,
             'content': message.content,
+            'is_read': bool(message.is_read),
             'created_at': isoformat(message.created_at),
             'updated_at': isoformat(getattr(message, 'updated_at', None)),
             'deactivate_by': getattr(message, 'deactivate_by', None),

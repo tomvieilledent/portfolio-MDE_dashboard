@@ -79,3 +79,14 @@ try:
             conn.commit()
 except Exception:
     pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('messages')"))
+        message_cols = [row[1] for row in res]
+        if 'is_read' not in message_cols:
+            conn.execute(text(
+                "ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT 0"))
+            conn.commit()
+except Exception:
+    pass

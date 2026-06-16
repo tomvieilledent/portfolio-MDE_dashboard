@@ -13,10 +13,20 @@ connected_users = {}
 # truth), which is what the REST API writes — not the conversation_participants
 # table, which the public API never populates.
 conversation_facade = ConversationFacade()
+message_service = MessageService()
 
 
 def conversation_room(conversation_id):
     return f"conversation:{conversation_id}"
+
+
+def user_room(user_id):
+    """Personal room a user auto-joins on connect, used for direct messages.
+
+    Joining ``user:<id>`` lets us deliver 1-to-1 messages (and read
+    receipts) to every device the user is connected from.
+    """
+    return f"user:{user_id}"
 
 
 @socketio.on("connect")
@@ -38,6 +48,8 @@ def handle_connect(auth):
 
     sid = request.sid  # type: ignore[attr-defined]
     connected_users[sid] = user_id
+    # Join a personal room so direct messages reach all of the user's devices.
+    join_room(user_room(user_id))
     print(f"Client connecté : user={user_id}, sid={sid}")
 
 
@@ -97,9 +109,12 @@ def handle_send_message(data):
         emit('error', {'message': 'not a participant in this conversation'}, to=sid)
         return
 
-    service = MessageService()
+    if not conversation_id and not recipient_id:
+        emit('error', {'message': 'recipient_id or conversation_id required'}, to=sid)
+        return
+
     try:
-        message = service.facade.create(
+        message = message_service.facade.create(
             author_id=user_id,
             content=content,
             recipient_id=recipient_id,
@@ -113,4 +128,43 @@ def handle_send_message(data):
         room = conversation_room(conversation_id)
         socketio.emit('new_message', {'message': message}, to=room)
     else:
-        emit('new_message', {'message': message}, to=sid)
+        # Direct message: deliver to the recipient and back to the author's
+        # own devices via their personal rooms.
+        socketio.emit('new_message', {'message': message}, to=user_room(recipient_id))
+        socketio.emit('new_message', {'message': message}, to=user_room(user_id))
+
+
+@socketio.on("mark_read")
+def handle_mark_read(data):
+    """Mark messages as read and broadcast a read receipt.
+
+    Payload accepts either ``conversation_id`` (marks the whole conversation
+    read for the caller) or ``message_id`` (marks a single direct message).
+    """
+    sid = request.sid  # type: ignore[attr-defined]
+    user_id = connected_users.get(sid)
+    if not user_id:
+        return
+    payload = data or {}
+    conversation_id = payload.get('conversation_id')
+    message_id = payload.get('message_id')
+
+    if conversation_id:
+        if not conversation_facade.is_participant(conversation_id, user_id):
+            emit('error', {'message': 'not a participant in this conversation'}, to=sid)
+            return
+        updated = message_service.facade.mark_conversation_read(conversation_id, user_id)
+        if updated:
+            socketio.emit('messages_read',
+                          {'conversation_id': conversation_id, 'reader_id': user_id},
+                          to=conversation_room(conversation_id))
+        return
+
+    if message_id:
+        message = message_service.facade.mark_read(message_id, user_id)
+        if not message:
+            return
+        # Notify the original author (on their personal room) that it was read.
+        socketio.emit('messages_read',
+                      {'message_id': message_id, 'reader_id': user_id},
+                      to=user_room(message['author_id']))

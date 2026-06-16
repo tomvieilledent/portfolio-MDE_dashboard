@@ -164,6 +164,25 @@ def on_msg_send(data):
 
 Votre repo a `backend/api/socket_events/message.py` — place ideale pour intégrer cette logique.
 
+### 5.bis Contrat **réellement implémenté** (à jour)
+
+Les noms ci-dessus sont la cible historique ; le code en place utilise :
+
+Client → serveur :
+- `join_conversation` / `leave_conversation` `{conversation_id}` — refusé (`error`) si non-membre
+- `send_message` `{content, conversation_id?, recipient_id?}` — fournir l'un *ou* l'autre
+- `mark_read` `{conversation_id}` (marque toute la conversation lue) *ou* `{message_id}` (DM unique)
+
+Serveur → client :
+- `new_message` `{message}` — `message.is_read` inclus
+- `joined_conversation` / `left_conversation` `{conversation_id}`
+- `messages_read` `{conversation_id|message_id, reader_id}` — accusé de lecture
+- `error` `{message}`
+
+Rooms : `conversation:<id>` pour les conversations ; **`user:<id>`** rejoint automatiquement à la connexion, utilisé pour livrer les **messages directs** (1-à-1, sans `conversation_id`) et les accusés de lecture à tous les appareils d'un utilisateur.
+
+Côté REST (lu/non-lu) : `POST /conversations/<id>/read`, `POST /messages/<id>/read`, `GET /messages/unread` → `{unread, conversations, direct}`.
+
 ---
 
 ## 6. Rooms & scalabilité

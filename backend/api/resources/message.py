@@ -67,6 +67,77 @@ class MessageResource(Resource):
         return {'msg': 'message deleted'}
 
 
+class UnreadCountResource(Resource):
+    """Report the authenticated user's unread message counts."""
+
+    @jwt_required()
+    def get(self):
+        """Return unread counts for the current user.
+
+        Returns:
+            tuple[dict, int]: ``{unread, conversations, direct}`` and 200.
+        """
+        identity = get_jwt_identity()
+        conversations = conversation_service.facade.list_by_participant(
+            identity, limit=1000)
+        conversation_ids = [c['id'] for c in conversations]
+        conversation_unread = message_service.facade.count_unread_for_conversations(
+            conversation_ids, identity)
+        direct_unread = message_service.facade.count_unread_dms(identity)
+        return {
+            'unread': conversation_unread + direct_unread,
+            'conversations': conversation_unread,
+            'direct': direct_unread,
+        }
+
+
+class MessageReadResource(Resource):
+    """Mark a single message as read."""
+
+    @jwt_required()
+    def post(self, message_id):
+        """Mark a message as read on behalf of the authenticated user.
+
+        Args:
+            message_id (str): Message UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{message}`` and 200, or 404.
+        """
+        identity = get_jwt_identity()
+        message = message_service.facade.get(message_id)
+        if not message:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
+        conversation_id = message.get('conversation_id')
+        if conversation_id:
+            if not conversation_service.facade.is_participant(conversation_id, identity):
+                return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
+        elif message.get('recipient_id') != identity:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
+        return {'message': message_service.facade.mark_read(message_id, identity)}
+
+
+class ConversationReadResource(Resource):
+    """Mark every message in a conversation as read for the caller."""
+
+    @jwt_required()
+    def post(self, conversation_id):
+        """Mark a conversation's messages as read for the current user.
+
+        Args:
+            conversation_id (str): Conversation UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{updated}`` and 200, or 404.
+        """
+        identity = get_jwt_identity()
+        if not conversation_service.facade.is_participant(conversation_id, identity):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
+        updated = message_service.facade.mark_conversation_read(
+            conversation_id, identity)
+        return {'updated': updated}
+
+
 class ConversationMessagesResource(Resource):
     """List or post messages within a specific conversation."""
 
