@@ -101,7 +101,7 @@ class ConversationMessagesResource(Resource):
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         message = message_service.facade.create(
-            author_id=data.get('author_id') or get_jwt_identity(),
+            author_id=get_jwt_identity(),
             content=content,
             recipient_id=data.get('recipient_id'),
             conversation_id=conversation_id,

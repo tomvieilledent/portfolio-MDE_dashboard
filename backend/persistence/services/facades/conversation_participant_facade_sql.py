@@ -25,7 +25,8 @@ class ConversationParticipantFacade:
             participant = ORMConversationParticipant(
                 conversation_id=conversation_id,
                 user_id=user_id,
-                created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
+                created_at=kwargs.get(
+                    'created_at') or datetime.now(timezone.utc),
             )
             db.add(participant)
             db.flush()
@@ -45,6 +46,13 @@ class ConversationParticipantFacade:
             participant: Any = db.query(ORMConversationParticipant).filter(
                 ORMConversationParticipant.id == participant_id).first()
             return self._to_dict(participant) if participant else None
+
+    def is_participant(self, conversation_id, user_id):
+        with session_scope() as db:
+            row = db.query(ORMConversationParticipant).filter(
+                ORMConversationParticipant.conversation_id == conversation_id,
+                ORMConversationParticipant.user_id == user_id).first()
+            return row is not None
 
     def list(self, limit=100):
         """Return participant rows, newest first.

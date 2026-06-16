@@ -4,10 +4,12 @@ from flask_socketio import emit, join_room, leave_room
 from backend.api.socket_auth import verify_token
 from backend.api.sockets import socketio
 from backend.persistence.services import MessageService
+from backend.persistence.services.facades import ConversationParticipantFacade
 # Use the built-in ConnectionRefusedError exception
 
 
 connected_users = {}
+participant_facade = ConversationParticipantFacade()
 
 
 def conversation_room(conversation_id):
@@ -52,6 +54,9 @@ def handle_join_conversation(data):
     user_id = connected_users.get(sid)
     if not user_id:
         return
+    if not participant_facade.is_participant(conversation_id, user_id):
+        emit('error', {'message': 'not a participant in this conversation'}, to=sid)
+        return
     room = conversation_room(conversation_id)
     join_room(room)
     print(f"User {user_id} joined room {room}")
@@ -75,7 +80,6 @@ def handle_leave_conversation(data):
 
 @socketio.on("send_message")
 def handle_send_message(data):
-    # Expected data: { content, conversation_id, recipient_id? }
     sid = request.sid  # type: ignore[attr-defined]
     user_id = connected_users.get(sid)
     if not user_id:
@@ -86,7 +90,10 @@ def handle_send_message(data):
     recipient_id = payload.get('recipient_id')
     if not content:
         return
-    # persist message
+    if conversation_id and not participant_facade.is_participant(conversation_id, user_id):
+        emit('error', {'message': 'not a participant in this conversation'}, to=sid)
+        return
+
     service = MessageService()
     try:
         message = service.facade.create(
@@ -99,7 +106,6 @@ def handle_send_message(data):
         print('Failed to persist message:', exc)
         return
 
-    # emit to conversation room if available, otherwise to sender only
     if conversation_id:
         room = conversation_room(conversation_id)
         socketio.emit('new_message', {'message': message}, to=room)
