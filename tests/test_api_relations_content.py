@@ -194,6 +194,47 @@ def test_conversation_read_and_unread_flow(seeded_context):
                  404, ERROR_CODES['NOT_FOUND'])
 
 
+def test_message_soft_delete_and_presence(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    message_id = client.post(f'/conversations/{conversation_id}/messages',
+                             headers=member_headers, json={'content': 'oops'}
+                             ).get_json()['message']['id']
+
+    # Visible and counted before deletion.
+    assert len(client.get(f'/conversations/{conversation_id}/messages',
+                          headers=admin_headers).get_json()['messages']) == 1
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 1
+
+    # Only the author can delete; here the author (member) soft-deletes it.
+    assert_error(client.delete(f'/messages/{message_id}', headers=admin_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert client.delete(f'/messages/{message_id}',
+                         headers=member_headers).status_code == 200
+
+    # Gone from listings and unread counts; a second delete 404s.
+    assert client.get(f'/conversations/{conversation_id}/messages',
+                      headers=admin_headers).get_json()['messages'] == []
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    assert_error(client.delete(f'/messages/{message_id}', headers=member_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+    # No sockets connected in this test → nobody online.
+    presence = client.get('/presence', headers=admin_headers)
+    assert presence.status_code == 200
+    assert presence.get_json() == {'online': []}
+
+
 def test_notifications_flow(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']

@@ -6,6 +6,8 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.socket_events.message import notify_message_deleted
+from backend.api.state import online_user_ids
 from backend.models.message import Message as DomainMessage
 from backend.persistence.services import ConversationService, MessageService
 
@@ -49,7 +51,7 @@ class MessageResource(Resource):
 
     @jwt_required()
     def delete(self, message_id):
-        """Permanently delete a message.
+        """Soft-delete a message (only its author may do so).
 
         Args:
             message_id (str): Message UUID path parameter.
@@ -62,9 +64,24 @@ class MessageResource(Resource):
             return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
         if message.get('author_id') != get_jwt_identity():
             return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
-        if not message_service.facade.delete(message_id):
+        if not message_service.facade.deactivate(message_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'message not found', 404)
+        # Notify conversation members in real time so the message disappears.
+        notify_message_deleted(message)
         return {'msg': 'message deleted'}
+
+
+class PresenceResource(Resource):
+    """Report which users are currently connected over Socket.IO."""
+
+    @jwt_required()
+    def get(self):
+        """Return the list of online user ids.
+
+        Returns:
+            tuple[dict, int]: ``{online: [user_id, ...]}`` and 200.
+        """
+        return {'online': online_user_ids()}
 
 
 class UnreadCountResource(Resource):

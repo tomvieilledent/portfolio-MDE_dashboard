@@ -3,6 +3,7 @@ from flask_socketio import emit, join_room, leave_room
 # socket auth helper verifies JWT for socket connections
 from backend.api.socket_auth import verify_token
 from backend.api.sockets import socketio
+from backend.api.state import mark_offline, mark_online, online_user_ids
 from backend.persistence.services import MessageService
 from backend.persistence.services.facades import ConversationFacade
 # Use the built-in ConnectionRefusedError exception
@@ -29,6 +30,25 @@ def user_room(user_id):
     return f"user:{user_id}"
 
 
+def notify_message_deleted(message):
+    """Broadcast a ``message_deleted`` event for a (soft-)deleted message.
+
+    Conversation messages are announced to the conversation room; direct
+    messages are announced to both parties' personal rooms. Called from the
+    REST delete handler so connected clients drop the message live.
+    """
+    conversation_id = message.get('conversation_id')
+    if conversation_id:
+        socketio.emit('message_deleted',
+                      {'message_id': message['id'], 'conversation_id': conversation_id},
+                      to=conversation_room(conversation_id))
+        return
+    for uid in (message.get('recipient_id'), message.get('author_id')):
+        if uid:
+            socketio.emit('message_deleted', {'message_id': message['id']},
+                          to=user_room(uid))
+
+
 @socketio.on("connect")
 def handle_connect(auth):
     if not auth:
@@ -50,6 +70,9 @@ def handle_connect(auth):
     connected_users[sid] = user_id
     # Join a personal room so direct messages reach all of the user's devices.
     join_room(user_room(user_id))
+    # Announce presence only on the first connection for this user.
+    if mark_online(user_id):
+        socketio.emit('presence', {'user_id': user_id, 'online': True})
     print(f"Client connecté : user={user_id}, sid={sid}")
 
 
@@ -57,6 +80,9 @@ def handle_connect(auth):
 def handle_disconnect():
     sid = request.sid  # type: ignore[attr-defined]
     user_id = connected_users.pop(sid, None)
+    # Announce going offline only when the user's last connection drops.
+    if user_id and mark_offline(user_id):
+        socketio.emit('presence', {'user_id': user_id, 'online': False})
     print(f"Client déconnecté : user={user_id}, sid={sid}")
 
 
@@ -91,6 +117,42 @@ def handle_leave_conversation(data):
     leave_room(room)
     print(f"User {user_id} left room {room}")
     emit('left_conversation', {'conversation_id': conversation_id}, to=sid)
+
+
+@socketio.on("typing")
+def handle_typing(data):
+    """Relay a typing indicator to the other participants.
+
+    Payload: ``{conversation_id|recipient_id, is_typing}``. The notice is
+    never echoed back to the sender.
+    """
+    sid = request.sid  # type: ignore[attr-defined]
+    user_id = connected_users.get(sid)
+    if not user_id:
+        return
+    payload = data or {}
+    is_typing = bool(payload.get('is_typing'))
+    conversation_id = payload.get('conversation_id')
+    recipient_id = payload.get('recipient_id')
+
+    if conversation_id:
+        if not conversation_facade.is_participant(conversation_id, user_id):
+            return
+        emit('typing',
+             {'conversation_id': conversation_id, 'user_id': user_id, 'is_typing': is_typing},
+             to=conversation_room(conversation_id), include_self=False)
+    elif recipient_id:
+        socketio.emit('typing', {'user_id': user_id, 'is_typing': is_typing},
+                      to=user_room(recipient_id))
+
+
+@socketio.on("who_is_online")
+def handle_who_is_online():
+    """Return the list of currently connected user ids to the requester."""
+    sid = request.sid  # type: ignore[attr-defined]
+    if not connected_users.get(sid):
+        return
+    emit('online_users', {'user_ids': online_user_ids()}, to=sid)
 
 
 @socketio.on("send_message")

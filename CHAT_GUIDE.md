@@ -172,16 +172,27 @@ Client → serveur :
 - `join_conversation` / `leave_conversation` `{conversation_id}` — refusé (`error`) si non-membre
 - `send_message` `{content, conversation_id?, recipient_id?}` — fournir l'un *ou* l'autre
 - `mark_read` `{conversation_id}` (marque toute la conversation lue) *ou* `{message_id}` (DM unique)
+- `typing` `{conversation_id|recipient_id, is_typing}` — jamais renvoyé à l'émetteur
+- `who_is_online` (sans payload) → réponse `online_users`
 
 Serveur → client :
 - `new_message` `{message}` — `message.is_read` inclus
 - `joined_conversation` / `left_conversation` `{conversation_id}`
 - `messages_read` `{conversation_id|message_id, reader_id}` — accusé de lecture
+- `message_deleted` `{message_id, conversation_id?}` — émis lors d'un soft-delete REST
+- `typing` `{conversation_id?, user_id, is_typing}`
+- `presence` `{user_id, online}` — diffusé à tous quand un user passe en/hors ligne
+- `online_users` `{user_ids}` — réponse à `who_is_online`
 - `error` `{message}`
 
 Rooms : `conversation:<id>` pour les conversations ; **`user:<id>`** rejoint automatiquement à la connexion, utilisé pour livrer les **messages directs** (1-à-1, sans `conversation_id`) et les accusés de lecture à tous les appareils d'un utilisateur.
 
-Côté REST (lu/non-lu) : `POST /conversations/<id>/read`, `POST /messages/<id>/read`, `GET /messages/unread` → `{unread, conversations, direct}`.
+Présence : suivie en mémoire dans `backend/api/state.py` (`ONLINE_USERS`, compteur de connexions par user) ; `presence` n'est diffusé qu'aux transitions réelles online↔offline (multi-onglets gérés).
+
+Côté REST :
+- Lu/non-lu : `POST /conversations/<id>/read`, `POST /messages/<id>/read`, `GET /messages/unread` → `{unread, conversations, direct}`
+- Présence : `GET /presence` → `{online: [user_id, ...]}`
+- Suppression : `DELETE /messages/<id>` est un **soft-delete** (colonne `is_active`, réservé à l'auteur) ; les messages inactifs sont exclus de tous les listings/compteurs et un `message_deleted` est diffusé en temps réel.
 
 ---
 

@@ -25,6 +25,7 @@ from backend.api.resources.message import (
     MessageListResource,
     MessageReadResource,
     MessageResource,
+    PresenceResource,
     UnreadCountResource,
 )
 from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
@@ -173,6 +174,7 @@ def create_app():
                      '/conversations/<string:conversation_id>/read',
                      '/rooms/<string:conversation_id>/read')
 
+    api.add_resource(PresenceResource, '/presence')
     api.add_resource(MessageListResource, '/messages')
     api.add_resource(UnreadCountResource, '/messages/unread')
     api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')

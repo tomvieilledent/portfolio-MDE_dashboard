@@ -88,5 +88,9 @@ try:
             conn.execute(text(
                 "ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT 0"))
             conn.commit()
+        if 'is_active' not in message_cols:
+            conn.execute(text(
+                "ALTER TABLE messages ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+            conn.commit()
 except Exception:
     pass

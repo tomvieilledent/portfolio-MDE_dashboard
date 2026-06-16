@@ -51,7 +51,8 @@ class MessageFacade:
         """
         with session_scope() as db:
             message: Any = db.query(ORMMessage).filter(
-                ORMMessage.id == message_id).first()
+                ORMMessage.id == message_id,
+                ORMMessage.is_active.isnot(False)).first()
             return self._to_dict(message) if message else None
 
     def list(self, limit=100):
@@ -64,7 +65,8 @@ class MessageFacade:
             list[dict]: Serialised message dicts, newest first.
         """
         with session_scope() as db:
-            rows = db.query(ORMMessage).order_by(
+            rows = db.query(ORMMessage).filter(
+                ORMMessage.is_active.isnot(False)).order_by(
                 ORMMessage.created_at.desc()).limit(limit).all()
             return [self._to_dict(row) for row in rows]
 
@@ -81,7 +83,8 @@ class MessageFacade:
         with session_scope() as db:
             rows = (
                 db.query(ORMMessage)
-                .filter(ORMMessage.conversation_id == conversation_id)
+                .filter(ORMMessage.conversation_id == conversation_id,
+                        ORMMessage.is_active.isnot(False))
                 .order_by(ORMMessage.created_at.asc())
                 .limit(limit)
                 .all()
@@ -101,7 +104,8 @@ class MessageFacade:
         with session_scope() as db:
             rows = (
                 db.query(ORMMessage)
-                .filter(ORMMessage.author_id == author_id)
+                .filter(ORMMessage.author_id == author_id,
+                        ORMMessage.is_active.isnot(False))
                 .order_by(ORMMessage.created_at.desc())
                 .limit(limit)
                 .all()
@@ -123,7 +127,8 @@ class MessageFacade:
         """
         with session_scope() as db:
             message: Any = db.query(ORMMessage).filter(
-                ORMMessage.id == message_id).first()
+                ORMMessage.id == message_id,
+                ORMMessage.is_active.isnot(False)).first()
             if not message:
                 return None
             if message.author_id != user_id and not message.is_read:
@@ -149,6 +154,7 @@ class MessageFacade:
                 ORMMessage.conversation_id == conversation_id,
                 ORMMessage.author_id != user_id,
                 ORMMessage.is_read.is_(False),
+                ORMMessage.is_active.isnot(False),
             ).update({ORMMessage.is_read: True}, synchronize_session=False)
 
     def count_unread_for_conversations(self, conversation_ids, user_id):
@@ -168,6 +174,7 @@ class MessageFacade:
                 ORMMessage.conversation_id.in_(conversation_ids),
                 ORMMessage.author_id != user_id,
                 ORMMessage.is_read.is_(False),
+                ORMMessage.is_active.isnot(False),
             ).count()
 
     def count_unread_dms(self, user_id):
@@ -187,7 +194,30 @@ class MessageFacade:
                 ORMMessage.recipient_id == user_id,
                 ORMMessage.conversation_id.is_(None),
                 ORMMessage.is_read.is_(False),
+                ORMMessage.is_active.isnot(False),
             ).count()
+
+    def deactivate(self, message_id):
+        """Soft-delete a message (mark it inactive, keep the row).
+
+        Soft-deleted messages are excluded from every read/list/count
+        method, so they disappear from the API while staying auditable.
+
+        Args:
+            message_id (str): Message UUID.
+
+        Returns:
+            bool: ``True`` when deactivated, ``False`` when not found or
+            already inactive.
+        """
+        with session_scope() as db:
+            message: Any = db.query(ORMMessage).filter(
+                ORMMessage.id == message_id,
+                ORMMessage.is_active.isnot(False)).first()
+            if not message:
+                return False
+            message.is_active = False
+            return True
 
     def delete(self, message_id):
         """Permanently delete a message row.
@@ -214,6 +244,7 @@ class MessageFacade:
             'conversation_id': message.conversation_id,
             'content': message.content,
             'is_read': bool(message.is_read),
+            'is_active': bool(getattr(message, 'is_active', True)),
             'created_at': isoformat(message.created_at),
             'updated_at': isoformat(getattr(message, 'updated_at', None)),
             'deactivate_by': getattr(message, 'deactivate_by', None),
