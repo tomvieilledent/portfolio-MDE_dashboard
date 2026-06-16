@@ -275,13 +275,13 @@ def test_notifications_flow(seeded_context):
     assert_error(missing_notification, 404, ERROR_CODES['NOT_FOUND'])
 
 
-def test_news_flow_and_sync_placeholder(seeded_context):
+def test_news_flow_and_sync(seeded_context, monkeypatch):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
 
     public_list = client.get('/news')
     assert public_list.status_code == 200
-    assert 'news' in public_list.get_json()
+    assert 'items' in public_list.get_json()
 
     missing_title = client.post('/news', headers=admin_headers, json={})
     assert_error(missing_title, 400, ERROR_CODES['BAD_REQUEST'])
@@ -301,8 +301,17 @@ def test_news_flow_and_sync_placeholder(seeded_context):
     assert get_news.status_code == 200
     assert get_news.get_json()['news_item']['id'] == news_id
 
+    # Sync is implemented but pulls external RSS via the optional `feedparser`
+    # dependency. Inject a stub module so the endpoint contract is tested
+    # deterministically, without network access or that dependency.
+    import sys
+    import types
+    stub = types.ModuleType('backend.services.news_sync')
+    stub.sync_all = lambda: 3  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, 'backend.services.news_sync', stub)
     sync_news = client.post('/news/sync', headers=admin_headers)
-    assert_error(sync_news, 501, ERROR_CODES['NOT_IMPLEMENTED'])
+    assert sync_news.status_code == 200
+    assert sync_news.get_json() == {'synced': 3}
 
     delete_news = client.delete(f'/news/{news_id}', headers=admin_headers)
     assert delete_news.status_code == 200

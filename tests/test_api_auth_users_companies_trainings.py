@@ -9,7 +9,7 @@ from tests.helpers import assert_error, make_text
 def test_home_and_openapi_routes(app_bundle):
     client = app_bundle['client']
 
-    home = client.get('/')
+    home = client.get('/status')
     spec = client.get('/openapi.json')
 
     assert home.status_code == 200
