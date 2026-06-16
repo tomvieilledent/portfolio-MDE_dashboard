@@ -4,12 +4,15 @@ from flask_socketio import emit, join_room, leave_room
 from backend.api.socket_auth import verify_token
 from backend.api.sockets import socketio
 from backend.persistence.services import MessageService
-from backend.persistence.services.facades import ConversationParticipantFacade
+from backend.persistence.services.facades import ConversationFacade
 # Use the built-in ConnectionRefusedError exception
 
 
 connected_users = {}
-participant_facade = ConversationParticipantFacade()
+# Membership is read from the conversation's participant_ids CSV (source of
+# truth), which is what the REST API writes — not the conversation_participants
+# table, which the public API never populates.
+conversation_facade = ConversationFacade()
 
 
 def conversation_room(conversation_id):
@@ -54,7 +57,7 @@ def handle_join_conversation(data):
     user_id = connected_users.get(sid)
     if not user_id:
         return
-    if not participant_facade.is_participant(conversation_id, user_id):
+    if not conversation_facade.is_participant(conversation_id, user_id):
         emit('error', {'message': 'not a participant in this conversation'}, to=sid)
         return
     room = conversation_room(conversation_id)
@@ -90,7 +93,7 @@ def handle_send_message(data):
     recipient_id = payload.get('recipient_id')
     if not content:
         return
-    if conversation_id and not participant_facade.is_participant(conversation_id, user_id):
+    if conversation_id and not conversation_facade.is_participant(conversation_id, user_id):
         emit('error', {'message': 'not a participant in this conversation'}, to=sid)
         return
 

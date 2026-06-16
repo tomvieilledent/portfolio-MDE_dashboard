@@ -1,6 +1,7 @@
 """API resources for conversations (chat rooms)."""
 
 from flask import request
+from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
@@ -26,7 +27,8 @@ class ConversationListResource(Resource):
             tuple[dict, int]: ``{conversations}`` and 200.
         """
         limit = request.args.get('limit', default=100, type=int)
-        return {'conversations': conversation_service.facade.list(limit=limit)}
+        return {'conversations': conversation_service.facade.list_by_participant(
+            get_jwt_identity(), limit=limit)}
 
     @jwt_required()
     def post(self):
@@ -39,12 +41,17 @@ class ConversationListResource(Resource):
             tuple[dict, int]: ``{conversation}`` and 201.
         """
         data = request.get_json(silent=True) or {}
+        participant_ids = data.get('participant_ids') or []
         try:
-            DomainConversation(participant_ids=data.get('participant_ids'))
+            DomainConversation(participant_ids=participant_ids)
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        # Always include the creator so they don't lock themselves out.
+        identity = get_jwt_identity()
+        if identity not in participant_ids:
+            participant_ids = [identity, *participant_ids]
         conversation = conversation_service.facade.create(
-            participant_ids=data.get('participant_ids'))
+            participant_ids=participant_ids)
         return {'conversation': conversation}, 201
 
 
@@ -64,6 +71,8 @@ class ConversationResource(Resource):
         conversation = conversation_service.facade.get(conversation_id)
         if not conversation:
             return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
+        if not conversation_service.facade.is_participant(conversation_id, get_jwt_identity()):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
         return {'conversation': conversation}
 
     @jwt_required()
@@ -80,6 +89,8 @@ class ConversationResource(Resource):
         Returns:
             tuple[dict, int]: ``{conversation}`` and 200, or 404.
         """
+        if not conversation_service.facade.is_participant(conversation_id, get_jwt_identity()):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
         data = request.get_json(silent=True) or {}
         participant_id = data.get('participant_id')
         if participant_id is not None:
@@ -110,6 +121,8 @@ class ConversationResource(Resource):
         Returns:
             tuple[dict, int]: ``{msg}`` and 200, or 404.
         """
+        if not conversation_service.facade.is_participant(conversation_id, get_jwt_identity()):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
         if not conversation_service.facade.deactivate(conversation_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'conversation not found', 404)
         return {'msg': 'conversation deactivated'}

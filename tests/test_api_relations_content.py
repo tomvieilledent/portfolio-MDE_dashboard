@@ -80,6 +80,62 @@ def test_conversation_and_message_flow(seeded_context):
     ) == {'msg': 'conversation deactivated'}
 
 
+def test_conversation_rest_enforces_membership(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    # outsider = company admin, deliberately NOT a participant
+    outsider_headers = seeded_context['company_admin_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    created = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    })
+    assert created.status_code == 201
+    conversation_id = created.get_json()['conversation']['id']
+
+    # A member posts a message in the conversation.
+    posted = client.post(f'/conversations/{conversation_id}/messages',
+                         headers=member_headers, json={'content': 'private'})
+    assert posted.status_code == 201
+    message_id = posted.get_json()['message']['id']
+
+    # The outsider is masked behind 404 on every conversation route.
+    assert_error(client.get(f'/conversations/{conversation_id}',
+                            headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.get(f'/conversations/{conversation_id}/messages',
+                            headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.post(f'/conversations/{conversation_id}/messages',
+                             headers=outsider_headers, json={'content': 'intrusion'}),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.patch(f'/conversations/{conversation_id}', headers=outsider_headers,
+                              json={'participant_id': 'x', 'action': 'add'}),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.delete(f'/conversations/{conversation_id}',
+                               headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.get('/messages', headers=outsider_headers,
+                            query_string={'conversation_id': conversation_id}),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+    # The conversation never appears in the outsider's own listing.
+    outsider_list = client.get('/conversations', headers=outsider_headers)
+    assert outsider_list.status_code == 200
+    assert all(c['id'] != conversation_id
+               for c in outsider_list.get_json()['conversations'])
+
+    # Reading another user's messages by author_id is forbidden.
+    assert_error(client.get('/messages', headers=outsider_headers,
+                            query_string={'author_id': member_id}),
+                 403, ERROR_CODES['FORBIDDEN'])
+
+    # Only the author may delete their message.
+    assert_error(client.delete(f'/messages/{message_id}', headers=outsider_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert client.delete(f'/messages/{message_id}',
+                         headers=member_headers).status_code == 200
+
+
 def test_notifications_flow(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
