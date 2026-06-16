@@ -4,6 +4,7 @@ This module exposes `create_app()` which configures Flask, JWT callbacks,
 error handlers and registers all API resources for the application.
 """
 
+import atexit
 import os
 
 from flask import Flask, jsonify, send_from_directory
@@ -175,7 +176,7 @@ def create_app():
     api.add_resource(FormationUserResource,
                      '/formation-users/<string:relation_id>')
 
-    @app.route('/')
+    @app.route('/status')
     def home():
         return jsonify({'ok': True})
 
@@ -184,10 +185,28 @@ def create_app():
         """Return the OpenAPI specification as JSON."""
         return jsonify(OPENAPI_SPEC)
 
+    @app.route('/')
     @app.route('/docs')
     @app.route('/swagger')
     def swagger_docs():
         """Serve the Swagger UI page for interactive API testing."""
         return SWAGGER_UI_HTML
+
+    # Start hourly news sync scheduler (skip in test mode and in the reloader
+    # parent process so the job only runs once per server instance).
+    if not app.testing and os.environ.get('WERKZEUG_RUN_MAIN', 'true') == 'true':
+        try:
+            from datetime import datetime, timezone
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from backend.services.news_sync import sync_all
+
+            scheduler = BackgroundScheduler(daemon=True)
+            scheduler.add_job(sync_all, 'interval', hours=1,
+                               id='news_sync', replace_existing=True,
+                               next_run_time=datetime.now(timezone.utc))
+            scheduler.start()
+            atexit.register(scheduler.shutdown)
+        except Exception:
+            pass
 
     return app

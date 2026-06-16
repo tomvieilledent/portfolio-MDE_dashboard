@@ -11,7 +11,7 @@ class NewsFacade:
     """SQLAlchemy-backed facade for news item CRUD operations."""
 
     def create(self, title, source=None, summary=None, url=None,
-               published_at=None, **kwargs):
+               published_at=None, category=None, **kwargs):
         """Persist a new news item.
 
         Args:
@@ -20,6 +20,7 @@ class NewsFacade:
             summary (str | None): Short article summary.
             url (str | None): Link to the original article.
             published_at (datetime | None): Original publication datetime.
+            category (str | None): News category.
             **kwargs: Optional ``created_at`` datetime override.
 
         Returns:
@@ -31,6 +32,7 @@ class NewsFacade:
                 source=normalize_text(source),
                 summary=normalize_text(summary),
                 url=normalize_text(url),
+                category=normalize_text(category),
                 published_at=published_at,
                 created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
             )
@@ -52,19 +54,39 @@ class NewsFacade:
             news: Any = db.query(ORMNews).filter(ORMNews.id == news_id).first()
             return self._to_dict(news) if news else None
 
-    def list(self, limit=100):
+    def list(self, limit=20, offset=0, category=None, source=None):
         """Return news items ordered by creation date (newest first).
 
         Args:
-            limit (int): Maximum number of rows. Defaults to 100.
+            limit (int): Maximum number of rows. Defaults to 20.
+            offset (int): Number of rows to skip. Defaults to 0.
+            category (str | None): Optional category filter.
+            source (str | None): Optional source filter.
 
         Returns:
             list[dict]: Serialised news item dicts.
         """
         with session_scope() as db:
-            rows = db.query(ORMNews).order_by(
-                ORMNews.created_at.desc()).limit(limit).all()
-            return [self._to_dict(row) for row in rows]
+            q = db.query(ORMNews)
+            if category:
+                q = q.filter(ORMNews.category == category)
+            if source:
+                q = q.filter(ORMNews.source == source)
+            total = q.count()
+            rows = q.order_by(ORMNews.created_at.desc()).offset(offset).limit(limit).all()
+            return {
+                'items': [self._to_dict(row) for row in rows],
+                'total': total,
+                'offset': offset,
+                'limit': limit,
+                'has_more': offset + limit < total,
+            }
+
+    def url_exists(self, url):
+        if not url:
+            return False
+        with session_scope() as db:
+            return db.query(ORMNews).filter(ORMNews.url == url).first() is not None
 
     def delete(self, news_id):
         """Permanently delete a news item.
@@ -89,10 +111,7 @@ class NewsFacade:
             'source': news.source,
             'summary': news.summary,
             'url': news.url,
+            'category': getattr(news, 'category', None),
             'published_at': isoformat(news.published_at),
             'created_at': isoformat(news.created_at),
-            'updated_at': isoformat(getattr(news, 'updated_at', None)),
-            'deactivate_by': getattr(news, 'deactivate_by', None),
-            'delete_by': getattr(news, 'delete_by', None),
-            'uploaded_at': isoformat(getattr(news, 'uploaded_at', None)),
         }

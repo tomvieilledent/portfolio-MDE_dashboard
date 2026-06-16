@@ -1,4 +1,4 @@
-"""News endpoints for listing, creating and syncing news items."""
+"""News endpoints — list, create, sync, retrieve, delete."""
 
 from flask import request
 from flask_restful import Resource
@@ -11,6 +11,9 @@ from backend.persistence.services import NewsService
 
 news_service = NewsService()
 
+# Valid category values (mirrors news_sync.SOURCES categories)
+VALID_CATEGORIES = {'actualités', 'réglementation', 'vie-entreprises', 'opportunités', 'territoire'}
+
 
 class NewsListResource(Resource):
     """List news items or create a new one."""
@@ -20,16 +23,22 @@ class NewsListResource(Resource):
 
         Query parameters:
             limit (int): Max items to return (default 100).
+            category (str): Filter by category (réglementation, vie-entreprises,
+                opportunités, territoire).
+            source (str): Filter by source name (e.g. BODACC, BOAMP).
 
         Returns:
             tuple[dict, int]: ``{news}`` and 200.
         """
-        limit = request.args.get('limit', default=100, type=int)
-        return {'news': news_service.facade.list(limit=limit)}
+        limit = request.args.get('limit', default=20, type=int)
+        offset = request.args.get('offset', default=0, type=int)
+        category = request.args.get('category') or None
+        source = request.args.get('source') or None
+        return news_service.facade.list(limit=limit, offset=offset, category=category, source=source)
 
     @jwt_required()
     def post(self):
-        """Create a news item.
+        """Create a news item manually.
 
         Expected JSON body:
             title (str): Article headline (required).
@@ -37,6 +46,8 @@ class NewsListResource(Resource):
             summary (str | None): Short summary.
             url (str | None): Link to original article.
             published_at (str | None): ISO 8601 publication datetime.
+            category (str | None): One of réglementation, vie-entreprises,
+                opportunités, territoire.
 
         Returns:
             tuple[dict, int]: ``{news_item}`` and 201.
@@ -55,6 +66,7 @@ class NewsListResource(Resource):
             summary=data.get('summary'),
             url=data.get('url'),
             published_at=data.get('published_at'),
+            category=data.get('category'),
         )
         return {'news_item': article}, 201
 
@@ -92,14 +104,18 @@ class NewsResource(Resource):
 
 
 class NewsSyncResource(Resource):
-    """Placeholder for syncing external news sources."""
+    """Trigger a manual sync of external news sources (admin only)."""
 
     @jwt_required()
     def post(self):
-        """Not implemented: sync external news into the database.
+        """Sync all configured external sources and store new items.
 
         Returns:
-            tuple[dict, int]: 501 error response.
+            tuple[dict, int]: ``{synced}`` count and 200.
         """
-        return error_response(ERROR_CODES['NOT_IMPLEMENTED'],
-                              'news sync is not configured yet', 501)
+        from backend.services.news_sync import sync_all
+        try:
+            count = sync_all()
+            return {'synced': count}, 200
+        except Exception as exc:
+            return error_response(ERROR_CODES['INTERNAL_ERROR'], str(exc), 500)
