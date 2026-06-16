@@ -51,6 +51,8 @@ def create_app():
     app = Flask(__name__)
     app.config['JWT_SECRET_KEY'] = os.getenv(
         'JWT_SECRET_KEY', 'change-this-secret-to-a-long-random-string-32chars-min')
+    from flask_cors import CORS
+    CORS(app, resources={r"/*": {"origins": "*"}})
     api = Api(app)
     jwt = JWTManager(app)
     socketio.init_app(app)
