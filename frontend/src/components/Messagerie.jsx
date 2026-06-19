@@ -7,6 +7,7 @@ const conversations = [
     name: 'Sophie Dubois',
     avatar: 'SD',
     color: 'bg-green-600',
+    photo: 'https://randomuser.me/api/portraits/women/44.jpg',
     lastMessage: 'Bonjour, pouvez-vous me transmettre les documents pour la réunion ?',
     time: '10 min',
     unread: 2,
@@ -17,6 +18,7 @@ const conversations = [
     name: 'Marc Laurent',
     avatar: 'ML',
     color: 'bg-blue-600',
+    photo: 'https://randomuser.me/api/portraits/men/32.jpg',
     lastMessage: 'La réunion est confirmée pour demain à 14h',
     time: '30 min',
     unread: 0,
@@ -27,6 +29,7 @@ const conversations = [
     name: 'Innovation Hub',
     avatar: 'IH',
     color: 'bg-purple-600',
+    photo: null,
     lastMessage: 'Nouvelle formation disponible : Marketing Digital',
     time: '2h',
     unread: 0,
@@ -37,6 +40,7 @@ const conversations = [
     name: 'Julie Martin',
     avatar: 'JM',
     color: 'bg-orange-500',
+    photo: 'https://randomuser.me/api/portraits/women/68.jpg',
     lastMessage: 'Merci pour le compte rendu, très complet !',
     time: 'Hier',
     unread: 0,
@@ -47,6 +51,7 @@ const conversations = [
     name: 'Pierre Dupont',
     avatar: 'PD',
     color: 'bg-teal-600',
+    photo: 'https://randomuser.me/api/portraits/men/45.jpg',
     lastMessage: 'On se voit demain pour le point hebdo ?',
     time: 'Hier',
     unread: 0,
@@ -79,7 +84,15 @@ const initialMessages = {
   ],
 }
 
-export default function Messagerie({ onClose, initialContact = null }) {
+const autoReplies = [
+  'Merci pour votre message, je reviens vers vous rapidement.',
+  'Bien reçu, je regarde ça et vous tiens informé.',
+  'Parfait, on en parle lors de la prochaine réunion ?',
+  "D'accord, c'est noté !",
+  'Je transmets l\'information à mon équipe.',
+]
+
+export default function Messagerie({ onClose, initialContact = null, onNewMessage }) {
   const getInitialConv = () => {
     if (!initialContact) return null
     const conv = conversations.find((c) =>
@@ -140,6 +153,17 @@ export default function Messagerie({ onClose, initialContact = null }) {
     setMessages((prev) => ({ ...prev, [selectedConv]: [...(prev[selectedConv] || []), msg] }))
     setNewMessage('')
     setAttachments([])
+
+    setTimeout(() => {
+      const reply = {
+        id: Date.now() + 1,
+        from: 'them',
+        text: autoReplies[Math.floor(Math.random() * autoReplies.length)],
+        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      }
+      setMessages((prev) => ({ ...prev, [selectedConv]: [...(prev[selectedConv] || []), reply] }))
+      onNewMessage?.()
+    }, 1500)
   }
 
   return (
@@ -204,11 +228,13 @@ export default function Messagerie({ onClose, initialContact = null }) {
               >
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm ${conv.color}`}
-                  >
-                    {conv.avatar}
-                  </div>
+                  {conv.photo ? (
+                    <img src={conv.photo} alt={conv.name} className="w-11 h-11 rounded-full object-cover" />
+                  ) : (
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm ${conv.color}`}>
+                      {conv.avatar}
+                    </div>
+                  )}
                   {conv.online && (
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
                   )}
@@ -244,11 +270,13 @@ export default function Messagerie({ onClose, initialContact = null }) {
             <>
               {/* Conv header */}
               <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${activeConv.color}`}
-                >
-                  {activeConv.avatar}
-                </div>
+                {activeConv.photo ? (
+                  <img src={activeConv.photo} alt={activeConv.name} className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${activeConv.color}`}>
+                    {activeConv.avatar}
+                  </div>
+                )}
                 <div>
                   <p className="font-semibold text-gray-900">{activeConv.name}</p>
                   <p className="text-xs text-gray-500">
@@ -269,11 +297,13 @@ export default function Messagerie({ onClose, initialContact = null }) {
                     className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.from === 'them' && (
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2 flex-shrink-0 self-end ${activeConv.color}`}
-                      >
-                        {activeConv.avatar}
-                      </div>
+                      activeConv.photo ? (
+                        <img src={activeConv.photo} alt={activeConv.name} className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0 self-end" />
+                      ) : (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2 flex-shrink-0 self-end ${activeConv.color}`}>
+                          {activeConv.avatar}
+                        </div>
+                      )
                     )}
                     <div className={`max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl text-sm overflow-hidden ${
                         msg.from === 'me'
