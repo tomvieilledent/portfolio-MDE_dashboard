@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import { Search, Mail, Phone, MessageCircle } from 'lucide-react'
 
 const initialUsers = [
-  { id: 1, name: 'Sophie Dubois', role: 'CEO', company: 'Tech Innovators', email: 'sophie@tech-innovators.fr', phone: '+33 6 12 34 56 78', avatar: 'SD' },
-  { id: 2, name: 'Marc Laurent', role: 'Directeur Marketing', company: 'Digital Solutions', email: 'marc@digital.fr', phone: '+33 6 23 45 67 88', avatar: 'ML' },
-  { id: 3, name: 'Julie Martin', role: 'DG', company: 'Green Energy Co.', email: 'julie@greenenergy.fr', phone: '+33 5 34 56 78 90', avatar: 'JM' },
-  { id: 4, name: 'Pierre Dupont', role: 'Fondateur', company: 'Creative Studio', email: 'pierre@creativestudio.fr', phone: '+33 6 45 67 89 01', avatar: 'PD' },
-  { id: 5, name: 'Emma Bernard', role: 'CFO', company: 'Tech Innovators', email: 'emma@tech-innovators.fr', phone: '+33 6 56 78 90 12', avatar: 'EB' },
-  { id: 6, name: 'Thomas Petit', role: 'CTO', company: 'Digital Solutions', email: 'thomas@digital.fr', phone: '+33 6 67 89 01 23', avatar: 'TP' },
+  { id: 1, name: 'Sophie Dubois', role: 'CEO', company: 'Tech Innovators', email: 'sophie@tech-innovators.fr', phone: '+33 6 12 34 56 78', avatar: 'SD', photo: 'https://i.pravatar.cc/100?img=47' },
+  { id: 2, name: 'Marc Laurent', role: 'Directeur Marketing', company: 'Digital Solutions', email: 'marc@digital.fr', phone: '+33 6 23 45 67 88', avatar: 'ML', photo: 'https://i.pravatar.cc/100?img=11' },
+  { id: 3, name: 'Julie Martin', role: 'DG', company: 'Green Energy Co.', email: 'julie@greenenergy.fr', phone: '+33 5 34 56 78 90', avatar: 'JM', photo: 'https://i.pravatar.cc/100?img=26' },
+  { id: 4, name: 'Pierre Dupont', role: 'Fondateur', company: 'Creative Studio', email: 'pierre@creativestudio.fr', phone: '+33 6 45 67 89 01', avatar: 'PD', photo: 'https://i.pravatar.cc/100?img=33' },
+  { id: 5, name: 'Emma Bernard', role: 'CFO', company: 'Tech Innovators', email: 'emma@tech-innovators.fr', phone: '+33 6 56 78 90 12', avatar: 'EB', photo: 'https://i.pravatar.cc/100?img=23' },
+  { id: 6, name: 'Thomas Petit', role: 'CTO', company: 'Digital Solutions', email: 'thomas@digital.fr', phone: '+33 6 67 89 01 23', avatar: 'TP', photo: 'https://i.pravatar.cc/100?img=7' },
 ]
 
 export default function Users({ onContact }) {
@@ -41,9 +41,11 @@ export default function Users({ onContact }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((user) => (
           <div key={user.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-xl mb-3 bg-gray-800">
-              {user.avatar}
-            </div>
+            <img
+              src={user.photo}
+              alt={user.name}
+              className="w-20 h-20 rounded-full object-cover mb-3 border-2 border-gray-100 shadow-sm"
+            />
             <h3 className="font-bold text-gray-900 text-base">{user.name}</h3>
             <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>
             <p className="text-xs font-medium text-primary-light mt-1 mb-4">{user.company}</p>
