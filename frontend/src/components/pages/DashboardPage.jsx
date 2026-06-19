@@ -1,77 +1,59 @@
 import React from 'react'
-import { TrendingUp, Users, BookOpen, Newspaper } from 'lucide-react'
+import { Building2, Users, BookOpen, TrendingUp } from 'lucide-react'
+
+const stats = [
+  { label: 'Entreprises actives', value: '24', Icon: Building2 },
+  { label: 'Professionnels', value: '156', Icon: Users },
+  { label: 'Formations disponibles', value: '18', Icon: BookOpen },
+  { label: 'Taux de réussite', value: '87%', Icon: TrendingUp },
+]
+
+const activities = [
+  { initials: 'TE', color: 'bg-gray-600', name: 'Tech Innovators', action: 'Mise à jour de fiche', time: 'Il y a 2h' },
+  { initials: 'DI', color: 'bg-blue-500', name: 'Digital Solutions', action: 'Nouvelle inscription', time: 'Il y a 5h' },
+  { initials: 'GR', color: 'bg-green-600', name: 'Green Energy Co.', action: 'Formation complétée', time: 'Hier' },
+  { initials: 'CR', color: 'bg-purple-500', name: 'Creative Studio', action: 'Mise à jour de fiche', time: 'Hier' },
+]
 
 export default function DashboardPage() {
-  const stats = [
-    { label: 'Entreprises actives', value: '4', icon: '🏢', color: 'bg-blue-100' },
-    { label: 'Collaborateurs', value: '41', icon: '👥', color: 'bg-green-100' },
-    { label: 'Formations disponibles', value: '4', icon: '📚', color: 'bg-purple-100' },
-    { label: 'Actualités', value: '12', icon: '📰', color: 'bg-orange-100' },
-  ]
-
   return (
     <div>
-      {/* Page Title */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Bienvenue sur le Tableau de bord</h2>
-        <p className="text-gray-600 mt-2">Vue d'ensemble de la Maison de l'Économie</p>
+        <h2 className="text-2xl font-bold text-gray-900">Tableau de bord</h2>
+        <p className="text-gray-500 mt-1">Vue d'ensemble de la pépinière d'entreprises</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat, index) => (
-          <div key={index} className="card">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${stat.color}`}>
-                {stat.icon}
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              </div>
+        {stats.map((stat, i) => (
+          <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center mb-4">
+              <stat.Icon size={22} className="text-white" />
             </div>
+            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+            <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Welcome Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Access */}
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Accès rapide</h3>
-          <div className="space-y-2">
-            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 font-medium text-gray-700 transition-colors">
-              → Consulter les entreprises
-            </button>
-            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 font-medium text-gray-700 transition-colors">
-              → Voir l'annuaire collaborateurs
-            </button>
-            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 font-medium text-gray-700 transition-colors">
-              → Consulter les formations
-            </button>
-            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 font-medium text-gray-700 transition-colors">
-              → Lire les actualités
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Activité récente</h3>
-          <div className="space-y-3">
-            <div className="pb-3 border-b border-gray-100">
-              <p className="text-sm font-medium text-gray-900">Nouvelle entreprise ajoutée</p>
-              <p className="text-xs text-gray-500">Creative Studio - il y a 2 jours</p>
+      {/* Activités récentes */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-5">Activités récentes</h3>
+        <div className="divide-y divide-gray-100">
+          {activities.map((item, i) => (
+            <div key={i} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${item.color}`}
+              >
+                {item.initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{item.name}</p>
+                <p className="text-xs text-gray-500">{item.action}</p>
+              </div>
+              <span className="text-xs text-gray-400 whitespace-nowrap">{item.time}</span>
             </div>
-            <div className="pb-3 border-b border-gray-100">
-              <p className="text-sm font-medium text-gray-900">Formation créée</p>
-              <p className="text-xs text-gray-500">Design Thinking Workshop - il y a 1 semaine</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">Nouvel utilisateur inscrit</p>
-              <p className="text-xs text-gray-500">Sophie Bernard - il y a 3 jours</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
