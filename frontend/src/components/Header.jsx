@@ -1,9 +1,33 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Moon, Sun } from 'lucide-react'
 import LoginModal from './modals/LoginModal'
 
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08)
+    osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.18)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.35)
+  } catch (_) {}
+}
+
 export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
   const [loginOpen, setLoginOpen] = useState(false)
+  const prevCount = useRef(unreadCount)
+
+  useEffect(() => {
+    if (unreadCount > prevCount.current) playNotifSound()
+    prevCount.current = unreadCount
+  }, [unreadCount])
 
   return (
     <>
@@ -29,9 +53,12 @@ export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onT
             >
               <MessageSquare size={26} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold leading-none">
-                  {unreadCount}
-                </span>
+                <>
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-400 rounded-full animate-ping opacity-60" />
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold leading-none">
+                    {unreadCount}
+                  </span>
+                </>
               )}
             </button>
 
@@ -41,7 +68,7 @@ export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onT
               className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
             >
               <div className="text-right">
-                <p className="text-base font-semibold text-gray-900 leading-snug">Admin User</p>
+                <p className="text-base font-semibold text-gray-900 leading-snug">Céline Marcilhac</p>
                 <p className="text-sm text-gray-500 leading-snug">Administrateur</p>
               </div>
               <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
