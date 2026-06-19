@@ -16,6 +16,7 @@ export default function DashboardContainer() {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('darkMode') === 'true'
   )
+  const [unreadCount, setUnreadCount] = useState(2)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -55,8 +56,8 @@ export default function DashboardContainer() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true) }}
-        unreadCount={2}
+        onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
+        unreadCount={unreadCount}
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
       />
@@ -68,6 +69,7 @@ export default function DashboardContainer() {
         <Messagerie
           onClose={handleCloseMessaging}
           initialContact={messagingContact}
+          onNewMessage={() => setUnreadCount((n) => n + 1)}
         />
       )}
     </div>
