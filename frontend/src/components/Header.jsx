@@ -4,19 +4,9 @@ import LoginModal from './modals/LoginModal'
 
 function playNotifSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(880, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08)
-    osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.18)
-    gain.gain.setValueAtTime(0.25, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.35)
+    const audio = new Audio('/notification.mp3')
+    audio.volume = 0.5
+    audio.play()
   } catch (_) {}
 }
 

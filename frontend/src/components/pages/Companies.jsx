@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
-import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2 } from 'lucide-react'
+import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, Hash } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
 
 const initialCompanies = [
-  { id: 1, name: 'Tech Innovators', sector: 'Technologies', location: 'Paris', joinDate: 'Membre depuis 2024', employees: '8 employés', status: 'Active' },
-  { id: 2, name: 'Digital Solutions', sector: 'Marketing Digital', location: 'Lyon', joinDate: 'Membre depuis 2025', employees: '12 employés', status: 'Active' },
-  { id: 3, name: 'Green Energy Co.', sector: 'Énergie Renouvelable', location: 'Nantes', joinDate: 'Membre depuis 2023', employees: '15 employés', status: 'Active' },
-  { id: 4, name: 'Creative Studio', sector: 'Design & Communication', location: 'Bordeaux', joinDate: 'Membre depuis 2025', employees: '6 employés', status: 'Active' },
+  { id: 1, name: 'Tech Innovators', sector: 'Technologies', location: 'Toulouse', joinDate: 'Membre depuis 2024', employees: '8 employés', status: 'Active', siren: '882 345 671' },
+  { id: 2, name: 'Digital Solutions', sector: 'Marketing Digital', location: 'Montpellier', joinDate: 'Membre depuis 2025', employees: '12 employés', status: 'Active', siren: '791 234 508' },
+  { id: 3, name: 'Green Energy Co.', sector: 'Énergie Renouvelable', location: 'Rodez', joinDate: 'Membre depuis 2023', employees: '15 employés', status: 'Active', siren: '523 891 042' },
+  { id: 4, name: 'Creative Studio', sector: 'Design & Communication', location: 'Nîmes', joinDate: 'Membre depuis 2025', employees: '6 employés', status: 'Active', siren: '410 673 829' },
 ]
 
 export default function Companies() {
@@ -89,6 +89,12 @@ export default function Companies() {
                   <Users size={15} className="text-gray-400" />
                   <span>{company.employees}</span>
                 </div>
+                {company.siren && (
+                  <div className="flex items-center gap-2">
+                    <Hash size={15} className="text-gray-400" />
+                    <span className="font-mono text-xs text-gray-500">SIREN {company.siren}</span>
+                  </div>
+                )}
               </div>
 
               <button
