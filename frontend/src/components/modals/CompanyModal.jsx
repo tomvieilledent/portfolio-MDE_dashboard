@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
-import { X, Building2, MapPin, Calendar, Users, Save } from 'lucide-react'
+import { X, Building2, MapPin, Calendar, Users, Save, Hash } from 'lucide-react'
 
 export default function CompanyModal({ company, onClose, onSave }) {
   const isEdit = !!company
   const [form, setForm] = useState({
     name: company?.name || '',
     sector: company?.sector || '',
+    siren: company?.siren || '',
     location: company?.location || '',
     joinDate: company?.joinDate || '',
     employees: company?.employees || '',
@@ -59,6 +60,21 @@ export default function CompanyModal({ company, onClose, onSave }) {
                 value={form.name}
                 onChange={set('name')}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+              />
+            </div>
+
+            {/* SIREN */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <span className="flex items-center gap-1"><Hash size={13} /> Numéro SIREN</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex : 882 345 671"
+                value={form.siren}
+                onChange={set('siren')}
+                maxLength={11}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-light"
               />
             </div>
 
