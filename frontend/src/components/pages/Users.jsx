@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import { Search, Mail, Phone, MessageCircle } from 'lucide-react'
 
 const initialUsers = [
-  { id: 1, name: 'Sophie Dubois', role: 'CEO', company: 'Tech Innovators', email: 'sophie@tech-innovators.fr', phone: '+33 6 12 34 56 78', avatar: 'SD', photo: 'https://i.pravatar.cc/100?img=47' },
-  { id: 2, name: 'Marc Laurent', role: 'Directeur Marketing', company: 'Digital Solutions', email: 'marc@digital.fr', phone: '+33 6 23 45 67 88', avatar: 'ML', photo: 'https://i.pravatar.cc/100?img=11' },
-  { id: 3, name: 'Julie Martin', role: 'DG', company: 'Green Energy Co.', email: 'julie@greenenergy.fr', phone: '+33 5 34 56 78 90', avatar: 'JM', photo: 'https://i.pravatar.cc/100?img=26' },
-  { id: 4, name: 'Pierre Dupont', role: 'Fondateur', company: 'Creative Studio', email: 'pierre@creativestudio.fr', phone: '+33 6 45 67 89 01', avatar: 'PD', photo: 'https://i.pravatar.cc/100?img=33' },
-  { id: 5, name: 'Emma Bernard', role: 'CFO', company: 'Tech Innovators', email: 'emma@tech-innovators.fr', phone: '+33 6 56 78 90 12', avatar: 'EB', photo: 'https://i.pravatar.cc/100?img=23' },
-  { id: 6, name: 'Thomas Petit', role: 'CTO', company: 'Digital Solutions', email: 'thomas@digital.fr', phone: '+33 6 67 89 01 23', avatar: 'TP', photo: 'https://i.pravatar.cc/100?img=7' },
+  { id: 1, name: 'Sophie Dubois', role: 'CEO', company: 'Tech Innovators', email: 'sophie@tech-innovators.fr', phone: '+33 6 12 34 56 78', avatar: 'SD', photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
+  { id: 2, name: 'Marc Laurent', role: 'Directeur Marketing', company: 'Digital Solutions', email: 'marc@digital.fr', phone: '+33 6 23 45 67 88', avatar: 'ML', photo: 'https://randomuser.me/api/portraits/men/32.jpg' },
+  { id: 3, name: 'Julie Martin', role: 'DG', company: 'Green Energy Co.', email: 'julie@greenenergy.fr', phone: '+33 5 34 56 78 90', avatar: 'JM', photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
+  { id: 4, name: 'Pierre Dupont', role: 'Fondateur', company: 'Creative Studio', email: 'pierre@creativestudio.fr', phone: '+33 6 45 67 89 01', avatar: 'PD', photo: 'https://randomuser.me/api/portraits/men/45.jpg' },
+  { id: 5, name: 'Emma Bernard', role: 'CFO', company: 'Tech Innovators', email: 'emma@tech-innovators.fr', phone: '+33 6 56 78 90 12', avatar: 'EB', photo: 'https://randomuser.me/api/portraits/women/17.jpg' },
+  { id: 6, name: 'Thomas Petit', role: 'CTO', company: 'Digital Solutions', email: 'thomas@digital.fr', phone: '+33 6 67 89 01 23', avatar: 'TP', photo: 'https://randomuser.me/api/portraits/men/22.jpg' },
 ]
 
 export default function Users({ onContact }) {
