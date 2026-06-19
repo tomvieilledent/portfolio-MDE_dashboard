@@ -1,51 +1,75 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from './Header'
 import TabNavigation from './TabNavigation'
 import Companies from './pages/Companies'
 import Users from './pages/Users'
 import Trainings from './pages/Trainings'
 import News from './pages/News'
-import Dashboard from './pages/DashboardPage'
+import DashboardPage from './pages/DashboardPage'
 import MonOnglet from './pages/MonOnglet'
+import Messagerie from './Messagerie'
 
 export default function DashboardContainer() {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [messagingOpen, setMessagingOpen] = useState(false)
+  const [messagingContact, setMessagingContact] = useState(null)
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem('darkMode') === 'true'
+  )
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('darkMode', String(darkMode))
+  }, [darkMode])
 
   const tabs = [
-    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' },
-    { id: 'companies', label: 'Entreprises', icon: '🏢' },
-    { id: 'users', label: 'Trombinoscope', icon: '👥' },
-    { id: 'trainings', label: 'Formations', icon: '📚' },
-    { id: 'news', label: 'Veille économique', icon: '📰' },
-	{ id: 'logs', label: 'Logs', icon: '⭐' },
+    { id: 'dashboard', label: 'Tableau de bord' },
+    { id: 'companies', label: 'Entreprises' },
+    { id: 'users', label: 'Trombinoscope' },
+    { id: 'trainings', label: 'Formations' },
+    { id: 'news', label: 'Veille économique' },
   ]
+
+  const handleContact = (contactName) => {
+    setMessagingContact(contactName)
+    setMessagingOpen(true)
+  }
+
+  const handleCloseMessaging = () => {
+    setMessagingOpen(false)
+    setMessagingContact(null)
+  }
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />
-      case 'companies':
-        return <Companies />
-      case 'users':
-        return <Users />
-      case 'trainings':
-        return <Trainings />
-      case 'news':
-        return <News />
-	  case 'mononglet':
-  		return <MonOnglet />
-      default:
-        return <Dashboard />
+      case 'dashboard': return <DashboardPage />
+      case 'companies': return <Companies />
+      case 'users': return <Users onContact={handleContact} />
+      case 'trainings': return <Trainings />
+      case 'news': return <News />
+      case 'mononglet': return <MonOnglet />
+      default: return <DashboardPage />
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header
+        onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true) }}
+        unreadCount={2}
+        darkMode={darkMode}
+        onToggleDark={() => setDarkMode((d) => !d)}
+      />
       <TabNavigation tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-8">
         {renderPage()}
       </main>
+      {messagingOpen && (
+        <Messagerie
+          onClose={handleCloseMessaging}
+          initialContact={messagingContact}
+        />
+      )}
     </div>
   )
 }
