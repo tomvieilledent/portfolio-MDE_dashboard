@@ -1,111 +1,177 @@
 import React, { useState } from 'react'
-import { Newspaper, Calendar, ExternalLink } from 'lucide-react'
+import { Search, ExternalLink, Bookmark, BarChart2, TrendingUp, AlertTriangle } from 'lucide-react'
+
+const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
+
+const categoryColors = {
+  Économie: 'bg-green-100 text-green-700',
+  Innovation: 'bg-blue-100 text-blue-700',
+  Réglementation: 'bg-purple-100 text-purple-700',
+  Marché: 'bg-orange-100 text-orange-700',
+}
+
+const newsItems = [
+  {
+    id: 1,
+    title: 'Nouvelles subventions pour les startups en 2026',
+    source: 'Les Échos',
+    date: '21 mai 2026',
+    category: 'Économie',
+    excerpt:
+      'Le gouvernement annonce un nouveau dispositif de financement de 500M€ pour soutenir l\'innovation dans les PME et startups françaises.',
+    pinned: true,
+  },
+  {
+    id: 2,
+    title: 'Intelligence Artificielle : nouvelles réglementations européennes',
+    source: 'La Tribune',
+    date: '8 mai 2026',
+    category: 'Réglementation',
+    excerpt:
+      "L'UE finalise son cadre réglementaire sur l'IA. Les entreprises ont 18 mois pour se mettre en conformité.",
+    pinned: true,
+  },
+  {
+    id: 3,
+    title: 'Transition verte : les PME en première ligne',
+    source: 'Maddyness',
+    date: '3 mai 2026',
+    category: 'Innovation',
+    excerpt:
+      'Les petites et moyennes entreprises sont de plus en plus sollicitées pour adopter des pratiques éco-responsables.',
+    pinned: false,
+  },
+  {
+    id: 4,
+    title: 'Marché du travail : les tendances 2026',
+    source: 'Capital',
+    date: '28 avril 2026',
+    category: 'Marché',
+    excerpt:
+      'Analyses des grandes évolutions du marché de l\'emploi en France : télétravail, IA et nouvelles compétences recherchées.',
+    pinned: false,
+  },
+]
 
 export default function News() {
-  const [newsItems] = useState([
-    {
-      id: 1,
-      title: 'L\'IA transforme les PME françaises',
-      source: 'Les Échos',
-      date: '25 mai 2026',
-      category: 'Technologie',
-      excerpt:
-        'Nouvelle étude révélant comment les petites entreprises adoptent les solutions IA pour améliorer leur productivité.',
-      url: '#',
-    },
-    {
-      id: 2,
-      title: 'Transition énergétique : les objectifs 2025',
-      source: 'Énergie Plus',
-      date: '24 mai 2026',
-      category: 'Énergie',
-      excerpt:
-        'L\'Union européenne annonce les nouveaux objectifs de transition énergétique pour les années à venir.',
-      url: '#',
-    },
-    {
-      id: 3,
-      title: 'Startup innovantes : les 10 à suivre',
-      source: 'Maddyness',
-      date: '23 mai 2026',
-      category: 'Startup',
-      excerpt:
-        'Un classement des 10 startups les plus prometteuses selon les investisseurs et les experts du secteur.',
-      url: '#',
-    },
-    {
-      id: 4,
-      title: 'Marché du travail : quelles tendances ?',
-      source: 'Capital',
-      date: '22 mai 2026',
-      category: 'Emploi',
-      excerpt:
-        'Analyses des tendances principales du marché de l\'emploi en France et en Europe pour l\'année 2026.',
-      url: '#',
-    },
-  ])
+  const [activeFilter, setActiveFilter] = useState('Tout')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const categoryColors = {
-    Technologie: 'bg-blue-100 text-blue-800',
-    Énergie: 'bg-green-100 text-green-800',
-    Startup: 'bg-purple-100 text-purple-800',
-    Emploi: 'bg-orange-100 text-orange-800',
-  }
+  const filtered = newsItems.filter((item) => {
+    const matchesFilter = activeFilter === 'Tout' || item.category === activeFilter
+    const matchesSearch =
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.source.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesFilter && matchesSearch
+  })
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Veille économique</h2>
-        <p className="text-sm text-gray-600 mt-1">Actualités et tendances économiques</p>
+        <h2 className="text-2xl font-bold text-gray-900">Veille Économique</h2>
+        <p className="text-sm text-gray-500 mt-1">Actualités et tendances pour les entrepreneurs</p>
       </div>
 
-      {/* News Items */}
+      {/* Search */}
+      <div className="relative mb-5">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Rechercher des actus..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white"
+        />
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-primary-light rounded-xl p-4 text-white flex items-center gap-3">
+          <BarChart2 size={28} className="opacity-80" />
+          <div>
+            <p className="text-2xl font-bold leading-none">6</p>
+            <p className="text-xs opacity-80 mt-1">Articles disponibles</p>
+          </div>
+        </div>
+        <div className="bg-orange-400 rounded-xl p-4 text-white flex items-center gap-3">
+          <TrendingUp size={28} className="opacity-80" />
+          <div>
+            <p className="text-2xl font-bold leading-none">+12%</p>
+            <p className="text-xs opacity-80 mt-1">Tendance Innovation</p>
+          </div>
+        </div>
+        <div className="bg-red-500 rounded-xl p-4 text-white flex items-center gap-3">
+          <AlertTriangle size={28} className="opacity-80" />
+          <div>
+            <p className="text-2xl font-bold leading-none">3</p>
+            <p className="text-xs opacity-80 mt-1">Alertes confirmées</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeFilter === f
+                ? 'bg-primary-light text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-primary-light hover:text-primary-light'
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {/* News items */}
       <div className="space-y-4">
-        {newsItems.map((item) => (
-          <div key={item.id} className="card hover:shadow-lg transition-shadow cursor-pointer">
-            <div className="flex gap-4">
-              {/* Icon */}
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <Newspaper className="text-primary-light" size={24} />
-                </div>
+        {filtered.map((item) => (
+          <div
+            key={item.id}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    categoryColors[item.category] || 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {item.category}
+                </span>
+                <span className="text-xs text-gray-400">{item.source} · {item.date}</span>
               </div>
+              {item.pinned && (
+                <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600">
+                  Épinglée
+                </span>
+              )}
+            </div>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                {/* Title & Category */}
-                <div className="flex items-start justify-between mb-2 gap-2">
-                  <h3 className="font-bold text-gray-900 text-base leading-tight flex-1">
-                    {item.title}
-                  </h3>
-                  <span
-                    className={`badge text-xs whitespace-nowrap ${
-                      categoryColors[item.category] || 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {item.category}
-                  </span>
-                </div>
+            <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
+            <p className="text-sm text-gray-600 mb-4">{item.excerpt}</p>
 
-                {/* Excerpt */}
-                <p className="text-sm text-gray-600 mb-3">{item.excerpt}</p>
-
-                {/* Meta */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium text-gray-700">{item.source}</span>
-                    <div className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      {item.date}
-                    </div>
-                  </div>
-                  <ExternalLink size={16} className="text-primary-light" />
-                </div>
-              </div>
+            <div className="flex gap-3">
+              <button className="flex items-center gap-1.5 px-4 py-2 bg-primary-light hover:bg-primary text-white text-sm font-medium rounded-lg transition-colors">
+                <ExternalLink size={14} />
+                Lire l'article
+              </button>
+              <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 text-sm font-medium rounded-lg transition-colors">
+                <Bookmark size={14} />
+                Sauvegarder
+              </button>
             </div>
           </div>
         ))}
+
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-400">Aucun article ne correspond à votre recherche</p>
+          </div>
+        )}
       </div>
     </div>
   )
