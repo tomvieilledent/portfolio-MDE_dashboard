@@ -8,7 +8,7 @@ export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onT
   return (
     <>
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-5">
             <img src="/logo-rodez.png" alt="Rodez Agglomération" className="h-16 w-auto" />
