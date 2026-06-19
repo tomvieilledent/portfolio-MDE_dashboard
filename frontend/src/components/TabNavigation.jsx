@@ -9,6 +9,14 @@ const ICONS = {
   news: TrendingUp,
 }
 
+const ICON_COLORS = {
+  dashboard: 'text-primary',
+  companies: 'text-orange-400',
+  users: 'text-blue-500',
+  trainings: 'text-purple-500',
+  news: 'text-amber-500',
+}
+
 export default function TabNavigation({ tabs, activeTab, setActiveTab }) {
   return (
     <nav className="bg-white border-b border-gray-200">
@@ -26,7 +34,12 @@ export default function TabNavigation({ tabs, activeTab, setActiveTab }) {
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
-              {Icon && <Icon size={22} />}
+              {Icon && (
+                <Icon
+                  size={22}
+                  className={isActive ? ICON_COLORS[tab.id] : ''}
+                />
+              )}
               {tab.label}
             </button>
           )
