@@ -63,8 +63,8 @@ export default function Companies() {
             <div key={company.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary-light rounded-xl flex items-center justify-center">
-                    <Building2 size={22} className="text-white" />
+                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <Building2 size={22} className="text-orange-400" />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900">{company.name}</h3>
