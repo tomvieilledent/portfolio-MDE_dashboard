@@ -9,8 +9,24 @@ import DashboardPage from './pages/DashboardPage'
 import MonOnglet from './pages/MonOnglet'
 import Messagerie from './Messagerie'
 
+const ADMIN_TABS = [
+  { id: 'dashboard', label: 'Tableau de bord' },
+  { id: 'companies', label: 'Entreprises' },
+  { id: 'users', label: 'Trombinoscope' },
+  { id: 'trainings', label: 'Formations' },
+  { id: 'news', label: 'Veille économique' },
+]
+
+const USER_TABS = [
+  { id: 'news', label: 'Veille économique' },
+  { id: 'companies', label: 'Entreprises' },
+  { id: 'users', label: 'Trombinoscope' },
+  { id: 'trainings', label: 'Formations' },
+]
+
 export default function DashboardContainer() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [role, setRole] = useState('user')
+  const [activeTab, setActiveTab] = useState('news')
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
   const [darkMode, setDarkMode] = useState(
@@ -23,13 +39,17 @@ export default function DashboardContainer() {
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
 
-  const tabs = [
-    { id: 'dashboard', label: 'Tableau de bord' },
-    { id: 'companies', label: 'Entreprises' },
-    { id: 'users', label: 'Trombinoscope' },
-    { id: 'trainings', label: 'Formations' },
-    { id: 'news', label: 'Veille économique' },
-  ]
+  const handleLogin = () => {
+    setRole('admin')
+    setActiveTab('dashboard')
+  }
+
+  const handleLogout = () => {
+    setRole('user')
+    setActiveTab('news')
+  }
+
+  const tabs = role === 'admin' ? ADMIN_TABS : USER_TABS
 
   const handleContact = (contactName) => {
     setMessagingContact(contactName)
@@ -49,13 +69,16 @@ export default function DashboardContainer() {
       case 'trainings': return <Trainings />
       case 'news': return <News />
       case 'mononglet': return <MonOnglet />
-      default: return <DashboardPage />
+      default: return <News />
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
+        role={role}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
         onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
         unreadCount={unreadCount}
         darkMode={darkMode}

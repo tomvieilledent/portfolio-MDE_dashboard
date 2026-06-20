@@ -171,10 +171,17 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500 hover:text-gray-900"
+            title="Retour"
+          >
+            <ArrowLeft size={22} />
+          </button>
           {selectedConv && (
             <button
               onClick={() => setSelectedConv(null)}
-              className="p-1 hover:bg-gray-100 rounded-lg mr-1 md:hidden"
+              className="p-1 hover:bg-gray-100 rounded-lg md:hidden"
             >
               <ArrowLeft size={20} />
             </button>

@@ -3,7 +3,7 @@ import { X, Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
 import RegisterModal from './RegisterModal'
 import ForgotPasswordModal from './ForgotPasswordModal'
 
-export default function LoginModal({ onClose }) {
+export default function LoginModal({ onClose, onLoginSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -13,7 +13,7 @@ export default function LoginModal({ onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onClose()
+    onLoginSuccess ? onLoginSuccess() : onClose()
   }
 
   if (showRegister) {

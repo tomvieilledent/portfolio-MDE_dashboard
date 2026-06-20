@@ -1,16 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { MessageSquare, Moon, Sun } from 'lucide-react'
+import { MessageSquare, Moon, Sun, LogOut, LogIn } from 'lucide-react'
 import LoginModal from './modals/LoginModal'
 
-function playNotifSound() {
+function createImpulse(ctx, duration = 0.6, decay = 0.4) {
+  const length = ctx.sampleRate * duration
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate)
+  for (let ch = 0; ch < 2; ch++) {
+    const data = impulse.getChannelData(ch)
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay)
+    }
+  }
+  return impulse
+}
+
+async function playNotifSound() {
   try {
-    const audio = new Audio('/notification.mp3')
-    audio.volume = 0.5
-    audio.play()
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const res = await fetch('/notification.mp3')
+    const buf = await ctx.decodeAudioData(await res.arrayBuffer())
+
+    const source = ctx.createBufferSource()
+    source.buffer = buf
+
+    const masterGain = ctx.createGain()
+    masterGain.gain.value = 0.28
+
+    const convolver = ctx.createConvolver()
+    convolver.buffer = createImpulse(ctx)
+
+    const dryGain = ctx.createGain()
+    dryGain.gain.value = 0.55
+    const wetGain = ctx.createGain()
+    wetGain.gain.value = 0.2
+
+    source.connect(dryGain)
+    source.connect(convolver)
+    convolver.connect(wetGain)
+    dryGain.connect(masterGain)
+    wetGain.connect(masterGain)
+    masterGain.connect(ctx.destination)
+
+    source.start()
   } catch (_) {}
 }
 
-export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
+export default function Header({ role = 'user', onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const prevCount = useRef(unreadCount)
 
@@ -52,19 +87,37 @@ export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onT
               )}
             </button>
 
-            {/* Admin User → login modal */}
-            <button
-              onClick={() => setLoginOpen(true)}
-              className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
-            >
-              <div className="text-right">
-                <p className="text-base font-semibold text-gray-900 leading-snug">Céline Marcilhac</p>
-                <p className="text-sm text-gray-500 leading-snug">Administrateur</p>
-              </div>
-              <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                AU
-              </div>
-            </button>
+            {role === 'admin' ? (
+              <>
+                <button
+                  onClick={() => setLoginOpen(true)}
+                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
+                >
+                  <div className="text-right">
+                    <p className="text-base font-semibold text-gray-900 leading-snug">Céline Marcilhac</p>
+                    <p className="text-sm text-gray-500 leading-snug">Administrateur</p>
+                  </div>
+                  <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                    CM
+                  </div>
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="p-2.5 hover:bg-red-50 rounded-xl transition-colors text-gray-400 hover:text-red-500"
+                  title="Se déconnecter"
+                >
+                  <LogOut size={20} />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setLoginOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 border-2 border-primary-light text-primary-light hover:bg-primary-light hover:text-white font-semibold rounded-xl transition-colors text-sm"
+              >
+                <LogIn size={16} />
+                Connexion
+              </button>
+            )}
 
             {/* Dark mode toggle — à droite du login */}
             <button
@@ -78,7 +131,12 @@ export default function Header({ onOpenMessaging, unreadCount = 2, darkMode, onT
         </div>
       </header>
 
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+      {loginOpen && (
+        <LoginModal
+          onClose={() => setLoginOpen(false)}
+          onLoginSuccess={() => { setLoginOpen(false); onLogin?.() }}
+        />
+      )}
     </>
   )
 }

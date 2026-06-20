@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, ExternalLink, Bookmark, BarChart2, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Search, ExternalLink, Bookmark, BarChart2, TrendingUp, Rss } from 'lucide-react'
 
 const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
 
@@ -100,11 +100,11 @@ export default function News() {
             <p className="text-xs opacity-80 mt-1">Tendance Innovation</p>
           </div>
         </div>
-        <div className="bg-red-500 rounded-xl p-4 text-white flex items-center gap-3">
-          <AlertTriangle size={28} className="opacity-80" />
+        <div className="bg-indigo-500 rounded-xl p-4 text-white flex items-center gap-3">
+          <Rss size={28} className="opacity-80" />
           <div>
-            <p className="text-2xl font-bold leading-none">3</p>
-            <p className="text-xs opacity-80 mt-1">Alertes confirmées</p>
+            <p className="text-2xl font-bold leading-none">8</p>
+            <p className="text-xs opacity-80 mt-1">Sources suivies</p>
           </div>
         </div>
       </div>
