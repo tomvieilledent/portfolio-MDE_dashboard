@@ -66,7 +66,7 @@ export default function DashboardContainer() {
       case 'dashboard': return <DashboardPage />
       case 'companies': return <Companies />
       case 'users': return <Users onContact={handleContact} />
-      case 'trainings': return <Trainings />
+      case 'trainings': return <Trainings isAdmin={role === 'admin'} />
       case 'news': return <News />
       case 'mononglet': return <MonOnglet />
       default: return <News />
