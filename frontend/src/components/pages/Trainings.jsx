@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link } from 'lucide-react'
+import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link, X } from 'lucide-react'
 
 const frenchMonths = {
   Janvier: 0, Février: 1, Mars: 2, Avril: 3, Mai: 4, Juin: 5,
@@ -44,12 +44,105 @@ const initialTrainings = [
   { id: 4, title: 'Transformation Digitale', category: 'Digital', description: "Accompagner le développement digital d'une entreprise", duration: '5 jours', endDate: '10 Août 2026', enrolled: 5, capacity: 16, url: '' },
 ]
 
-export default function Trainings() {
+function LinkModal({ training, onClose, onSave }) {
+  const [url, setUrl] = useState(training.url || '')
+  const isValid = url === '' || url.startsWith('http://') || url.startsWith('https://')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!isValid) return
+    onSave({ ...training, url: url.trim() })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-purple-500 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <Link size={16} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-white/70">Hyperlien</p>
+              <h3 className="text-sm font-bold text-white leading-tight">{training.title}</h3>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">URL de la formation</label>
+            <input
+              autoFocus
+              type="url"
+              placeholder="https://www.exemple.com/formation"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${
+                !isValid ? 'border-red-300 bg-red-50' : 'border-gray-200'
+              }`}
+            />
+            {!isValid && (
+              <p className="mt-1 text-xs text-red-500">L'URL doit commencer par https:// ou http://</p>
+            )}
+            {url && isValid && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 flex items-center gap-1 text-xs text-purple-500 hover:underline w-fit"
+              >
+                <ExternalLink size={11} /> Tester le lien
+              </a>
+            )}
+          </div>
+
+          {training.url && (
+            <button
+              type="button"
+              onClick={() => { setUrl('') }}
+              className="text-xs text-red-400 hover:text-red-600 transition-colors"
+            >
+              Supprimer le lien
+            </button>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-xl text-sm transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={!isValid}
+              className="flex-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-medium py-2 rounded-xl text-sm transition-colors"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function Trainings({ isAdmin = false }) {
   const [trainings, setTrainings] = useState(initialTrainings)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTraining, setSelectedTraining] = useState(null)
   const [formModal, setFormModal] = useState(null) // null | { mode: 'create' } | { mode: 'edit', training }
   const [saved, setSaved] = useState(new Set())
+  const [linkModal, setLinkModal] = useState(null) // null | training
 
   const toggleSave = (id) => setSaved((prev) => {
     const next = new Set(prev)
@@ -62,6 +155,10 @@ export default function Trainings() {
       const exists = prev.find((t) => t.id === data.id)
       return exists ? prev.map((t) => (t.id === data.id ? data : t)) : [...prev, data]
     })
+  }
+
+  const handleSaveLink = (data) => {
+    setTrainings((prev) => prev.map((t) => (t.id === data.id ? data : t)))
   }
 
   const filtered = trainings.filter(
@@ -78,13 +175,15 @@ export default function Trainings() {
             <h2 className="text-2xl font-bold text-gray-900">Catalogue de Formations</h2>
             <p className="text-sm text-gray-500 mt-1">Formations professionnelles pour entrepreneurs</p>
           </div>
-          <button
-            onClick={() => setFormModal({ mode: 'create' })}
-            className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
-          >
-            <Plus size={16} />
-            Créer une formation
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setFormModal({ mode: 'create' })}
+              className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+            >
+              <Plus size={16} />
+              Créer une formation
+            </button>
+          )}
         </div>
 
         <div className="relative mb-6 mt-4">
@@ -112,18 +211,28 @@ export default function Trainings() {
                         href={training.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-bold text-gray-900 hover:text-purple-600 hover:underline transition-colors flex items-center gap-1.5 group"
+                        className="font-bold text-gray-900 hover:text-purple-600 hover:underline transition-colors flex items-center gap-1 group"
                         title={training.url}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {training.title}
-                        <ExternalLink size={13} className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        <ExternalLink size={12} className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </a>
                     ) : (
-                      <span className="font-bold text-gray-900 flex items-center gap-1.5">
-                        {training.title}
-                        <Link size={13} className="text-gray-300 flex-shrink-0" title="Aucun lien — cliquez sur Modifier pour en ajouter un" />
-                      </span>
+                      <span className="font-bold text-gray-900">{training.title}</span>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => setLinkModal(training)}
+                        title={training.url ? 'Modifier le lien' : 'Ajouter un lien'}
+                        className={`p-1 rounded-md transition-colors flex-shrink-0 ${
+                          training.url
+                            ? 'text-purple-400 hover:bg-purple-50 hover:text-purple-600'
+                            : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+                        }`}
+                      >
+                        <Link size={13} />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -216,13 +325,15 @@ export default function Trainings() {
                 >
                   {training.enrolled >= training.capacity ? 'Complet' : "S'inscrire"}
                 </button>
-                <button
-                  onClick={() => setFormModal({ mode: 'edit', training })}
-                  className="p-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-gray-500 hover:text-purple-500"
-                  title="Modifier la formation"
-                >
-                  <Edit2 size={16} />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => setFormModal({ mode: 'edit', training })}
+                    className="p-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-gray-500 hover:text-purple-500"
+                    title="Modifier la formation"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -247,6 +358,14 @@ export default function Trainings() {
           training={formModal.mode === 'edit' ? formModal.training : null}
           onClose={() => setFormModal(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {linkModal && (
+        <LinkModal
+          training={linkModal}
+          onClose={() => setLinkModal(null)}
+          onSave={handleSaveLink}
         />
       )}
     </>
