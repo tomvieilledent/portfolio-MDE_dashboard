@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, GraduationCap, Clock, Calendar, Users, Save, FileText, Tag } from 'lucide-react'
+import { X, GraduationCap, Clock, Calendar, Users, Save, FileText, Tag, Link } from 'lucide-react'
 
 const CATEGORIES = ['Marketing', 'Finance', 'Management', 'Digital']
 
@@ -13,6 +13,7 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
     endDate: training?.endDate || '',
     capacity: training?.capacity ?? 15,
     enrolled: training?.enrolled ?? 0,
+    url: training?.url || '',
   })
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -67,6 +68,37 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
               onChange={set('title')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
+          </div>
+
+          {/* Lien */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <span className="flex items-center gap-1"><Link size={13} /> Lien de la formation</span>
+            </label>
+            <div className="relative">
+              <input
+                type="url"
+                placeholder="https://www.exemple.com/formation"
+                value={form.url}
+                onChange={set('url')}
+                className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              {form.url && (
+                <a
+                  href={form.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600 transition-colors"
+                  title="Tester le lien"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Link size={15} />
+                </a>
+              )}
+            </div>
+            {form.url && (
+              <p className="mt-1 text-xs text-gray-400 truncate">{form.url}</p>
+            )}
           </div>
 
           {/* Catégorie */}

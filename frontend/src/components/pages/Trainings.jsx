@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer } from 'lucide-react'
+import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link } from 'lucide-react'
 
 const frenchMonths = {
   Janvier: 0, Février: 1, Mars: 2, Avril: 3, Mai: 4, Juin: 5,
@@ -38,10 +38,10 @@ const categoryBar = {
 }
 
 const initialTrainings = [
-  { id: 1, title: 'Marketing Digital 2026', category: 'Marketing', description: 'Stratégies marketing digital pour entrepreneurs', duration: '3 jours', endDate: '30 Juin 2026', enrolled: 11, capacity: 15 },
-  { id: 2, title: 'Gestion Financière pour PME', category: 'Finance', description: 'Bases de la gestion financière pour petites entreprises', duration: '3 jours', endDate: '5 Juillet 2026', enrolled: 8, capacity: 12 },
-  { id: 3, title: 'Leadership et Management', category: 'Management', description: 'Développer ses compétences en leadership', duration: '5 jours', endDate: '20 Juillet 2026', enrolled: 14, capacity: 14 },
-  { id: 4, title: 'Transformation Digitale', category: 'Digital', description: "Accompagner le développement digital d'une entreprise", duration: '5 jours', endDate: '10 Août 2026', enrolled: 5, capacity: 16 },
+  { id: 1, title: 'Marketing Digital 2026', category: 'Marketing', description: 'Stratégies marketing digital pour entrepreneurs', duration: '3 jours', endDate: '30 Juin 2026', enrolled: 11, capacity: 15, url: 'https://www.mde.mr/formations/marketing-digital' },
+  { id: 2, title: 'Gestion Financière pour PME', category: 'Finance', description: 'Bases de la gestion financière pour petites entreprises', duration: '3 jours', endDate: '5 Juillet 2026', enrolled: 8, capacity: 12, url: '' },
+  { id: 3, title: 'Leadership et Management', category: 'Management', description: 'Développer ses compétences en leadership', duration: '5 jours', endDate: '20 Juillet 2026', enrolled: 14, capacity: 14, url: 'https://www.mde.mr/formations/leadership' },
+  { id: 4, title: 'Transformation Digitale', category: 'Digital', description: "Accompagner le développement digital d'une entreprise", duration: '5 jours', endDate: '10 Août 2026', enrolled: 5, capacity: 16, url: '' },
 ]
 
 export default function Trainings() {
@@ -106,7 +106,26 @@ export default function Trainings() {
                   <div className={`w-10 h-10 ${categoryIcon[training.category]?.bg || 'bg-gray-100'} rounded-xl flex items-center justify-center`}>
                     <GraduationCap size={20} className={categoryIcon[training.category]?.text || 'text-gray-500'} />
                   </div>
-                  <h3 className="font-bold text-gray-900">{training.title}</h3>
+                  <div className="flex items-center gap-1.5">
+                    {training.url ? (
+                      <a
+                        href={training.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-gray-900 hover:text-purple-600 hover:underline transition-colors flex items-center gap-1.5 group"
+                        title={training.url}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {training.title}
+                        <ExternalLink size={13} className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="font-bold text-gray-900 flex items-center gap-1.5">
+                        {training.title}
+                        <Link size={13} className="text-gray-300 flex-shrink-0" title="Aucun lien — cliquez sur Modifier pour en ajouter un" />
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
