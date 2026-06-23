@@ -40,8 +40,8 @@ export default function DashboardContainer() {
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
 
-  const handleLogin = () => {
-    setRole('admin')
+  const handleLogin = (role = 'user') => {
+    setRole(role)
     setActiveTab('dashboard')
   }
 

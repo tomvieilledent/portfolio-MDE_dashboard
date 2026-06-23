@@ -47,7 +47,13 @@ async function playNotifSound() {
 
 export default function Header({ role = 'user', onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
   const [loginOpen, setLoginOpen] = useState(false)
+  const [toast, setToast] = useState(null)
   const prevCount = useRef(unreadCount)
+
+  const showToast = (msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
 
   useEffect(() => {
     if (unreadCount > prevCount.current) playNotifSound()
@@ -134,8 +140,19 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
       {loginOpen && (
         <LoginModal
           onClose={() => setLoginOpen(false)}
-          onLoginSuccess={() => { setLoginOpen(false); onLogin?.() }}
+          onLoginSuccess={(role) => {
+            setLoginOpen(false)
+            onLogin?.(role)
+            showToast(role === 'admin' ? '✓ Connecté en tant qu\'administrateur' : '✓ Connecté en tant qu\'utilisateur')
+          }}
         />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg animate-fade-in">
+          {toast}
+        </div>
       )}
     </>
   )
