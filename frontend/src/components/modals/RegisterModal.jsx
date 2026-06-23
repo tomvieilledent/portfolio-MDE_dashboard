@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
-import { X, Mail, Lock, Eye, EyeOff, User, Phone, Building2, Briefcase, UserPlus, Hash } from 'lucide-react'
+import { X, Mail, Lock, Eye, EyeOff, User, Phone, Building2, Briefcase, UserPlus, Hash, Loader2 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 export default function RegisterModal({ onClose, onBackToLogin }) {
+  const { register } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [form, setForm] = useState({
@@ -15,16 +17,27 @@ export default function RegisterModal({ onClose, onBackToLogin }) {
     confirm: '',
   })
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
     if (form.password !== form.confirm) {
       setError('Les mots de passe ne correspondent pas.')
       return
     }
-    onClose()
+    setSubmitting(true)
+    try {
+      // Le backend ne stocke que email / password / first_name à l'inscription.
+      await register({ email: form.email, password: form.password, first_name: form.fullName })
+      onClose()
+    } catch (err) {
+      setError(err.message || "Échec de l'inscription")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -182,10 +195,11 @@ export default function RegisterModal({ onClose, onBackToLogin }) {
 
           <button
             type="submit"
-            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
+            disabled={submitting}
+            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <UserPlus size={18} />
-            Créer mon compte
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
+            {submitting ? 'Création…' : 'Créer mon compte'}
           </button>
 
           <div className="text-center pt-1">

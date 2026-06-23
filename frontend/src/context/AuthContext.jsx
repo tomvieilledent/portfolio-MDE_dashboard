@@ -61,6 +61,15 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  // Inscription : crée le compte puis connecte automatiquement l'utilisateur.
+  async function register(payload) {
+    const data = await api.register(payload) // {user, access_token, refresh_token}
+    setTokens(data)
+    setUser(data.user)
+    connectSocket()
+    return data.user
+  }
+
   async function logout() {
     try {
       await api.logout() // révoque le JTI côté backend
@@ -78,6 +87,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     role: roleOf(user),
     login,
+    register,
     logout,
   }
 
