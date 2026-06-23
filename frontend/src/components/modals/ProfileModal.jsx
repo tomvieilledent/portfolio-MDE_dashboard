@@ -1,63 +1,49 @@
 import React, { useState, useRef } from 'react'
-import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield } from 'lucide-react'
+import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard } from 'lucide-react'
 
 const ROLE_LABELS = { admin: 'Super Administrateur', patron: 'Patron', salarie: 'Salarié' }
 const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: 'bg-purple-100 text-purple-600', salarie: 'bg-gray-100 text-gray-600' }
 
 export default function ProfileModal({ profile, onClose, onSave }) {
   const [form, setForm] = useState({
-    name:  profile.name  || '',
-    email: profile.email || '',
-    phone: profile.phone || '',
-    bio:   profile.bio   || '',
-    photo: profile.photo || null,
+    name:         profile.name         || '',
+    email:        profile.email        || '',
+    phone:        profile.phone        || '',
+    bio:          profile.bio          || '',
+    photo:        profile.photo        || null,
+    businessCard: profile.businessCard || null,
   })
-  const [files, setFiles] = useState(profile.files || [])
   const [dragOver, setDragOver] = useState(false)
 
   const photoRef = useRef()
-  const fileRef  = useRef()
+  const cardRef  = useRef()
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  /* ── Photo ── */
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = URL.createObjectURL(file)
-    setForm((prev) => ({ ...prev, photo: url }))
+    setForm((prev) => ({ ...prev, photo: URL.createObjectURL(file) }))
   }
 
-  /* ── Fichiers attachés ── */
-  const addFiles = (fileList) => {
-    const newFiles = Array.from(fileList).map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type,
-      url: URL.createObjectURL(f),
-    }))
-    setFiles((prev) => [...prev, ...newFiles])
+  const handleCardChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setForm((prev) => ({ ...prev, businessCard: URL.createObjectURL(file) }))
+    e.target.value = ''
   }
 
-  const handleFileInput = (e) => addFiles(e.target.files)
-
-  const handleDrop = (e) => {
+  const handleCardDrop = (e) => {
     e.preventDefault()
     setDragOver(false)
-    addFiles(e.dataTransfer.files)
-  }
-
-  const removeFile = (i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))
-
-  const formatSize = (bytes) => {
-    if (bytes < 1024) return `${bytes} o`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+    const file = e.dataTransfer.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    setForm((prev) => ({ ...prev, businessCard: URL.createObjectURL(file) }))
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSave({ ...profile, ...form, files })
+    onSave({ ...profile, ...form })
     onClose()
   }
 
@@ -154,43 +140,53 @@ export default function ProfileModal({ profile, onClose, onSave }) {
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light resize-none" />
             </div>
 
-            {/* Zone drop fichiers */}
+            {/* Carte de visite */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
-                <Upload size={13} className="text-gray-400" /> Documents <span className="text-gray-400 font-normal">(optionnel)</span>
+                <CreditCard size={13} className="text-gray-400" /> Carte de visite <span className="text-gray-400 font-normal">(optionnel)</span>
               </label>
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current.click()}
-                className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-colors ${
-                  dragOver ? 'border-primary-light bg-primary-light/5' : 'border-gray-200 hover:border-primary-light hover:bg-gray-50'
-                }`}
-              >
-                <Upload size={20} className="mx-auto mb-1.5 text-gray-300" />
-                <p className="text-sm text-gray-500">Glissez vos fichiers ici ou <span className="text-primary-light font-medium">parcourir</span></p>
-                <p className="text-xs text-gray-400 mt-0.5">PDF, images, Word…</p>
-                <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFileInput} />
-              </div>
 
-              {files.length > 0 && (
-                <ul className="mt-2 space-y-1.5">
-                  {files.map((f, i) => (
-                    <li key={i} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText size={14} className="text-gray-400 flex-shrink-0" />
-                        <a href={f.url} download={f.name} className="truncate text-gray-700 hover:text-primary-light hover:underline">{f.name}</a>
-                        <span className="text-xs text-gray-400 flex-shrink-0">{formatSize(f.size)}</span>
-                      </div>
-                      <button type="button" onClick={() => removeFile(i)}
-                        className="ml-2 p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
-                        <Trash2 size={13} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              {form.businessCard ? (
+                <div className="relative border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+                  <img
+                    src={form.businessCard}
+                    alt="Carte de visite"
+                    className="w-full max-h-40 object-contain py-3"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => cardRef.current.click()}
+                      className="flex items-center gap-1 bg-white/90 hover:bg-white text-gray-600 text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-sm border border-gray-200 transition-colors"
+                    >
+                      <Upload size={11} /> Remplacer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, businessCard: null }))}
+                      className="bg-white/90 hover:bg-red-50 text-gray-400 hover:text-red-500 p-1.5 rounded-lg shadow-sm border border-gray-200 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center pb-2">Visible sur votre fiche du Trombinoscope</p>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleCardDrop}
+                  onClick={() => cardRef.current.click()}
+                  className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-colors ${
+                    dragOver ? 'border-primary-light bg-primary-light/5' : 'border-gray-200 hover:border-primary-light hover:bg-gray-50'
+                  }`}
+                >
+                  <CreditCard size={20} className="mx-auto mb-1.5 text-gray-300" />
+                  <p className="text-sm text-gray-500">Glissez votre carte ici ou <span className="text-primary-light font-medium">parcourir</span></p>
+                  <p className="text-xs text-gray-400 mt-0.5">Image de votre carte de visite (JPG, PNG…)</p>
+                </div>
               )}
+              <input ref={cardRef} type="file" accept="image/*" className="hidden" onChange={handleCardChange} />
             </div>
           </div>
 
