@@ -16,6 +16,8 @@ function daysRemaining(endDateStr) {
 import TrainingModal from '../modals/TrainingModal'
 import TrainingFormModal from '../modals/TrainingFormModal'
 
+const FILTERS = ['Tout', 'Marketing', 'Finance', 'Management', 'Digital']
+
 const categoryColors = {
   Marketing:  'bg-orange-100 text-orange-700',
   Finance:    'bg-blue-100 text-blue-700',
@@ -139,6 +141,7 @@ function LinkModal({ training, onClose, onSave }) {
 export default function Trainings({ isAdmin = false }) {
   const [trainings, setTrainings] = useState(initialTrainings)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState('Tout')
   const [selectedTraining, setSelectedTraining] = useState(null)
   const [formModal, setFormModal] = useState(null) // null | { mode: 'create' } | { mode: 'edit', training }
   const [saved, setSaved] = useState(new Set())
@@ -161,11 +164,13 @@ export default function Trainings({ isAdmin = false }) {
     setTrainings((prev) => prev.map((t) => (t.id === data.id ? data : t)))
   }
 
-  const filtered = trainings.filter(
-    (t) =>
+  const filtered = trainings.filter((t) => {
+    const matchesFilter = activeFilter === 'Tout' || t.category === activeFilter
+    const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.category.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+    return matchesFilter && matchesSearch
+  })
 
   return (
     <>
@@ -195,6 +200,23 @@ export default function Trainings({ isAdmin = false }) {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white"
           />
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setActiveFilter(f)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                activeFilter === f
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-500'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
