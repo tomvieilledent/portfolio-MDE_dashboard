@@ -71,6 +71,10 @@ export const api = {
     request('/auth/register', { method: 'POST', body: payload, auth: false }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/users/me'),
+  forgotPassword: (email) =>
+    request('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
+  resetPassword: (reset_token, password) =>
+    request('/auth/reset-password', { method: 'POST', body: { reset_token, password }, auth: false }),
 
   // --- Users ---
   getUsers: (params = '') => request(`/users${params}`),
@@ -99,6 +103,7 @@ export const api = {
   // --- Chat ---
   getConversations: () => request('/conversations'),
   getConversationMessages: (id) => request(`/conversations/${id}/messages`),
+  getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
   getUnreadCount: () => request('/messages/unread'),
 }
 

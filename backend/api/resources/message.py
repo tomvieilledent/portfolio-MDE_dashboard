@@ -46,6 +46,25 @@ class MessageListResource(Resource):
         return {'messages': message_service.facade.list_by_author(identity, limit=limit)}
 
 
+class DirectMessagesResource(Resource):
+    """Return the direct-message thread between the caller and another user."""
+
+    @jwt_required()
+    def get(self, user_id):
+        """Return all direct messages exchanged with ``user_id``.
+
+        Args:
+            user_id (str): The other participant's UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{messages}`` (oldest first) and 200.
+        """
+        limit = request.args.get('limit', default=100, type=int)
+        identity = get_jwt_identity()
+        return {'messages': message_service.facade.list_direct(
+            identity, user_id, limit=limit)}
+
+
 class MessageResource(Resource):
     """Delete a single message by id."""
 

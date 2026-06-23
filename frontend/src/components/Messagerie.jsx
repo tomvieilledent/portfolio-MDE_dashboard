@@ -19,9 +19,7 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const myId = user?.id
 
   const [users, setUsers] = useState([])          // contacts (autres utilisateurs)
-  const [convByUser, setConvByUser] = useState({}) // otherUserId -> conversationId
   const [selectedUserId, setSelectedUserId] = useState(null)
-  const [activeConvId, setActiveConvId] = useState(null)
   const [messages, setMessages] = useState([])    // messages du fil actif (bruts backend)
   const [onlineIds, setOnlineIds] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,20 +27,13 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const [loading, setLoading] = useState(true)
   const scrollRef = useRef(null)
 
-  // ── Chargement initial : contacts + conversations existantes ────────────────
+  // ── Chargement initial : liste des contacts ─────────────────────────────────
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.getUsers(), api.getConversations().catch(() => ({ conversations: [] }))])
-      .then(([{ users: all }, { conversations }]) => {
+    api.getUsers()
+      .then(({ users: all }) => {
         if (cancelled) return
-        const others = (all || []).filter((u) => u.id !== myId)
-        setUsers(others)
-        const map = {}
-        for (const c of conversations || []) {
-          const otherId = (c.participant_ids || []).find((id) => id !== myId)
-          if (otherId) map[otherId] = c.id
-        }
-        setConvByUser(map)
+        setUsers((all || []).filter((u) => u.id !== myId))
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -56,14 +47,9 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
     const onNew = ({ message }) => {
       if (!message) return
       const otherId = message.author_id === myId ? message.recipient_id : message.author_id
-      // mémorise la conversation nouvellement créée pour ce contact
-      if (message.conversation_id && otherId) {
-        setConvByUser((prev) => prev[otherId] ? prev : { ...prev, [otherId]: message.conversation_id })
-      }
       setSelectedUserId((selUser) => {
         const belongsToActive = otherId === selUser
         if (belongsToActive) {
-          setActiveConvId((cur) => cur || message.conversation_id || null)
           setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
         }
         // notif si message reçu (pas de moi) et fil non ouvert
@@ -111,16 +97,10 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const selectUser = async (userId) => {
     setSelectedUserId(userId)
     setMessages([])
-    const convId = convByUser[userId] || null
-    setActiveConvId(convId)
-    if (convId) {
-      const socket = getSocket()
-      socket?.emit('join_conversation', { conversation_id: convId })
-      try {
-        const { messages: history } = await api.getConversationMessages(convId)
-        setMessages(history || [])
-      } catch { /* historique indisponible */ }
-    }
+    try {
+      const { messages: history } = await api.getDirectMessages(userId)
+      setMessages(history || [])
+    } catch { /* historique indisponible */ }
   }
 
   const sendMessage = () => {
