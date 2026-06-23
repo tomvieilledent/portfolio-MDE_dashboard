@@ -43,14 +43,23 @@ export function AuthProvider({ children }) {
       try {
         const { user } = await api.me()
         if (!cancelled) { setUser(user); connectSocket() }
-      } catch (_) {
-        clearTokens() // token expiré / invalide
+      } catch (err) {
+        // On n'invalide la session que si le token est réellement refusé (401),
+        // pas sur une coupure réseau / backend momentanément indisponible.
+        if (err?.status === 401) clearTokens()
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     restore()
     return () => { cancelled = true }
+  }, [])
+
+  // Déconnexion forcée déclenchée par le client API sur un 401 authentifié.
+  useEffect(() => {
+    const onForcedLogout = () => { disconnectSocket(); setUser(null) }
+    window.addEventListener('auth:logout', onForcedLogout)
+    return () => window.removeEventListener('auth:logout', onForcedLogout)
   }, [])
 
   async function login(email, password) {

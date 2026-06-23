@@ -159,7 +159,9 @@ export default function RegisterModal({ onClose, onBackToLogin }) {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="••••••••"
+                  minLength={8}
+                  title="Au moins 8 caractères"
+                  placeholder="Au moins 8 caractères"
                   value={form.password}
                   onChange={set('password')}
                   className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
