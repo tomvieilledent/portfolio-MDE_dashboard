@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { api, getToken, setTokens, clearTokens } from '../lib/api'
+import { connectSocket, disconnectSocket } from '../lib/socket'
 
 const AuthContext = createContext(null)
 
@@ -41,7 +42,7 @@ export function AuthProvider({ children }) {
       }
       try {
         const { user } = await api.me()
-        if (!cancelled) setUser(user)
+        if (!cancelled) { setUser(user); connectSocket() }
       } catch (_) {
         clearTokens() // token expiré / invalide
       } finally {
@@ -56,6 +57,7 @@ export function AuthProvider({ children }) {
     const data = await api.login(email, password) // peut throw -> géré par l'appelant
     setTokens(data)
     setUser(data.user)
+    connectSocket()
     return data.user
   }
 
@@ -65,6 +67,7 @@ export function AuthProvider({ children }) {
     } catch (_) {
       /* on déconnecte localement même si l'appel échoue */
     }
+    disconnectSocket()
     clearTokens()
     setUser(null)
   }
