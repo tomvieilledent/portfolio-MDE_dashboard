@@ -51,7 +51,7 @@ const initialCompanies = [
   },
 ]
 
-export default function Companies() {
+export default function Companies({ isAdmin = false }) {
   const [companies, setCompanies] = useState(initialCompanies)
   const [searchQuery, setSearchQuery] = useState('')
   const [modal, setModal] = useState(null)
@@ -87,13 +87,15 @@ export default function Companies() {
             <h2 className="text-2xl font-bold text-gray-900">Entreprises</h2>
             <p className="text-sm text-gray-500 mt-1">Gestion des entreprises de la pépinière</p>
           </div>
-          <button
-            onClick={() => setModal({ mode: 'add' })}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Ajouter une entreprise
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setModal({ mode: 'add' })}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Ajouter une entreprise
+            </button>
+          )}
         </div>
 
         <div className="relative mb-6">

@@ -7,26 +7,50 @@ import Trainings from './pages/Trainings'
 import News from './pages/News'
 import DashboardPage from './pages/DashboardPage'
 import MonOnglet from './pages/MonOnglet'
+import GererEquipe from './pages/GererEquipe'
+import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
 
 const ADMIN_TABS = [
-  { id: 'dashboard', label: 'Accueil' },
-  { id: 'companies', label: 'Entreprises' },
-  { id: 'users', label: 'Trombinoscope' },
-  { id: 'trainings', label: 'Formations' },
-  { id: 'news', label: 'Veille économique' },
+  { id: 'dashboard',   label: 'Accueil' },
+  { id: 'companies',   label: 'Entreprises' },
+  { id: 'users',       label: 'Trombinoscope' },
+  { id: 'trainings',   label: 'Formations' },
+  { id: 'news',        label: 'Veille économique' },
 ]
 
-const USER_TABS = [
-  { id: 'dashboard', label: 'Accueil' },
-  { id: 'companies', label: 'Entreprises' },
-  { id: 'users', label: 'Trombinoscope' },
-  { id: 'trainings', label: 'Formations' },
-  { id: 'news', label: 'Veille économique' },
+const PATRON_TABS = [
+  { id: 'dashboard',     label: 'Accueil' },
+  { id: 'monentreprise', label: 'Mon entreprise' },
+  { id: 'users',         label: 'Trombinoscope' },
+  { id: 'trainings',     label: 'Formations' },
+  { id: 'news',          label: 'Veille économique' },
+  { id: 'equipe',        label: "Gérer l'équipe" },
 ]
+
+const SALARIE_TABS = [
+  { id: 'dashboard', label: 'Accueil' },
+  { id: 'trainings', label: 'Formations' },
+  { id: 'news',      label: 'Veille économique' },
+  { id: 'users',     label: 'Trombinoscope' },
+]
+
+const DEFAULT_PROFILES = {
+  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', bio: '', photo: null, files: [] },
+  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', bio: '', photo: null, files: [] },
+  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', bio: '', photo: null, files: [] },
+}
+
+function getTabsForRole(role) {
+  if (role === 'admin')  return ADMIN_TABS
+  if (role === 'patron') return PATRON_TABS
+  return SALARIE_TABS
+}
 
 export default function DashboardContainer() {
-  const [role, setRole] = useState('user')
+  const [role, setRole] = useState('salarie')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [profile, setProfile] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
@@ -40,17 +64,19 @@ export default function DashboardContainer() {
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
 
-  const handleLogin = (role = 'user') => {
-    setRole(role)
+  const handleLogin = (newRole = 'salarie') => {
+    setRole(newRole)
+    setIsLoggedIn(true)
+    setProfile({ ...DEFAULT_PROFILES[newRole], role: newRole })
     setActiveTab('dashboard')
   }
 
   const handleLogout = () => {
-    setRole('user')
+    setRole('salarie')
+    setIsLoggedIn(false)
+    setProfile(null)
     setActiveTab('dashboard')
   }
-
-  const tabs = role === 'admin' ? ADMIN_TABS : USER_TABS
 
   const handleContact = (contactName) => {
     setMessagingContact(contactName)
@@ -64,13 +90,15 @@ export default function DashboardContainer() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'dashboard': return <DashboardPage />
-      case 'companies': return <Companies />
-      case 'users': return <Users onContact={handleContact} />
-      case 'trainings': return <Trainings isAdmin={role === 'admin'} />
-      case 'news': return <News />
-      case 'mononglet': return <MonOnglet />
-      default: return <News />
+      case 'dashboard':     return <DashboardPage />
+      case 'companies':     return <Companies isAdmin={role === 'admin'} />
+      case 'monentreprise': return <MonEntreprise />
+      case 'users':         return <Users onContact={handleContact} role={role} />
+      case 'trainings':     return <Trainings isAdmin={role === 'admin'} />
+      case 'news':          return <News />
+      case 'equipe':        return <GererEquipe />
+      case 'mononglet':     return <MonOnglet />
+      default:              return <DashboardPage />
     }
   }
 
@@ -78,6 +106,9 @@ export default function DashboardContainer() {
     <div className="min-h-screen bg-gray-50">
       <Header
         role={role}
+        isLoggedIn={isLoggedIn}
+        profile={profile}
+        onProfileSave={setProfile}
         onLogin={handleLogin}
         onLogout={handleLogout}
         onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
@@ -85,7 +116,7 @@ export default function DashboardContainer() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
       />
-      <TabNavigation tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabNavigation tabs={getTabsForRole(role)} activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-8">
         {renderPage()}
       </main>

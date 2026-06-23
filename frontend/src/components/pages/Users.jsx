@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Search, Mail, Phone, MessageCircle } from 'lucide-react'
+import { Search, Mail, Phone, MessageCircle, UserPlus } from 'lucide-react'
+import CreateAccountModal from '../modals/CreateAccountModal'
 
 const initialUsers = [
   { id: 1, name: 'Sophie Dubois', role: 'CEO', company: 'Tech Innovators', email: 'sophie@tech-innovators.fr', phone: '+33 6 12 34 56 78', avatar: 'SD', photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
@@ -10,9 +11,23 @@ const initialUsers = [
   { id: 6, name: 'Thomas Petit', role: 'CTO', company: 'Digital Solutions', email: 'thomas@digital.fr', phone: '+33 6 67 89 01 23', avatar: 'TP', photo: 'https://randomuser.me/api/portraits/men/22.jpg' },
 ]
 
-export default function Users({ onContact }) {
-  const [users] = useState(initialUsers)
+export default function Users({ onContact, role }) {
+  const [users, setUsers] = useState(initialUsers)
   const [searchQuery, setSearchQuery] = useState('')
+  const [createModal, setCreateModal] = useState(false)
+
+  const handleNewAccount = (data) => {
+    setUsers((prev) => [...prev, {
+      id: Date.now(),
+      name: data.name,
+      role: data.role,
+      company: data.company,
+      email: data.email,
+      phone: '—',
+      avatar: data.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase(),
+      photo: `https://randomuser.me/api/portraits/lego/${Math.floor(Math.random() * 8) + 1}.jpg`,
+    }])
+  }
 
   const filtered = users.filter(
     (u) =>
@@ -22,9 +37,19 @@ export default function Users({ onContact }) {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Professionnels</h2>
-        <p className="text-sm text-gray-500 mt-1">Répertoire des professionnels de la pépinière</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Professionnels</h2>
+          <p className="text-sm text-gray-500 mt-1">Répertoire des professionnels de la pépinière</p>
+        </div>
+        {role === 'admin' && (
+          <button
+            onClick={() => setCreateModal(true)}
+            className="flex items-center gap-2 btn-primary text-sm"
+          >
+            <UserPlus size={16} /> Créer un compte Patron
+          </button>
+        )}
       </div>
 
       <div className="relative mb-6">
@@ -76,6 +101,14 @@ export default function Users({ onContact }) {
         <div className="text-center py-12">
           <p className="text-gray-400">Aucun professionnel ne correspond à votre recherche</p>
         </div>
+      )}
+
+      {createModal && (
+        <CreateAccountModal
+          forRole="patron"
+          onClose={() => setCreateModal(false)}
+          onSuccess={handleNewAccount}
+        />
       )}
     </div>
   )
