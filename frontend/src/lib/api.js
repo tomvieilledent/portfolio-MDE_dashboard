@@ -80,10 +80,18 @@ export const api = {
   createCompany: (payload) => request('/companies', { method: 'POST', body: payload }),
   updateCompany: (id, payload) => request(`/companies/${id}`, { method: 'PATCH', body: payload }),
 
+  // --- Users (admin) ---
+  createUser: (payload) => request('/users', { method: 'POST', body: payload }),
+  deactivateUser: (id) => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+  resetUserPassword: (id, password) =>
+    request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),
+
   // --- Trainings ---
   getTrainings: () => request('/trainings'),
   createTraining: (payload) => request('/trainings', { method: 'POST', body: payload }),
   updateTraining: (id, payload) => request(`/trainings/${id}`, { method: 'PATCH', body: payload }),
+  expressInterest: (id) => request(`/trainings/${id}/interest`, { method: 'POST' }),
+  removeInterest: (id) => request(`/trainings/${id}/interest`, { method: 'DELETE' }),
 
   // --- News ---
   getNews: () => request('/news'),
