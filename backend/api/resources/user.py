@@ -130,6 +130,8 @@ class UserMeResource(Resource):
                 ln = DomainUser.validate_last_name(data.get('last_name'))
                 if ln is not None:
                     update_data['last_name'] = ln
+            if 'phone' in data:
+                update_data['phone'] = data.get('phone')
             uploaded_file = (request.files.get('profile_picture_file')
                              or request.files.get('profile_picture'))
             if uploaded_file and uploaded_file.filename:
@@ -245,6 +247,8 @@ class UserResource(Resource):
                 ln = DomainUser.validate_last_name(data.get('last_name'))
                 if ln is not None:
                     update_data['last_name'] = ln
+            if 'phone' in data:
+                update_data['phone'] = data.get('phone')
             uploaded_file = (request.files.get('profile_picture_file')
                              or request.files.get('profile_picture'))
             if uploaded_file and uploaded_file.filename:

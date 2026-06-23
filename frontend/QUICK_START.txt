@@ -1,0 +1,114 @@
+# ✨ FRONTEND MDE — PRÊT ! 
+
+## 🎉 Qu'est-ce qui a été créé ?
+
+**Un frontend React complet** reproduisant ta maquette Figma avec :
+
+✅ 5 onglets fonctionnels (Dashboard, Entreprises, Trombinoscope, Formations, Veille)  
+✅ Design responsive (mobile/tablet/desktop)  
+✅ Couleurs Maison de l'Économie  
+✅ Données mockées prêtes pour API  
+✅ Serveur Vite ultra-rapide  
+✅ Documentation complète
+
+---
+
+## 🚀 MAINTENANT
+
+### Ouvre dans ton navigateur
+
+```
+http://localhost:3000
+```
+
+### Le serveur tourne déjà !
+
+Si ce n'est pas le cas, lance :
+
+```bash
+cd /Users/nab/portfolio-MDE_dashboard/frontend
+npm run dev
+```
+
+---
+
+## 📖 Quoi lire ?
+
+```
+START_HERE.md          ← 5 min (commence ici!)
+README.md              ← 10 min
+GUIDE_DEVELOPMENT.md   ← 20 min (comment modifier)
+CHEATSHEET.md          ← 15 min (commandes rapides)
+```
+
+---
+
+## 🎯 Quick wins — Test maintenant
+
+```bash
+# 1. Ajouter une entreprise
+# Ouvre: src/components/pages/Companies.jsx
+# Ligne 10 : Ajoute un objet au tableau
+
+# 2. Changer les couleurs
+# Ouvre: tailwind.config.js
+# Ligne 18 : Modifie les hex codes
+
+# 3. Ajouter un onglet
+# Voir GUIDE_DEVELOPMENT.md section "Ajouter un nouvel onglet"
+```
+
+---
+
+## 📂 Fichiers clés
+
+```
+frontend/
+├── src/components/pages/Companies.jsx     ← Onglet Entreprises (reproduit Figma)
+├── tailwind.config.js                      ← Couleurs (change ici!)
+├── vite.config.js                          ← Config serveur
+└── START_HERE.md                           ← Start here!
+```
+
+---
+
+## 💻 Commandes
+
+```bash
+npm run dev       # Lancer le serveur
+npm run build     # Build pour production
+npm run preview   # Voir la prod localement
+```
+
+---
+
+## 🆘 SOS
+
+| Problème | Fix |
+|----------|-----|
+| Port 3000 occupé | Change vite.config.js ligne 5 |
+| Rien ne s'affiche | Relance: Ctrl+C → `npm run dev` |
+| Styles cassés | Redémarre le serveur |
+
+---
+
+## 📞 Support
+
+- **Nabil** (c'est toi!) — Frontend dev
+- **Tom** — Backend (API endpoints)
+- **Florian** — QA tests
+
+---
+
+## 🎓 Stack technique
+
+- **React 18** (UI framework)
+- **Vite 4** (build ultra-rapide)
+- **Tailwind CSS 3** (styling)
+- **Lucide React** (icons)
+
+---
+
+**À toi de jouer ! 🚀**
+
+👉 Ouvre http://localhost:3000 et commence !

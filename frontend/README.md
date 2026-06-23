@@ -1,118 +1,185 @@
-# Messagerie - Frontend
+# MDE Dashboard — Frontend React
 
-## Structure
+Ébauche d'un frontend React reproduisant la maquette Figma de la "Maison de l'Économie".
+
+## 📁 Structure du projet
 
 ```
 frontend/
-├── index.html                 # Page principale de la messagerie
 ├── src/
-│   ├── js/
-│   │   └── app.js            # Logique principale de l'application
-│   ├── css/
-│   │   └── styles.css        # Styles personnalisés pour les bulles de chat
-│   ├── pages/                # Pages futures
-│   └── components/           # Composants réutilisables
-├── public/                   # Fichiers statiques
-└── README.md
+│   ├── components/
+│   │   ├── Dashboard.jsx         # Conteneur principal avec navigation
+│   │   ├── Header.jsx            # En-tête avec logo et profil
+│   │   ├── TabNavigation.jsx     # Navigation par onglets
+│   │   └── pages/
+│   │       ├── DashboardPage.jsx # Page accueil
+│   │       ├── Companies.jsx     # Onglet Entreprises
+│   │       ├── Users.jsx         # Onglet Trombinoscope
+│   │       ├── Trainings.jsx     # Onglet Formations
+│   │       └── News.jsx          # Onglet Veille économique
+│   ├── App.jsx                   # Point d'entrée React
+│   ├── main.jsx                  # Bootstrap React DOM
+│   └── index.css                 # Styles Tailwind
+├── index.html                    # HTML de base
+├── vite.config.js                # Configuration Vite
+├── tailwind.config.js            # Configuration Tailwind CSS
+├── postcss.config.js             # Configuration PostCSS
+└── package.json                  # Dépendances
 ```
 
-## Fonctionnalités
+## 🚀 Démarrage rapide
 
-### Page de Messagerie
-- **Liste des conversations** : Affiche toutes les conversations avec :
-  - Avatar et nom du contact
-  - Rôle et entreprise du contact
-  - Statut en ligne/hors ligne
-  - Dernier message et heure
-  - Badge de messages non lus
-  
-- **Zone de chat** : 
-  - Affichage des messages reçus et envoyés
-  - Bulles de messages stylisées (design from Figma mockup)
-  - Timestamp et statut de livraison
-  - Bouton d'options pour chaque message (hover)
-  
-- **Barre de saisie** :
-  - Input pour taper les messages
-  - Support de la touche Entrée pour envoyer
-  - Bouton d'envoi
+### 1. Installer les dépendances
 
-## Styles
-
-### Bulles de messages
-
-Le HTML fourni est déjà intégré dans `src/components/ChatBubble.html` et les styles correspondants dans `styles.css`.
-
-**Message reçu** :
-```html
-<div class="flex items-start gap-2.5 group">
-   <img class="w-8 h-8 rounded-full" src="/docs/images/people/profile-picture-3.jpg" alt="User image">
-   <div class="flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-gray-100 rounded-2xl rounded-tl-none">
-      <!-- Contenu du message -->
-   </div>
-</div>
-```
-
-**Message envoyé** :
-```html
-<div class="flex items-start gap-2.5 justify-end group">
-   <div class="flex flex-col w-full max-w-[320px] leading-1.5 p-4 bg-green-500 text-white rounded-2xl rounded-tr-none">
-      <!-- Contenu du message -->
-   </div>
-</div>
-```
-
-### Classes Tailwind utilisées
-- `rounded-2xl` : Coins arrondis
-- `rounded-tl-none` / `rounded-tr-none` : Coin pointu en haut
-- `bg-gray-100` : Fond gris pour messages reçus
-- `bg-green-500` : Fond vert pour messages envoyés
-- `max-w-[320px]` : Largeur maximale des bulles
-
-## Lancer la messagerie
-
-### Option 1 : Serveur simple Python
 ```bash
 cd frontend
-python3 -m http.server 8000
+npm install
 ```
-Accédez à : `http://localhost:8000`
 
-### Option 2 : Avec Live Server (VS Code)
-Installez l'extension Live Server et cliquez sur "Go Live"
+### 2. Lancer le serveur de développement
 
-### Option 3 : Avec Node.js
 ```bash
-npm install -g http-server
-http-server frontend
+npm run dev
 ```
 
-## Intégration Backend
+Le dashboard s'ouvrira automatiquement sur `http://localhost:3000`.
 
-Pour connecter le frontend au backend Flask :
+### 3. Builder pour la production
 
-1. **Configuration CORS** dans `backend/api/app.py` :
-```python
-from flask_cors import CORS
-CORS(app)
+```bash
+npm run build
 ```
 
-2. **API Endpoints à implémenter** :
-   - `GET /api/conversations` : Liste des conversations
-   - `GET /api/conversations/<id>/messages` : Messages d'une conversation
-   - `POST /api/messages` : Envoyer un message
-   - `GET /api/messages/<id>` : Récupérer un message
-   - `PUT /api/messages/<id>` : Modifier un message
-   - `DELETE /api/messages/<id>` : Supprimer un message
+Les fichiers compilés seront dans le dossier `dist/`.
 
-3. **Remplacer les données mock** dans `src/js/app.js` par des appels API
+## 🎨 Personnalisation
 
-## Prochaines étapes
+### Ajouter des couleurs
 
-- [ ] Connecter au backend Flask
-- [ ] Intégrer l'authentification JWT
-- [ ] Ajouter la pagination pour les messages
-- [ ] Implémentation de WebSockets pour les messages en temps réel
-- [ ] Ajouter les uploadd'images/fichiers
-- [ ] Notifications de nouveaux messages
-- [ ] Recherche de conversations
+Édite `tailwind.config.js` pour modifier le vert primaire :
+
+```js
+colors: {
+  primary: {
+    light: '#7ec843',    // Vert clair
+    DEFAULT: '#5da020',  // Vert principal
+    dark: '#4a7a1a',     // Vert foncé
+  },
+}
+```
+
+### Ajouter un nouvel onglet
+
+1. Crée un nouveau fichier dans `src/components/pages/MonOnglet.jsx`
+2. Ajoute l'import et la route dans `src/components/Dashboard.jsx`
+3. Ajoute la tab dans le tableau `tabs` du Dashboard
+
+Exemple :
+
+```jsx
+// src/components/pages/MyTab.jsx
+export default function MyTab() {
+  return <div>Contenu de mon onglet</div>
+}
+```
+
+```jsx
+// src/components/Dashboard.jsx
+import MyTab from './pages/MyTab'
+
+const tabs = [
+  // ... autres tabs
+  { id: 'mytab', label: 'Mon Onglet', icon: '⭐' },
+]
+
+const renderPage = () => {
+  // ...
+  case 'mytab':
+    return <MyTab />
+}
+```
+
+### Modifier les données mockées
+
+Les données sont définies avec `useState` dans chaque page. Remplace-les par des appels API quand prêt :
+
+```jsx
+// Avant : données mockées
+const [companies, setCompanies] = useState([...])
+
+// Après : appel API
+useEffect(() => {
+  fetch('/api/companies')
+    .then(res => res.json())
+    .then(data => setCompanies(data))
+}, [])
+```
+
+## 📱 Responsive Design
+
+Le projet utilise Tailwind CSS pour un design responsive :
+
+- `grid-cols-1` : 1 colonne par défaut
+- `md:grid-cols-2` : 2 colonnes sur écrans moyens (≥768px)
+- `lg:grid-cols-3` : 3 colonnes sur grands écrans (≥1024px)
+
+## 🔗 Intégration API
+
+Quand le backend sera prêt, remplace les données mockées par des appels REST :
+
+```jsx
+const [companies, setCompanies] = useState([])
+
+useEffect(() => {
+  fetch('http://localhost:5000/api/companies')
+    .then(res => res.json())
+    .then(data => setCompanies(data))
+    .catch(err => console.error(err))
+}, [])
+```
+
+## 📝 Composants réutilisables
+
+- `.card` : classe CSS pour les cartes avec ombre et padding
+- `.btn-primary` : bouton vert principal
+- `.btn-secondary` : bouton gris secondaire
+- `.badge` et `.badge-success` : badges de statut
+
+Utilise-les partout pour une cohérence visuelle :
+
+```jsx
+<div className="card">
+  <button className="btn-primary">Action</button>
+  <span className="badge badge-success">Actif</span>
+</div>
+```
+
+## 🛠 Technologies
+
+- **React 18** : UI framework
+- **Vite** : build tool ultra-rapide
+- **Tailwind CSS** : utility-first CSS
+- **Lucide React** : icônes modernes
+- **JavaScript ES6+** : syntaxe moderne
+
+## 📚 Prochaines étapes
+
+- [ ] Connecter à l'API backend (endpoints du Stage 3)
+- [ ] Ajouter authentification JWT
+- [ ] Implémenter WebSocket pour messaging temps réel
+- [ ] Ajouter gestion d'état (Zustand ou Context API)
+- [ ] Tests unitaires avec Jest + React Testing Library
+- [ ] Formulaires et validation avec React Hook Form
+- [ ] Pagination et filtrage côté client
+- [ ] Notifications/toasts pour actions utilisateur
+
+## 💬 Questions ?
+
+N'hésite pas à modifier ce code selon tes besoins. C'est une ébauche et tu peux :
+
+- Ajouter des componentes
+- Changer les couleurs
+- Ajouter plus d'onglets
+- Intégrer des librairies supplémentaires
+
+Bonne chance ! 🚀

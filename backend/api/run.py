@@ -5,8 +5,9 @@ script. This file is intended for local development only.
 """
 
 from backend.api.app import create_app
+from backend.api.sockets import socketio
 
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8000, debug=True)

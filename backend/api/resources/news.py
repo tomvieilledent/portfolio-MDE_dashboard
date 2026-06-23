@@ -75,6 +75,14 @@ class NewsResource(Resource):
     """Retrieve or delete a single news item."""
 
     def get(self, news_id):
+        """Return a news item by id.
+
+        Args:
+            news_id (str): News UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{news_item}`` and 200, or 404.
+        """
         article = news_service.facade.get(news_id)
         if not article:
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
@@ -82,6 +90,14 @@ class NewsResource(Resource):
 
     @jwt_required()
     def delete(self, news_id):
+        """Permanently delete a news item.
+
+        Args:
+            news_id (str): News UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
         if not news_service.facade.delete(news_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
         return {'msg': 'news item deleted'}

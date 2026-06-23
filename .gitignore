@@ -118,3 +118,18 @@ test.txt
 *.rdb
 .turbo/
 
+# Frontend dependencies and build
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+
+# Archive files (trop lourds pour git)
+*.7z
+*.tar.gz
+*.zip
+*.rar
+
+# Vite cache
+frontend/.vite/
+node_modules/

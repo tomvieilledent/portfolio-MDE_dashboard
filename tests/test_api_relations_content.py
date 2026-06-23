@@ -80,6 +80,161 @@ def test_conversation_and_message_flow(seeded_context):
     ) == {'msg': 'conversation deactivated'}
 
 
+def test_conversation_rest_enforces_membership(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    # outsider = company admin, deliberately NOT a participant
+    outsider_headers = seeded_context['company_admin_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    created = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    })
+    assert created.status_code == 201
+    conversation_id = created.get_json()['conversation']['id']
+
+    # A member posts a message in the conversation.
+    posted = client.post(f'/conversations/{conversation_id}/messages',
+                         headers=member_headers, json={'content': 'private'})
+    assert posted.status_code == 201
+    message_id = posted.get_json()['message']['id']
+
+    # The outsider is masked behind 404 on every conversation route.
+    assert_error(client.get(f'/conversations/{conversation_id}',
+                            headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.get(f'/conversations/{conversation_id}/messages',
+                            headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.post(f'/conversations/{conversation_id}/messages',
+                             headers=outsider_headers, json={'content': 'intrusion'}),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.patch(f'/conversations/{conversation_id}', headers=outsider_headers,
+                              json={'participant_id': 'x', 'action': 'add'}),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.delete(f'/conversations/{conversation_id}',
+                               headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+    assert_error(client.get('/messages', headers=outsider_headers,
+                            query_string={'conversation_id': conversation_id}),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+    # The conversation never appears in the outsider's own listing.
+    outsider_list = client.get('/conversations', headers=outsider_headers)
+    assert outsider_list.status_code == 200
+    assert all(c['id'] != conversation_id
+               for c in outsider_list.get_json()['conversations'])
+
+    # Reading another user's messages by author_id is forbidden.
+    assert_error(client.get('/messages', headers=outsider_headers,
+                            query_string={'author_id': member_id}),
+                 403, ERROR_CODES['FORBIDDEN'])
+
+    # Only the author may delete their message.
+    assert_error(client.delete(f'/messages/{message_id}', headers=outsider_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert client.delete(f'/messages/{message_id}',
+                         headers=member_headers).status_code == 200
+
+
+def test_conversation_read_and_unread_flow(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    outsider_headers = seeded_context['company_admin_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    # Member sends two messages; admin authors none here.
+    for _ in range(2):
+        posted = client.post(f'/conversations/{conversation_id}/messages',
+                             headers=member_headers, json={'content': 'hi'})
+        assert posted.status_code == 201
+        assert posted.get_json()['message']['is_read'] is False
+
+    # Admin has 2 unread; the author (member) has 0.
+    assert client.get('/messages/unread', headers=admin_headers).get_json() == {
+        'unread': 2, 'conversations': 2, 'direct': 0}
+    assert client.get('/messages/unread', headers=member_headers).get_json()[
+        'unread'] == 0
+    # An outsider sees nothing.
+    assert client.get('/messages/unread', headers=outsider_headers).get_json()[
+        'unread'] == 0
+
+    # Outsider cannot mark the conversation read.
+    assert_error(client.post(f'/conversations/{conversation_id}/read',
+                             headers=outsider_headers), 404, ERROR_CODES['NOT_FOUND'])
+
+    # Admin marks the whole conversation read.
+    mark = client.post(f'/conversations/{conversation_id}/read', headers=admin_headers)
+    assert mark.status_code == 200
+    assert mark.get_json() == {'updated': 2}
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    # Idempotent: nothing left to mark.
+    assert client.post(f'/conversations/{conversation_id}/read',
+                       headers=admin_headers).get_json() == {'updated': 0}
+
+    # A fresh message is unread again, and can be marked read one by one.
+    new_id = client.post(f'/conversations/{conversation_id}/messages',
+                         headers=member_headers, json={'content': 'again'}
+                         ).get_json()['message']['id']
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 1
+    read_one = client.post(f'/messages/{new_id}/read', headers=admin_headers)
+    assert read_one.status_code == 200
+    assert read_one.get_json()['message']['is_read'] is True
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    # Outsider may not mark an individual message in a conversation they're not in.
+    assert_error(client.post(f'/messages/{new_id}/read', headers=outsider_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+
+def test_message_soft_delete_and_presence(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    message_id = client.post(f'/conversations/{conversation_id}/messages',
+                             headers=member_headers, json={'content': 'oops'}
+                             ).get_json()['message']['id']
+
+    # Visible and counted before deletion.
+    assert len(client.get(f'/conversations/{conversation_id}/messages',
+                          headers=admin_headers).get_json()['messages']) == 1
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 1
+
+    # Only the author can delete; here the author (member) soft-deletes it.
+    assert_error(client.delete(f'/messages/{message_id}', headers=admin_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+    assert client.delete(f'/messages/{message_id}',
+                         headers=member_headers).status_code == 200
+
+    # Gone from listings and unread counts; a second delete 404s.
+    assert client.get(f'/conversations/{conversation_id}/messages',
+                      headers=admin_headers).get_json()['messages'] == []
+    assert client.get('/messages/unread', headers=admin_headers).get_json()[
+        'unread'] == 0
+    assert_error(client.delete(f'/messages/{message_id}', headers=member_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
+
+    # No sockets connected in this test → nobody online.
+    presence = client.get('/presence', headers=admin_headers)
+    assert presence.status_code == 200
+    assert presence.get_json() == {'online': []}
+
+
 def test_notifications_flow(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
@@ -120,13 +275,13 @@ def test_notifications_flow(seeded_context):
     assert_error(missing_notification, 404, ERROR_CODES['NOT_FOUND'])
 
 
-def test_news_flow_and_sync_placeholder(seeded_context):
+def test_news_flow_and_sync(seeded_context, monkeypatch):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
 
     public_list = client.get('/news')
     assert public_list.status_code == 200
-    assert 'news' in public_list.get_json()
+    assert 'items' in public_list.get_json()
 
     missing_title = client.post('/news', headers=admin_headers, json={})
     assert_error(missing_title, 400, ERROR_CODES['BAD_REQUEST'])
@@ -146,8 +301,17 @@ def test_news_flow_and_sync_placeholder(seeded_context):
     assert get_news.status_code == 200
     assert get_news.get_json()['news_item']['id'] == news_id
 
+    # Sync is implemented but pulls external RSS via the optional `feedparser`
+    # dependency. Inject a stub module so the endpoint contract is tested
+    # deterministically, without network access or that dependency.
+    import sys
+    import types
+    stub = types.ModuleType('backend.services.news_sync')
+    stub.sync_all = lambda: 3  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, 'backend.services.news_sync', stub)
     sync_news = client.post('/news/sync', headers=admin_headers)
-    assert_error(sync_news, 501, ERROR_CODES['NOT_IMPLEMENTED'])
+    assert sync_news.status_code == 200
+    assert sync_news.get_json() == {'synced': 3}
 
     delete_news = client.delete(f'/news/{news_id}', headers=admin_headers)
     assert delete_news.status_code == 200
