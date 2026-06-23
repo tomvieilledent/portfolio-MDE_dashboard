@@ -10,10 +10,22 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [remember, setRemember] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [error, setError] = useState('')
+
+  const ACCOUNTS = {
+    'admin@mde.fr':  { password: 'admin123', role: 'admin' },
+    'user@mde.fr':   { password: 'user123',  role: 'user'  },
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onLoginSuccess ? onLoginSuccess() : onClose()
+    const account = ACCOUNTS[email.toLowerCase().trim()]
+    if (!account || account.password !== password) {
+      setError('Email ou mot de passe incorrect')
+      return
+    }
+    setError('')
+    onLoginSuccess ? onLoginSuccess(account.role) : onClose()
   }
 
   if (showRegister) {
@@ -97,6 +109,10 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                 Mot de passe oublié ?
               </button>
             </div>
+
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
 
           <button
             type="submit"
