@@ -36,9 +36,9 @@ const SALARIE_TABS = [
 ]
 
 const DEFAULT_PROFILES = {
-  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', bio: '', photo: null, files: [] },
-  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', bio: '', photo: null, files: [] },
-  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', bio: '', photo: null, files: [] },
+  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', bio: '', photo: null, businessCard: null },
+  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', bio: '', photo: null, businessCard: null },
+  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', bio: '', photo: null, businessCard: null },
 }
 
 function getTabsForRole(role) {
@@ -93,7 +93,7 @@ export default function DashboardContainer() {
       case 'dashboard':     return <DashboardPage />
       case 'companies':     return <Companies isAdmin={role === 'admin'} />
       case 'monentreprise': return <MonEntreprise />
-      case 'users':         return <Users onContact={handleContact} role={role} />
+      case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
       case 'trainings':     return <Trainings isAdmin={role === 'admin'} />
       case 'news':          return <News />
       case 'equipe':        return <GererEquipe />
