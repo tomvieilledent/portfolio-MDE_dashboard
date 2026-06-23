@@ -301,13 +301,25 @@ export default function Trainings({ isAdmin = false }) {
     return next
   })
 
-  const handleSave = (data) => {
+  // Création / édition persistées via l'API. Le backend ne stocke que
+  // title / description ; catégorie, durée, dates, capacité… restent cosmétiques
+  // (champs absents du modèle backend). Création réservée aux super admins.
+  const handleSave = async (form) => {
+    const payload = { title: form.title, description: form.description || null }
+
+    const isEdit = typeof form.id === 'string'
+    const { training } = isEdit
+      ? await api.updateTraining(form.id, payload)
+      : await api.createTraining(payload)
+    const saved = mapTraining(training)
+
     setTrainings((prev) => {
-      const exists = prev.find((t) => t.id === data.id)
-      return exists ? prev.map((t) => (t.id === data.id ? data : t)) : [...prev, data]
+      const exists = prev.some((t) => t.id === saved.id)
+      return exists ? prev.map((t) => (t.id === saved.id ? saved : t)) : [saved, ...prev]
     })
   }
 
+  // Le lien (url) n'est pas stocké côté backend : mise à jour locale uniquement.
   const handleSaveLink = (data) => {
     setTrainings((prev) => prev.map((t) => (t.id === data.id ? data : t)))
   }

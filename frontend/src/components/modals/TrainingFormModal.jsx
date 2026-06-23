@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, GraduationCap, Clock, Calendar, Users, Save, FileText, Tag, Link } from 'lucide-react'
+import { X, GraduationCap, Clock, Calendar, Users, Save, FileText, Tag, Link, Loader2 } from 'lucide-react'
 
 const CATEGORIES = ['Marketing', 'Finance', 'Management', 'Digital']
 
@@ -15,14 +15,24 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
     enrolled: training?.enrolled ?? 0,
     url: training?.url || '',
   })
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
   const setNum = (field) => (e) => setForm((prev) => ({ ...prev, [field]: Number(e.target.value) }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSave({ ...training, ...form, id: training?.id || Date.now() })
-    onClose()
+    setError('')
+    setSubmitting(true)
+    try {
+      await onSave({ ...training, ...form, id: training?.id })
+      onClose()
+    } catch (err) {
+      setError(err.message || "Échec de l'enregistrement")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const pct = Math.min(100, Math.round((form.enrolled / form.capacity) * 100)) || 0
@@ -55,6 +65,11 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           {/* Titre */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -202,16 +217,18 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-xl transition-colors text-sm"
+              disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-xl transition-colors text-sm disabled:opacity-60"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+              disabled={submitting}
+              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Save size={16} />
-              {isEdit ? 'Enregistrer' : 'Créer la formation'}
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer la formation'}
             </button>
           </div>
         </form>
