@@ -91,6 +91,7 @@ ehthumbs.db
 # ===== IDE / EDITOR =====
 .vscode/
 .idea/
+.continue/
 *.swp
 *.swo
 *~
