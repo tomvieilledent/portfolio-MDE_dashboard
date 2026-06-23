@@ -3,13 +3,13 @@ import { ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, Pencil, Trash2 } 
 import EventFormModal from '../modals/EventFormModal'
 
 const INITIAL_EVENTS = [
-  { id: 1, date: '2026-06-15', title: 'Réunion équipe MDE', time: '09:00', color: 'bg-purple-500' },
-  { id: 2, date: '2026-06-15', title: 'Point formations Q3', time: '14:30', color: 'bg-orange-400' },
-  { id: 3, date: '2026-06-23', title: 'Atelier digital', time: '10:00', color: 'bg-blue-500' },
-  { id: 4, date: '2026-06-25', title: 'Formation Marketing', time: '09:00', color: 'bg-orange-400' },
-  { id: 5, date: '2026-06-28', title: 'Bilan mensuel', time: '11:00', color: 'bg-green-500' },
-  { id: 6, date: '2026-07-02', title: 'Accueil nouvelles entreprises', time: '09:30', color: 'bg-purple-500' },
-  { id: 7, date: '2026-07-05', title: 'Gestion Financière PME', time: '14:00', color: 'bg-blue-500' },
+  { id: 1, date: '2026-06-15', title: 'Réunion équipe MDE', time: '09:00', color: 'bg-purple-500', creator: 'Alice Martin' },
+  { id: 2, date: '2026-06-15', title: 'Point formations Q3', time: '14:30', color: 'bg-orange-400', creator: 'Marc Dupuis' },
+  { id: 3, date: '2026-06-23', title: 'Atelier digital', time: '10:00', color: 'bg-blue-500', creator: 'Sara Benali' },
+  { id: 4, date: '2026-06-25', title: 'Formation Marketing', time: '09:00', color: 'bg-orange-400', creator: 'Alice Martin' },
+  { id: 5, date: '2026-06-28', title: 'Bilan mensuel', time: '11:00', color: 'bg-green-500', creator: 'Marc Dupuis' },
+  { id: 6, date: '2026-07-02', title: 'Accueil nouvelles entreprises', time: '09:30', color: 'bg-purple-500', creator: 'Sara Benali' },
+  { id: 7, date: '2026-07-05', title: 'Gestion Financière PME', time: '14:00', color: 'bg-blue-500', creator: 'Alice Martin' },
 ]
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -212,6 +212,9 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
                         <p className="text-xs text-gray-400">{formatDateLabel(ev.date)} · {ev.time}</p>
+                        {ev.creator && (
+                          <p className="text-xs text-gray-400 mt-0.5">Par {ev.creator}</p>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, CalendarDays, Clock, Tag, AlignLeft, Pencil } from 'lucide-react'
+import { X, CalendarDays, Clock, Tag, AlignLeft, Pencil, User } from 'lucide-react'
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
@@ -27,6 +27,7 @@ export default function EventFormModal({ date, event, onClose, onSave }) {
     time:        event?.time        || defaultTime,
     description: event?.description || '',
     color:       event?.color       || 'bg-blue-500',
+    creator:     event?.creator     || '',
   })
   const [errors, setErrors] = useState({})
 
@@ -87,6 +88,20 @@ export default function EventFormModal({ date, event, onClose, onSave }) {
               }`}
             />
             {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>}
+          </div>
+
+          {/* Créateur */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+              <User size={14} className="text-gray-400" /> Créateur <span className="text-gray-400 font-normal">(optionnel)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Nom du créateur"
+              value={form.creator}
+              onChange={set('creator')}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+            />
           </div>
 
           {/* Date + Heure */}
