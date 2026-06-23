@@ -87,6 +87,11 @@ export const api = {
 
   // --- News ---
   getNews: () => request('/news'),
+
+  // --- Chat ---
+  getConversations: () => request('/conversations'),
+  getConversationMessages: (id) => request(`/conversations/${id}/messages`),
+  getUnreadCount: () => request('/messages/unread'),
 }
 
 export default api
