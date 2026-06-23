@@ -168,15 +168,68 @@ class CompanyResource(Resource):
 
     @jwt_required()
     def delete(self, company_id):
-        """Soft-deactivate a company.
+        """Permanently delete a company (super admins only).
 
         Args:
             company_id (str): Company UUID path parameter.
 
         Returns:
-            tuple[dict, int]: ``{msg}`` and 200, or 404.
+            tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
-        if not company_service.facade.deactivate(company_id, by=get_jwt_identity()):
+        current = user_service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can delete companies', 403)
+        if not company_service.facade.delete(company_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        return {'msg': 'company deleted'}
+
+
+def _can_manage_company(user, company):
+    """Return ``True`` if *user* may deactivate *company*.
+
+    Allowed for super admins (any company) and for the company's own admin
+    (matched by ``admin_id`` or, as a fallback, ``admin_email``).
+    """
+    if not user or not company:
+        return False
+    if user.get('is_super_admin'):
+        return True
+    if company.get('admin_id') and company['admin_id'] == user.get('id'):
+        return True
+    admin_email = (company.get('admin_email') or '').lower().strip()
+    user_email = (user.get('email') or '').lower().strip()
+    return bool(admin_email) and admin_email == user_email
+
+
+class CompanyDeactivateResource(Resource):
+    """Soft-deactivate a company without removing the database row."""
+
+    @jwt_required()
+    def patch(self, company_id):
+        """Deactivate a company by id.
+
+        Allowed for a super admin (any company) or for the company's own
+        admin. A hard delete is reserved for super admins (see
+        :class:`CompanyResource`).
+
+        Args:
+            company_id (str): Company UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
+        """
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        company = company_service.facade.get(company_id)
+        if not company:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        if not _can_manage_company(current, company):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to deactivate this company', 403)
+        if not company_service.facade.deactivate(company_id, by=identity):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
         return {'msg': 'company deactivated'}
 

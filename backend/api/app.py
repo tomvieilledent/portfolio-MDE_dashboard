@@ -23,7 +23,7 @@ from backend.api.resources.auth import (
     AuthRegisterResource,
     AuthResetPasswordResource,
 )
-from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
+from backend.api.resources.company import CompanyAssignUserResource, CompanyDeactivateResource, CompanyListResource, CompanyResource, CompanyUsersResource
 from backend.api.resources.conversation import ConversationListResource, ConversationResource
 from backend.api.resources.formation_user import FormationUserListResource, FormationUserResource
 from backend.api.resources.message import (
@@ -148,6 +148,8 @@ def create_app():
 
     api.add_resource(CompanyListResource, '/companies')
     api.add_resource(CompanyResource, '/companies/<string:company_id>')
+    api.add_resource(CompanyDeactivateResource,
+                     '/companies/<string:company_id>/deactivate')
     api.add_resource(CompanyUsersResource,
                      '/companies/<string:company_id>/users')
     api.add_resource(CompanyAssignUserResource,

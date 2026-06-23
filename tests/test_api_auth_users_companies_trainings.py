@@ -309,8 +309,8 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     finally:
         db.close()
 
-    deactivate_company = client.delete(
-        f'/companies/{company_id}', headers=admin_headers)
+    deactivate_company = client.patch(
+        f'/companies/{company_id}/deactivate', headers=admin_headers)
     assert deactivate_company.status_code == 200
     assert deactivate_company.get_json() == {'msg': 'company deactivated'}
 
@@ -487,3 +487,66 @@ def test_training_create_field_validation_cases(seeded_context, payload, status,
 
     response = client.post('/trainings', headers=admin_headers, json=payload)
     assert_error(response, status, code)
+
+
+def test_user_deactivate_and_delete_permissions(seeded_context):
+    """Self-deactivation is allowed; deleting/deactivating others is admin-only."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    member_id = seeded_context['member_user']['id']
+    other_id = seeded_context['company_admin_user']['id']
+
+    # A member may not deactivate another user.
+    forbidden = client.patch(f'/users/{other_id}/deactivate', headers=member_headers)
+    assert_error(forbidden, 403, ERROR_CODES['FORBIDDEN'])
+
+    # A member may not delete anyone (not even themselves) — delete is super-admin only.
+    forbidden_delete = client.delete(f'/users/{member_id}', headers=member_headers)
+    assert_error(forbidden_delete, 403, ERROR_CODES['FORBIDDEN'])
+
+    # A member may deactivate their own account.
+    self_deactivate = client.patch(f'/users/{member_id}/deactivate', headers=member_headers)
+    assert self_deactivate.status_code == 200
+    assert self_deactivate.get_json() == {'msg': 'deactivated'}
+
+    # A super admin may delete a user.
+    deleted = client.delete(f'/users/{other_id}', headers=admin_headers)
+    assert deleted.status_code == 200
+    assert deleted.get_json() == {'msg': 'user deleted'}
+
+
+def test_company_deactivate_and_delete_permissions(seeded_context):
+    """Company admin may deactivate their company; only super admin may delete."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_headers = seeded_context['member_headers']
+    company_admin_email = seeded_context['company_admin_user']['email']
+
+    created = client.post('/companies', headers=admin_headers, json={
+        'name': 'Acme', 'admin_email': company_admin_email,
+    })
+    assert created.status_code == 201
+    company_id = created.get_json()['company']['id']
+
+    # A plain member may neither deactivate nor delete the company.
+    assert_error(client.patch(f'/companies/{company_id}/deactivate',
+                              headers=member_headers), 403, ERROR_CODES['FORBIDDEN'])
+    assert_error(client.delete(f'/companies/{company_id}',
+                               headers=member_headers), 403, ERROR_CODES['FORBIDDEN'])
+
+    # The company's own admin may deactivate it, but not delete it.
+    assert_error(client.delete(f'/companies/{company_id}',
+                               headers=company_admin_headers), 403, ERROR_CODES['FORBIDDEN'])
+    deactivated = client.patch(f'/companies/{company_id}/deactivate',
+                               headers=company_admin_headers)
+    assert deactivated.status_code == 200
+    assert deactivated.get_json() == {'msg': 'company deactivated'}
+
+    # A super admin may permanently delete it.
+    deleted = client.delete(f'/companies/{company_id}', headers=admin_headers)
+    assert deleted.status_code == 200
+    assert deleted.get_json() == {'msg': 'company deleted'}
+    assert_error(client.get(f'/companies/{company_id}', headers=admin_headers),
+                 404, ERROR_CODES['NOT_FOUND'])
