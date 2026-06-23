@@ -1,26 +1,49 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, Hash } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
+import { api } from '../../lib/api'
 
-const initialCompanies = [
-  { id: 1, name: 'Tech Innovators', sector: 'Technologies', location: 'Toulouse', joinDate: 'Membre depuis 2024', employees: '8 employés', status: 'Active', siren: '882 345 671' },
-  { id: 2, name: 'Digital Solutions', sector: 'Marketing Digital', location: 'Montpellier', joinDate: 'Membre depuis 2025', employees: '12 employés', status: 'Active', siren: '791 234 508' },
-  { id: 3, name: 'Green Energy Co.', sector: 'Énergie Renouvelable', location: 'Rodez', joinDate: 'Membre depuis 2023', employees: '15 employés', status: 'Active', siren: '523 891 042' },
-  { id: 4, name: 'Creative Studio', sector: 'Design & Communication', location: 'Nîmes', joinDate: 'Membre depuis 2025', employees: '6 employés', status: 'Active', siren: '410 673 829' },
-]
+// Le backend renvoie {id, name, admin_email, description, website_link,
+// company_picture, is_active, created_at}. On comble les champs absents côté
+// JSX (sector/location/employees/siren) avec des valeurs de repli.
+function mapCompany(c) {
+  const year = c.created_at ? new Date(c.created_at).getFullYear() : null
+  return {
+    ...c,
+    sector: c.description || '—',
+    location: '—',
+    joinDate: year ? `Membre depuis ${year}` : '',
+    employees: '',
+    status: c.is_active ? 'Active' : 'Inactive',
+    siren: '',
+  }
+}
 
 export default function Companies() {
-  const [companies, setCompanies] = useState(initialCompanies)
+  const [companies, setCompanies] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [modal, setModal] = useState(null) // null | { mode: 'add' } | { mode: 'edit', company }
+
+  useEffect(() => {
+    let cancelled = false
+    api.getCompanies()
+      .then(({ companies }) => { if (!cancelled) setCompanies(companies.map(mapCompany)) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const filtered = companies.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.sector.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.location.toLowerCase().includes(searchQuery.toLowerCase())
+      (c.sector || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // L'écriture (création/édition) sera branchée sur l'API quand le CompanyModal
+  // fournira admin_email. Pour l'instant on met à jour l'état local après save.
   const handleSave = (data) => {
     setCompanies((prev) => {
       const exists = prev.find((c) => c.id === data.id)
@@ -57,6 +80,9 @@ export default function Companies() {
             className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white"
           />
         </div>
+
+        {loading && <p className="text-gray-400 py-8 text-center">Chargement des entreprises…</p>}
+        {error && <p className="text-red-500 py-8 text-center">{error}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((company) => (

@@ -1,5 +1,24 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link, X } from 'lucide-react'
+import { api } from '../../lib/api'
+
+// Backend training : {id, title, company_id, description, picture, is_active,
+// created_at}. Les champs category/duration/endDate/enrolled/capacity/url
+// n'existent pas encore côté backend -> valeurs neutres en attendant.
+function mapTraining(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description || '',
+    category: '',
+    duration: '',
+    endDate: '',
+    enrolled: 0,
+    capacity: 0,
+    url: '',
+    picture: t.picture || null,
+  }
+}
 
 const frenchMonths = {
   Janvier: 0, Février: 1, Mars: 2, Avril: 3, Mai: 4, Juin: 5,
@@ -7,6 +26,7 @@ const frenchMonths = {
 }
 
 function daysRemaining(endDateStr) {
+  if (!endDateStr) return null // le backend ne fournit pas (encore) de date de fin
   const [day, month, year] = endDateStr.split(' ')
   const end = new Date(parseInt(year), frenchMonths[month], parseInt(day))
   const today = new Date()
@@ -139,13 +159,24 @@ function LinkModal({ training, onClose, onSave }) {
 }
 
 export default function Trainings({ isAdmin = false }) {
-  const [trainings, setTrainings] = useState(initialTrainings)
+  const [trainings, setTrainings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Tout')
   const [selectedTraining, setSelectedTraining] = useState(null)
   const [formModal, setFormModal] = useState(null) // null | { mode: 'create' } | { mode: 'edit', training }
   const [saved, setSaved] = useState(new Set())
   const [linkModal, setLinkModal] = useState(null) // null | training
+
+  useEffect(() => {
+    let cancelled = false
+    api.getTrainings()
+      .then(({ trainings }) => { if (!cancelled) setTrainings(trainings.map(mapTraining)) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleSave = (id) => setSaved((prev) => {
     const next = new Set(prev)
@@ -219,6 +250,9 @@ export default function Trainings({ isAdmin = false }) {
           ))}
         </div>
 
+        {loading && <p className="text-gray-400 py-8 text-center">Chargement des formations…</p>}
+        {error && <p className="text-red-500 py-8 text-center">{error}</p>}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((training) => (
             <div key={training.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
@@ -259,9 +293,11 @@ export default function Trainings({ isAdmin = false }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
-                    {training.category}
-                  </span>
+                  {training.category && (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
+                      {training.category}
+                    </span>
+                  )}
                   <button
                     onClick={() => toggleSave(training.id)}
                     title={saved.has(training.id) ? 'Retirer des favoris' : 'Sauvegarder'}
@@ -278,16 +314,21 @@ export default function Trainings({ isAdmin = false }) {
               <p className="text-sm text-gray-600 mb-5">{training.description}</p>
 
               <div className="space-y-2 mb-5 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-gray-400" />
-                  <span>{training.duration}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar size={15} className="text-gray-400" />
-                  <span>Jusqu'au {training.endDate}</span>
-                </div>
+                {training.duration && (
+                  <div className="flex items-center gap-2">
+                    <Clock size={15} className="text-gray-400" />
+                    <span>{training.duration}</span>
+                  </div>
+                )}
+                {training.endDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar size={15} className="text-gray-400" />
+                    <span>Jusqu'au {training.endDate}</span>
+                  </div>
+                )}
                 {(() => {
                   const days = daysRemaining(training.endDate)
+                  if (days === null) return null
                   if (days <= 0) {
                     return (
                       <div className="flex items-center gap-2">
@@ -312,8 +353,8 @@ export default function Trainings({ isAdmin = false }) {
                 })()}
               </div>
 
-              {/* Jauge d'inscrits */}
-              {(() => {
+              {/* Jauge d'inscrits — masquée tant que la capacité n'est pas connue */}
+              {training.capacity > 0 && (() => {
                 const pct = Math.round((training.enrolled / training.capacity) * 100)
                 const full = training.enrolled >= training.capacity
                 const barColor = full ? 'bg-red-400' : categoryBar[training.category] || 'bg-gray-400'
@@ -340,13 +381,18 @@ export default function Trainings({ isAdmin = false }) {
               })()}
 
               <div className="flex gap-2">
-                <button
-                  onClick={() => setSelectedTraining(training)}
-                  disabled={training.enrolled >= training.capacity}
-                  className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {training.enrolled >= training.capacity ? 'Complet' : "S'inscrire"}
-                </button>
+                {(() => {
+                  const isFull = training.capacity > 0 && training.enrolled >= training.capacity
+                  return (
+                    <button
+                      onClick={() => setSelectedTraining(training)}
+                      disabled={isFull}
+                      className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isFull ? 'Complet' : "S'inscrire"}
+                    </button>
+                  )
+                })()}
                 {isAdmin && (
                   <button
                     onClick={() => setFormModal({ mode: 'edit', training })}

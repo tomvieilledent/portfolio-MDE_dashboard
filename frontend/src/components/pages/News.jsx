@@ -1,7 +1,23 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, ExternalLink, Bookmark, BarChart2, TrendingUp, Rss } from 'lucide-react'
+import { api } from '../../lib/api'
 
 const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
+
+// Backend news : {id, title, source, summary, url, category, published_at, ...}.
+function mapNews(n) {
+  const d = n.published_at || n.created_at
+  return {
+    id: n.id,
+    title: n.title,
+    source: n.source || '',
+    date: d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+    category: n.category || '',
+    excerpt: n.summary || '',
+    url: n.url || '',
+    pinned: false,
+  }
+}
 
 const categoryColors = {
   Économie: 'bg-green-100 text-green-700',
@@ -56,12 +72,24 @@ const newsItems = [
 export default function News() {
   const [activeFilter, setActiveFilter] = useState('Tout')
   const [searchQuery, setSearchQuery] = useState('')
+  const [news, setNews] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const filtered = newsItems.filter((item) => {
+  useEffect(() => {
+    let cancelled = false
+    api.getNews()
+      .then((res) => { if (!cancelled) setNews((res.items || []).map(mapNews)) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const filtered = news.filter((item) => {
     const matchesFilter = activeFilter === 'Tout' || item.category === activeFilter
     const matchesSearch =
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.source.toLowerCase().includes(searchQuery.toLowerCase())
+      (item.source || '').toLowerCase().includes(searchQuery.toLowerCase())
     return matchesFilter && matchesSearch
   })
 
@@ -89,7 +117,7 @@ export default function News() {
         <div className="bg-primary-light rounded-xl p-4 text-white flex items-center gap-3">
           <BarChart2 size={28} className="opacity-80" />
           <div>
-            <p className="text-2xl font-bold leading-none">6</p>
+            <p className="text-2xl font-bold leading-none">{news.length}</p>
             <p className="text-xs opacity-80 mt-1">Articles disponibles</p>
           </div>
         </div>
@@ -127,6 +155,9 @@ export default function News() {
       </div>
 
       {/* News items */}
+      {loading && <p className="text-gray-400 py-8 text-center">Chargement des actualités…</p>}
+      {error && <p className="text-red-500 py-8 text-center">{error}</p>}
+
       <div className="space-y-4">
         {filtered.map((item) => (
           <div
@@ -135,14 +166,16 @@ export default function News() {
           >
             <div className="flex items-start justify-between gap-3 mb-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    categoryColors[item.category] || 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {item.category}
-                </span>
-                <span className="text-xs text-gray-400">{item.source} · {item.date}</span>
+                {item.category && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      categoryColors[item.category] || 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {item.category}
+                  </span>
+                )}
+                <span className="text-xs text-gray-400">{[item.source, item.date].filter(Boolean).join(' · ')}</span>
               </div>
               {item.pinned && (
                 <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600">
@@ -155,10 +188,15 @@ export default function News() {
             <p className="text-sm text-gray-600 mb-4">{item.excerpt}</p>
 
             <div className="flex gap-3">
-              <button className="flex items-center gap-1.5 px-4 py-2 bg-primary-light hover:bg-primary text-white text-sm font-medium rounded-lg transition-colors">
+              <a
+                href={item.url || '#'}
+                target={item.url ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className={`flex items-center gap-1.5 px-4 py-2 bg-primary-light hover:bg-primary text-white text-sm font-medium rounded-lg transition-colors ${item.url ? '' : 'opacity-50 pointer-events-none'}`}
+              >
                 <ExternalLink size={14} />
                 Lire l'article
-              </button>
+              </a>
               <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 text-sm font-medium rounded-lg transition-colors">
                 <Bookmark size={14} />
                 Sauvegarder
