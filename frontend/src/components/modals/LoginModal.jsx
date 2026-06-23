@@ -1,19 +1,32 @@
 import React, { useState } from 'react'
-import { X, Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+import { X, Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
 import RegisterModal from './RegisterModal'
 import ForgotPasswordModal from './ForgotPasswordModal'
+import { useAuth } from '../../context/AuthContext'
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onLoginSuccess ? onLoginSuccess() : onClose()
+    setError('')
+    setSubmitting(true)
+    try {
+      const user = await login(email, password)
+      onLoginSuccess ? onLoginSuccess(user) : onClose()
+    } catch (err) {
+      setError(err.message || 'Connexion impossible')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (showRegister) {
@@ -48,6 +61,11 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
 
         {/* Formulaire */}
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse email</label>
             <div className="relative">
@@ -100,10 +118,11 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
 
           <button
             type="submit"
-            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
+            disabled={submitting}
+            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <LogIn size={18} />
-            Se connecter
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+            {submitting ? 'Connexion…' : 'Se connecter'}
           </button>
 
           <div className="text-center pt-1">

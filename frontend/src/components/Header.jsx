@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Moon, Sun, LogOut, LogIn } from 'lucide-react'
 import LoginModal from './modals/LoginModal'
+import { useAuth, displayName, initialsOf, roleOf } from '../context/AuthContext'
 
 function createImpulse(ctx, duration = 0.6, decay = 0.4) {
   const length = ctx.sampleRate * duration
@@ -45,7 +46,8 @@ async function playNotifSound() {
   } catch (_) {}
 }
 
-export default function Header({ role = 'user', onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
+export default function Header({ onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
+  const { user, isAuthenticated, logout } = useAuth()
   const [loginOpen, setLoginOpen] = useState(false)
   const prevCount = useRef(unreadCount)
 
@@ -53,6 +55,13 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
     if (unreadCount > prevCount.current) playNotifSound()
     prevCount.current = unreadCount
   }, [unreadCount])
+
+  const roleLabel = roleOf(user) === 'admin' ? 'Administrateur' : 'Professionnel'
+
+  const handleLogout = async () => {
+    await logout()
+    onLogout?.()
+  }
 
   return (
     <>
@@ -87,22 +96,19 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
               )}
             </button>
 
-            {role === 'admin' ? (
+            {isAuthenticated ? (
               <>
-                <button
-                  onClick={() => setLoginOpen(true)}
-                  className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
-                >
+                <div className="flex items-center gap-3 px-3 py-2">
                   <div className="text-right">
-                    <p className="text-base font-semibold text-gray-900 leading-snug">Céline Marcilhac</p>
-                    <p className="text-sm text-gray-500 leading-snug">Administrateur</p>
+                    <p className="text-base font-semibold text-gray-900 leading-snug">{displayName(user)}</p>
+                    <p className="text-sm text-gray-500 leading-snug">{roleLabel}</p>
                   </div>
                   <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                    CM
+                    {initialsOf(user)}
                   </div>
-                </button>
+                </div>
                 <button
-                  onClick={onLogout}
+                  onClick={handleLogout}
                   className="p-2.5 hover:bg-red-50 rounded-xl transition-colors text-gray-400 hover:text-red-500"
                   title="Se déconnecter"
                 >
@@ -134,7 +140,7 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
       {loginOpen && (
         <LoginModal
           onClose={() => setLoginOpen(false)}
-          onLoginSuccess={() => { setLoginOpen(false); onLogin?.() }}
+          onLoginSuccess={(user) => { setLoginOpen(false); onLogin?.(user) }}
         />
       )}
     </>

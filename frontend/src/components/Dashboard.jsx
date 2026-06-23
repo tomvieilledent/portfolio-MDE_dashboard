@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import Header from './Header'
 import TabNavigation from './TabNavigation'
 import Companies from './pages/Companies'
@@ -25,7 +26,7 @@ const USER_TABS = [
 ]
 
 export default function DashboardContainer() {
-  const [role, setRole] = useState('user')
+  const { role } = useAuth()
   const [activeTab, setActiveTab] = useState('news')
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
@@ -39,13 +40,11 @@ export default function DashboardContainer() {
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
 
-  const handleLogin = () => {
-    setRole('admin')
-    setActiveTab('dashboard')
+  const handleLogin = (user) => {
+    setActiveTab(user?.is_super_admin ? 'dashboard' : 'news')
   }
 
   const handleLogout = () => {
-    setRole('user')
     setActiveTab('news')
   }
 
@@ -76,7 +75,6 @@ export default function DashboardContainer() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        role={role}
         onLogin={handleLogin}
         onLogout={handleLogout}
         onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
