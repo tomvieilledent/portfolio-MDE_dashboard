@@ -123,6 +123,7 @@ def create_app():
     def uploaded_file(filename):
         return send_from_directory(UPLOAD_ROOT, filename)
 
+
     api.add_resource(AuthRegisterResource, '/auth/register')
     api.add_resource(AuthLoginResource, '/auth/login')
     api.add_resource(AuthRefreshResource, '/auth/refresh')

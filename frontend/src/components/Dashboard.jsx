@@ -19,15 +19,16 @@ const ADMIN_TABS = [
 ]
 
 const USER_TABS = [
-  { id: 'news', label: 'Veille économique' },
+  { id: 'dashboard', label: 'Accueil' },
   { id: 'companies', label: 'Entreprises' },
   { id: 'users', label: 'Trombinoscope' },
   { id: 'trainings', label: 'Formations' },
+  { id: 'news', label: 'Veille économique' },
 ]
 
 export default function DashboardContainer() {
   const { role } = useAuth()
-  const [activeTab, setActiveTab] = useState('news')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
   const [darkMode, setDarkMode] = useState(
@@ -45,7 +46,7 @@ export default function DashboardContainer() {
   }
 
   const handleLogout = () => {
-    setActiveTab('news')
+    setActiveTab('dashboard')
   }
 
   const tabs = role === 'admin' ? ADMIN_TABS : USER_TABS
