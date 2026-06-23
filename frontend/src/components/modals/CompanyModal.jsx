@@ -1,26 +1,37 @@
 import React, { useState } from 'react'
-import { X, Building2, MapPin, Calendar, Users, Save, Hash, Link } from 'lucide-react'
+import { X, Building2, MapPin, Calendar, Users, Save, Hash, Link, Mail, Loader2 } from 'lucide-react'
 
-export default function CompanyModal({ company, onClose, onSave }) {
+export default function CompanyModal({ company, userEmails = [], onClose, onSave }) {
   const isEdit = !!company
   const [form, setForm] = useState({
-    name:      company?.name      || '',
-    sector:    company?.sector    || '',
-    siren:     company?.siren     || '',
-    location:  company?.location  || '',
-    joinDate:  company?.joinDate  || '',
-    employees: company?.employees || '',
-    status:    company?.status    || 'Active',
+    name:        company?.name        || '',
+    admin_email: company?.admin_email || '',
+    sector:      company?.sector      || '',
+    siren:       company?.siren       || '',
+    location:    company?.location    || '',
+    joinDate:    company?.joinDate    || '',
+    employees:   company?.employees   || '',
+    status:      company?.status      || 'Active',
     url:         company?.url         || '',
     description: company?.description || '',
   })
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSave?.({ ...company, ...form, id: company?.id || Date.now() })
-    onClose()
+    setError('')
+    setSubmitting(true)
+    try {
+      await onSave?.({ ...company, ...form, id: company?.id })
+      onClose()
+    } catch (err) {
+      setError(err.message || "Échec de l'enregistrement")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -50,12 +61,31 @@ export default function CompanyModal({ company, onClose, onSave }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           {/* Nom */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom de l'entreprise *</label>
             <input required type="text" placeholder="Ex : Tech Innovators"
               value={form.name} onChange={set('name')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+          </div>
+
+          {/* Email de l'administrateur (requis par le backend) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <span className="flex items-center gap-1"><Mail size={13} /> Email de l'administrateur *</span>
+            </label>
+            <input required type="email" placeholder="admin@entreprise.fr" list="company-admin-emails"
+              value={form.admin_email} onChange={set('admin_email')}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+            <datalist id="company-admin-emails">
+              {userEmails.map((email) => <option key={email} value={email} />)}
+            </datalist>
+            <p className="mt-1 text-xs text-gray-400">Doit correspondre à un utilisateur existant.</p>
           </div>
 
           {/* SIREN */}
@@ -141,14 +171,14 @@ export default function CompanyModal({ company, onClose, onSave }) {
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-xl transition-colors text-sm">
+            <button type="button" onClick={onClose} disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-xl transition-colors text-sm disabled:opacity-60">
               Annuler
             </button>
-            <button type="submit"
-              className="flex-1 bg-primary-light hover:bg-primary text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
-              <Save size={16} />
-              {isEdit ? 'Enregistrer' : 'Ajouter'}
+            <button type="submit" disabled={submitting}
+              className="flex-1 bg-primary-light hover:bg-primary text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Ajouter'}
             </button>
           </div>
         </form>

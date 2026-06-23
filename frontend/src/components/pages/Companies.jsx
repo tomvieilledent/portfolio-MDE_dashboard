@@ -28,6 +28,7 @@ export default function Companies() {
   const [searchQuery, setSearchQuery] = useState('')
   const [modal, setModal] = useState(null)
   const [expanded, setExpanded] = useState(new Set())
+  const [userEmails, setUserEmails] = useState([]) // pour le champ admin_email du modal
 
   const toggleExpand = (id) => setExpanded((prev) => {
     const next = new Set(prev)
@@ -37,8 +38,13 @@ export default function Companies() {
 
   useEffect(() => {
     let cancelled = false
-    api.getCompanies()
-      .then(({ companies }) => { if (!cancelled) setCompanies(companies.map(mapCompany)) })
+    // companies pour la liste, users pour proposer un admin_email valide à la création
+    Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
+      .then(([{ companies }, { users }]) => {
+        if (cancelled) return
+        setCompanies(companies.map(mapCompany))
+        setUserEmails(users.map((u) => u.email).filter(Boolean))
+      })
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -51,14 +57,26 @@ export default function Companies() {
       (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // L'écriture (création/édition) sera branchée sur l'API quand le CompanyModal
-  // fournira admin_email. Pour l'instant on met à jour l'état local après save.
-  const handleSave = (data) => {
+  // Création / édition persistées via l'API. Le backend ne stocke que
+  // name / description / website_link (+ admin_email requis à la création) ;
+  // les autres champs du formulaire (secteur, SIREN…) restent cosmétiques.
+  const handleSave = async (form) => {
+    const payload = {
+      name: form.name,
+      description: form.description || null,
+      website_link: form.url || null,
+    }
+    if (form.admin_email) payload.admin_email = form.admin_email
+
+    const isEdit = typeof form.id === 'string'
+    const { company } = isEdit
+      ? await api.updateCompany(form.id, payload)
+      : await api.createCompany(payload)
+    const saved = mapCompany(company)
+
     setCompanies((prev) => {
-      const exists = prev.find((c) => c.id === data.id)
-      return exists
-        ? prev.map((c) => (c.id === data.id ? data : c))
-        : [...prev, { team: [], ...data }]
+      const exists = prev.some((c) => c.id === saved.id)
+      return exists ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]
     })
   }
 
@@ -212,6 +230,7 @@ export default function Companies() {
       {modal && (
         <CompanyModal
           company={modal.mode === 'edit' ? modal.company : null}
+          userEmails={userEmails}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />
