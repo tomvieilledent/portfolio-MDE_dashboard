@@ -125,6 +125,8 @@ frontend/dist/
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
+# Le motif Python `lib/` (plus haut) capture par erreur ce dossier source : on le ré-inclut
+!frontend/src/lib/
 
 # Archive files (trop lourds pour git)
 *.7z
