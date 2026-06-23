@@ -55,7 +55,20 @@ async function request(path, { method = 'GET', body, auth = true, headers = {} }
   }
 
   if (!res.ok) {
-    const message = data?.message || data?.msg || data?.error || `Erreur ${res.status}`
+    // Le backend renvoie {error: {code, message, details?}} ; on extrait le
+    // message lisible plutôt que l'objet entier (sinon "[object Object]").
+    const message =
+      data?.error?.message ||
+      (typeof data?.error === 'string' ? data.error : null) ||
+      data?.message ||
+      data?.msg ||
+      `Erreur ${res.status}`
+    // Session invalide/expirée sur un appel authentifié : on déconnecte
+    // proprement pour que l'UI repasse à l'écran de connexion.
+    if (res.status === 401 && auth) {
+      clearTokens()
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('auth:logout'))
+    }
     throw new ApiError(message, res.status)
   }
   return data
@@ -104,6 +117,7 @@ export const api = {
   getConversations: () => request('/conversations'),
   getConversationMessages: (id) => request(`/conversations/${id}/messages`),
   getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
+  markDirectRead: (otherUserId) => request(`/messages/direct/${otherUserId}`, { method: 'POST' }),
   getUnreadCount: () => request('/messages/unread'),
 }
 
