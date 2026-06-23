@@ -10,7 +10,7 @@ import MonOnglet from './pages/MonOnglet'
 import Messagerie from './Messagerie'
 
 const ADMIN_TABS = [
-  { id: 'dashboard', label: 'Tableau de bord' },
+  { id: 'dashboard', label: 'Accueil' },
   { id: 'companies', label: 'Entreprises' },
   { id: 'users', label: 'Trombinoscope' },
   { id: 'trainings', label: 'Formations' },
