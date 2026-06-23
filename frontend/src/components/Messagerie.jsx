@@ -22,18 +22,20 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const [selectedUserId, setSelectedUserId] = useState(null)
   const [messages, setMessages] = useState([])    // messages du fil actif (bruts backend)
   const [onlineIds, setOnlineIds] = useState(new Set())
+  const [unreadByUser, setUnreadByUser] = useState({}) // senderId -> nb non lus
   const [searchQuery, setSearchQuery] = useState('')
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const scrollRef = useRef(null)
 
-  // ── Chargement initial : liste des contacts ─────────────────────────────────
+  // ── Chargement initial : contacts + non-lus par expéditeur ──────────────────
   useEffect(() => {
     let cancelled = false
-    api.getUsers()
-      .then(({ users: all }) => {
+    Promise.all([api.getUsers(), api.getUnreadCount().catch(() => ({ by_sender: {} }))])
+      .then(([{ users: all }, unread]) => {
         if (cancelled) return
         setUsers((all || []).filter((u) => u.id !== myId))
+        setUnreadByUser(unread?.by_sender || {})
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -52,8 +54,11 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
         if (belongsToActive) {
           setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
         }
-        // notif si message reçu (pas de moi) et fil non ouvert
-        if (message.author_id !== myId && !belongsToActive) onNewMessage?.()
+        // message reçu (pas de moi) pour un fil non ouvert : badge + notif globale
+        if (message.author_id !== myId && !belongsToActive) {
+          setUnreadByUser((prev) => ({ ...prev, [message.author_id]: (prev[message.author_id] || 0) + 1 }))
+          onNewMessage?.()
+        }
         return selUser
       })
     }
@@ -97,6 +102,12 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const selectUser = async (userId) => {
     setSelectedUserId(userId)
     setMessages([])
+    // Le fil est ouvert : on efface le badge et on marque les DM comme lus.
+    setUnreadByUser((prev) => {
+      if (!prev[userId]) return prev
+      const next = { ...prev }; delete next[userId]; return next
+    })
+    api.markDirectRead(userId).catch(() => {})
     try {
       const { messages: history } = await api.getDirectMessages(userId)
       setMessages(history || [])
@@ -164,11 +175,12 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
             )}
             {filteredUsers.map((u) => {
               const online = onlineIds.has(u.id)
+              const unread = unreadByUser[u.id] || 0
               return (
                 <button
                   key={u.id}
                   onClick={() => selectUser(u.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 text-left ${selectedUserId === u.id ? 'bg-green-50 border-l-4 border-l-primary-light' : ''}`}
+                  className={`w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 text-left ${selectedUserId === u.id ? 'bg-green-50 border-l-4 border-l-primary-light' : unread ? 'bg-primary-light/5' : ''}`}
                 >
                   <div className="relative flex-shrink-0">
                     {u.profile_picture ? (
@@ -181,9 +193,16 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                     {online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-sm text-gray-900 truncate block">{displayName(u)}</span>
-                    <p className="text-xs text-gray-500 truncate">{online ? 'En ligne' : (u.email || '')}</p>
+                    <span className={`text-sm truncate block ${unread ? 'font-bold text-gray-900' : 'font-semibold text-gray-900'}`}>{displayName(u)}</span>
+                    <p className={`text-xs truncate ${unread ? 'text-primary-light font-medium' : 'text-gray-500'}`}>
+                      {unread ? `${unread} nouveau${unread > 1 ? 'x' : ''} message${unread > 1 ? 's' : ''}` : (online ? 'En ligne' : (u.email || ''))}
+                    </p>
                   </div>
+                  {unread > 0 && (
+                    <span className="ml-2 flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-primary-light rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {unread}
+                    </span>
+                  )}
                 </button>
               )
             })}
