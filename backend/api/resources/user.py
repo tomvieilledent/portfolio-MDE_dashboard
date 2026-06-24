@@ -275,14 +275,19 @@ class UserResource(Resource):
 
     @jwt_required()
     def delete(self, user_id):
-        """Permanently delete a user.
+        """Permanently delete a user (super admins only).
 
         Args:
             user_id (str): User UUID path parameter.
 
         Returns:
-            tuple[dict, int]: ``{msg}`` and 200, or 404.
+            tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
+        current = service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can delete users', 403)
         if not service.delete(user_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'msg': 'user deleted'}
@@ -295,12 +300,22 @@ class UserDeactivateResource(Resource):
     def patch(self, user_id):
         """Deactivate a user by id.
 
+        Allowed for a super admin (any user) or for a user deactivating
+        their own account.
+
         Args:
             user_id (str): User UUID path parameter.
 
         Returns:
-            tuple[dict, int]: ``{msg}`` and 200, or 404.
+            tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
+        identity = get_jwt_identity()
+        current = service.get_by_id(identity)
+        is_super_admin = bool(current and current.get('is_super_admin'))
+        if identity != user_id and not is_super_admin:
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to deactivate this user', 403)
         if not service.deactivate(user_id, by='api'):
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'msg': 'deactivated'}

@@ -1,9 +1,12 @@
 """Authentication endpoints: register, login, token refresh and logout."""
 
+from datetime import timedelta
+
 from flask import request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
+    decode_token,
     get_jwt,
     get_jwt_identity,
 )
@@ -109,3 +112,71 @@ class AuthLogoutResource(Resource):
         jwt_data = get_jwt()
         BLOCKLIST.add(jwt_data['jti'])
         return {'msg': 'logged out'}
+
+
+# Marker claim that identifies a short-lived password-reset token.
+RESET_PURPOSE = 'pwd_reset'
+
+
+class AuthForgotPasswordResource(Resource):
+    """Start a password reset for the account matching an email."""
+
+    def post(self):
+        """Issue a short-lived password-reset token for the given email.
+
+        Expected JSON body:
+            email (str): Account email address.
+
+        Returns ``{msg}`` always (no account enumeration). In this demo the
+        reset token is returned in ``reset_token`` because there is no email
+        service — **in production it must instead be emailed to the user**.
+        """
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        if not email:
+            return error_response(ERROR_CODES['BAD_REQUEST'], 'email is required', 400)
+        generic = {'msg': 'if the account exists, a reset link has been sent'}
+        user = service.facade.get_by_email(email)
+        if not user:
+            return generic
+        reset_token = create_access_token(
+            identity=user['id'],
+            expires_delta=timedelta(minutes=15),
+            additional_claims={'purpose': RESET_PURPOSE},
+        )
+        # DEV ONLY: returning the token here stands in for emailing it.
+        return {**generic, 'reset_token': reset_token}
+
+
+class AuthResetPasswordResource(Resource):
+    """Complete a password reset using a token from /auth/forgot-password."""
+
+    def post(self):
+        """Set a new password given a valid reset token.
+
+        Expected JSON body:
+            reset_token (str): Token issued by /auth/forgot-password.
+            password (str): New password (min 8 chars).
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or an error.
+        """
+        data = request.get_json(silent=True) or {}
+        reset_token = data.get('reset_token')
+        password = data.get('password')
+        if not reset_token or not password:
+            return error_response(ERROR_CODES['BAD_REQUEST'],
+                                  'reset_token and password are required', 400)
+        if len(password) < 8:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'],
+                                  'password must be at least 8 characters', 400)
+        try:
+            decoded = decode_token(reset_token)
+        except Exception:
+            return error_response(ERROR_CODES['INVALID_TOKEN'], 'invalid or expired token', 401)
+        if decoded.get('purpose') != RESET_PURPOSE:
+            return error_response(ERROR_CODES['INVALID_TOKEN'], 'invalid reset token', 401)
+        user_id = decoded.get('sub')
+        if not service.reset_password(user_id, password):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'msg': 'password updated'}

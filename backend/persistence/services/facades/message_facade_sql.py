@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import and_, func, or_
+
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Message as ORMMessage
 from ._common_sql import isoformat, normalize_text, session_scope
@@ -85,6 +87,39 @@ class MessageFacade:
                 db.query(ORMMessage)
                 .filter(ORMMessage.conversation_id == conversation_id,
                         ORMMessage.is_active.isnot(False))
+                .order_by(ORMMessage.created_at.asc())
+                .limit(limit)
+                .all()
+            )
+            return [self._to_dict(row) for row in rows]
+
+    def list_direct(self, user_a, user_b, limit=100):
+        """Return the direct-message thread between two users.
+
+        Direct messages carry a ``recipient_id`` and no ``conversation_id``;
+        this returns both directions (a→b and b→a) in chronological order.
+
+        Args:
+            user_a (str): One participant's UUID.
+            user_b (str): The other participant's UUID.
+            limit (int): Maximum number of rows. Defaults to 100.
+
+        Returns:
+            list[dict]: Serialised message dicts, oldest first.
+        """
+        with session_scope() as db:
+            rows = (
+                db.query(ORMMessage)
+                .filter(
+                    ORMMessage.conversation_id.is_(None),
+                    ORMMessage.is_active.isnot(False),
+                    or_(
+                        and_(ORMMessage.author_id == user_a,
+                             ORMMessage.recipient_id == user_b),
+                        and_(ORMMessage.author_id == user_b,
+                             ORMMessage.recipient_id == user_a),
+                    ),
+                )
                 .order_by(ORMMessage.created_at.asc())
                 .limit(limit)
                 .all()
@@ -196,6 +231,48 @@ class MessageFacade:
                 ORMMessage.is_read.is_(False),
                 ORMMessage.is_active.isnot(False),
             ).count()
+
+    def count_unread_dms_by_sender(self, user_id):
+        """Count unread direct messages addressed to a user, grouped by sender.
+
+        Args:
+            user_id (str): Recipient UUID.
+
+        Returns:
+            dict[str, int]: Mapping ``author_id -> unread count``.
+        """
+        with session_scope() as db:
+            rows = (
+                db.query(ORMMessage.author_id, func.count(ORMMessage.id))
+                .filter(
+                    ORMMessage.recipient_id == user_id,
+                    ORMMessage.conversation_id.is_(None),
+                    ORMMessage.is_read.is_(False),
+                    ORMMessage.is_active.isnot(False),
+                )
+                .group_by(ORMMessage.author_id)
+                .all()
+            )
+            return {author_id: count for author_id, count in rows}
+
+    def mark_direct_read(self, reader_id, sender_id):
+        """Mark the direct messages from ``sender_id`` to ``reader_id`` as read.
+
+        Args:
+            reader_id (str): UUID of the recipient marking messages read.
+            sender_id (str): UUID of the message author.
+
+        Returns:
+            int: Number of messages newly marked as read.
+        """
+        with session_scope() as db:
+            return db.query(ORMMessage).filter(
+                ORMMessage.author_id == sender_id,
+                ORMMessage.recipient_id == reader_id,
+                ORMMessage.conversation_id.is_(None),
+                ORMMessage.is_read.is_(False),
+                ORMMessage.is_active.isnot(False),
+            ).update({ORMMessage.is_read: True}, synchronize_session=False)
 
     def deactivate(self, message_id):
         """Soft-delete a message (mark it inactive, keep the row).

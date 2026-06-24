@@ -155,9 +155,10 @@ def test_conversation_read_and_unread_flow(seeded_context):
         assert posted.status_code == 201
         assert posted.get_json()['message']['is_read'] is False
 
-    # Admin has 2 unread; the author (member) has 0.
+    # Admin has 2 unread; the author (member) has 0. These are conversation
+    # messages, so the direct-message ``by_sender`` breakdown stays empty.
     assert client.get('/messages/unread', headers=admin_headers).get_json() == {
-        'unread': 2, 'conversations': 2, 'direct': 0}
+        'unread': 2, 'conversations': 2, 'direct': 0, 'by_sender': {}}
     assert client.get('/messages/unread', headers=member_headers).get_json()[
         'unread'] == 0
     # An outsider sees nothing.
