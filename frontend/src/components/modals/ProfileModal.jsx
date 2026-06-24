@@ -4,7 +4,7 @@ import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, C
 const ROLE_LABELS = { admin: 'Super Administrateur', patron: 'Patron', salarie: 'Salarié' }
 const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: 'bg-purple-100 text-purple-600', salarie: 'bg-gray-100 text-gray-600' }
 
-export default function ProfileModal({ profile, onClose, onSave }) {
+export default function ProfileModal({ profile, onClose, onSave, onDeactivate }) {
   const [form, setForm] = useState({
     name:         profile.name         || '',
     jobTitle:     profile.jobTitle     || '',
@@ -15,6 +15,7 @@ export default function ProfileModal({ profile, onClose, onSave }) {
     businessCard: profile.businessCard || null,
   })
   const [dragOver, setDragOver] = useState(false)
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false)
 
   const photoRef = useRef()
   const cardRef  = useRef()
@@ -198,6 +199,53 @@ export default function ProfileModal({ profile, onClose, onSave }) {
               )}
               <input ref={cardRef} type="file" accept="image/*" className="hidden" onChange={handleCardChange} />
             </div>
+          </div>
+
+          {/* Zone de danger */}
+          <div className="mx-6 mb-4 border border-red-200 rounded-xl p-4 bg-red-50">
+            <p className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide">Zone de danger</p>
+            {!deactivateConfirm ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-red-600 leading-snug">
+                  Désactiver votre compte suspendra votre accès à la plateforme.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDeactivateConfirm(true)}
+                  className="flex-shrink-0 text-xs font-semibold text-red-600 border border-red-300 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Désactiver
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-red-700 font-medium">
+                  Confirmez-vous la désactivation de votre compte ?
+                </p>
+                <div className="bg-white border border-red-100 rounded-lg p-3 text-xs text-gray-600 leading-relaxed">
+                  Pour une <span className="font-semibold">suppression définitive</span> de votre compte et de vos données, contactez le super administrateur :{' '}
+                  <a href="mailto:admin@mde.fr" className="text-primary-light font-semibold hover:underline">
+                    admin@mde.fr
+                  </a>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeactivateConfirm(false)}
+                    className="flex-1 text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 py-2 rounded-lg transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDeactivate}
+                    className="flex-1 text-xs bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors"
+                  >
+                    Confirmer la désactivation
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

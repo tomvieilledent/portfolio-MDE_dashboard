@@ -163,6 +163,7 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
           profile={profile}
           onClose={() => setProfileOpen(false)}
           onSave={(updated) => { onProfileSave?.(updated); setProfileOpen(false) }}
+          onDeactivate={() => { setProfileOpen(false); onLogout?.() }}
         />
       )}
 

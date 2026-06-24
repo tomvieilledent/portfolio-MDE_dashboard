@@ -1,6 +1,71 @@
 import React, { useState, useRef } from 'react'
-import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, RotateCcw, ImagePlus, Download } from 'lucide-react'
+import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, ImagePlus, Download, Trash2, AlertTriangle, UserX, UserCheck } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
+
+function DeleteUserModal({ user, onClose, onConfirm }) {
+  const [checked, setChecked] = useState(false)
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-red-500 px-5 py-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Trash2 size={18} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white leading-tight">Suppression définitive</h3>
+            <p className="text-xs text-white/80">Cette action est irréversible</p>
+          </div>
+        </div>
+
+        <div className="px-5 py-5 space-y-4">
+          <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+            <img src={user.photo} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+              <p className="text-xs text-gray-500">{user.role} · {user.company}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Le compte, les données et l'historique de <span className="font-semibold">{user.name}</span> seront supprimés définitivement et ne pourront pas être récupérés.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => setChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-red-500 flex-shrink-0"
+            />
+            <span className="text-sm text-gray-700 leading-snug group-hover:text-gray-900 transition-colors">
+              Je confirme la suppression <span className="font-semibold text-red-600">définitive et irréversible</span> de ce compte
+            </span>
+          </label>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!checked}
+              className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Trash2 size={14} /> Supprimer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const initialUsers = [
   { id: 0, name: 'Céline Marcilhac', role: 'Super Administratrice', company: 'Maison de l\'Économie', email: 'admin@mde.fr',                  phone: '+33 5 65 00 00 00', photo: 'https://randomuser.me/api/portraits/women/65.jpg', isAdmin: true },
@@ -24,7 +89,7 @@ function getColor(company) {
   return COMPANY_COLORS[company] || { bg: 'bg-gray-500', light: 'bg-gray-50', text: 'text-gray-600', hex: '#6b7280' }
 }
 
-function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard, bio }) {
+function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard, bio, isAdmin, onDelete, onToggleDeactivate }) {
   const color = getColor(user.company)
   const fileRef = useRef()
 
@@ -44,14 +109,21 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
       <div className="flip-card-inner">
 
         {/* ── FACE AVANT ── */}
-        <div className="flip-card-front bg-white shadow-sm border border-gray-100 flex flex-col items-center text-center p-6 hover:shadow-md transition-shadow">
-          <img
-            src={user.photo}
-            alt={user.name}
-            className="w-20 h-20 rounded-full object-cover mb-3 border-2 border-gray-100 shadow-sm"
-          />
+        <div className={`flip-card-front flex flex-col items-center text-center p-6 transition-shadow shadow-sm border hover:shadow-md ${user.deactivated ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+          <div className="relative mb-3">
+            <img
+              src={user.photo}
+              alt={user.name}
+              className={`w-20 h-20 rounded-full object-cover border-2 shadow-sm ${user.deactivated ? 'grayscale opacity-50 border-gray-200' : 'border-gray-100'}`}
+            />
+            {user.deactivated && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="bg-gray-700/80 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Désactivé</span>
+              </div>
+            )}
+          </div>
           <h3 className="font-bold text-gray-900 text-base">{user.name}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>
+          {!user.isAdmin && <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>}
           {user.isAdmin && (
             <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-light/10 text-primary-light">
               ★ Admin MDE
@@ -76,15 +148,41 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             </p>
           )}
 
-          {/* Bouton upload carte de visite */}
-          <button
-            onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
-            className="mt-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50"
-            title="Uploader une carte de visite"
-          >
-            <ImagePlus size={13} />
-            {businessCard ? 'Changer la carte' : 'Ajouter une carte de visite'}
-          </button>
+          <div className="mt-auto flex flex-col items-center gap-1 w-full pt-2">
+            {isAdmin && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleDeactivate() }}
+                  className={`flex items-center justify-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg w-full ${
+                    user.deactivated
+                      ? 'text-green-500 hover:text-green-700 hover:bg-green-50'
+                      : 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                  }`}
+                  title={user.deactivated ? 'Réactiver le compte' : 'Désactiver le compte'}
+                >
+                  {user.deactivated
+                    ? <><UserCheck size={12} /> Réactiver le compte</>
+                    : <><UserX size={12} /> Désactiver le compte</>
+                  }
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete() }}
+                  className="flex items-center justify-center gap-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors px-2 py-1 rounded-lg w-full"
+                  title="Supprimer ce compte"
+                >
+                  <Trash2 size={12} /> Supprimer le compte
+                </button>
+              </>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
+              className="flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50 w-full"
+              title="Uploader une carte de visite"
+            >
+              <ImagePlus size={13} />
+              {businessCard ? 'Changer la carte' : 'Ajouter une carte de visite'}
+            </button>
+          </div>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
         </div>
 
@@ -192,6 +290,7 @@ export default function Users({ onContact, role, profile }) {
   const [flipped, setFlipped] = useState(new Set())
   const [businessCards, setBusinessCards] = useState({})
   const [createModal, setCreateModal] = useState(false)
+  const [deleteModal, setDeleteModal] = useState(null)
 
   const toggleFlip = (id) => setFlipped((prev) => {
     const next = new Set(prev)
@@ -211,6 +310,15 @@ export default function Users({ onContact, role, profile }) {
   const resolveBio = (user) => {
     if (profile?.name === user.name && profile?.bio) return profile.bio
     return null
+  }
+
+  const handleDeleteUser = (id) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id))
+    setDeleteModal(null)
+  }
+
+  const handleToggleDeactivate = (id) => {
+    setUsers((prev) => prev.map((u) => u.id === id ? { ...u, deactivated: !u.deactivated } : u))
   }
 
   const handleNewAccount = (data) => {
@@ -268,6 +376,9 @@ export default function Users({ onContact, role, profile }) {
             onUploadCard={(url) => handleUploadCard(user.id, url)}
             onRemoveCard={() => handleRemoveCard(user.id)}
             bio={resolveBio(user)}
+            isAdmin={role === 'admin'}
+            onDelete={() => setDeleteModal(user)}
+            onToggleDeactivate={() => handleToggleDeactivate(user.id)}
           />
         ))}
       </div>
@@ -283,6 +394,14 @@ export default function Users({ onContact, role, profile }) {
           forRole="patron"
           onClose={() => setCreateModal(false)}
           onSuccess={handleNewAccount}
+        />
+      )}
+
+      {deleteModal && (
+        <DeleteUserModal
+          user={deleteModal}
+          onClose={() => setDeleteModal(null)}
+          onConfirm={() => handleDeleteUser(deleteModal.id)}
         />
       )}
     </div>
