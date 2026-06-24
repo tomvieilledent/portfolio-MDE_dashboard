@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, ExternalLink, Bookmark, Newspaper, Tag, Pin, X } from 'lucide-react'
+import { api } from '../../lib/api'
 
 const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
 
@@ -10,53 +11,42 @@ const categoryColors = {
   Marché: 'bg-orange-100 text-orange-700',
 }
 
-const newsItems = [
-  {
-    id: 1,
-    title: 'Nouvelles subventions pour les startups en 2026',
-    source: 'Les Échos',
-    date: '21 mai 2026',
-    category: 'Économie',
-    excerpt:
-      'Le gouvernement annonce un nouveau dispositif de financement de 500M€ pour soutenir l\'innovation dans les PME et startups françaises.',
-    pinned: true,
-  },
-  {
-    id: 2,
-    title: 'Intelligence Artificielle : nouvelles réglementations européennes',
-    source: 'La Tribune',
-    date: '8 mai 2026',
-    category: 'Réglementation',
-    excerpt:
-      "L'UE finalise son cadre réglementaire sur l'IA. Les entreprises ont 18 mois pour se mettre en conformité.",
-    pinned: true,
-  },
-  {
-    id: 3,
-    title: 'Transition verte : les PME en première ligne',
-    source: 'Maddyness',
-    date: '3 mai 2026',
-    category: 'Innovation',
-    excerpt:
-      'Les petites et moyennes entreprises sont de plus en plus sollicitées pour adopter des pratiques éco-responsables.',
+// Backend news : {id, title, source, summary, url, category, published_at}.
+// On comble les champs absents côté UI (excerpt/date/pinned) avec des replis.
+function mapNews(n) {
+  const d = n.published_at || n.created_at
+  return {
+    id: n.id,
+    title: n.title,
+    source: n.source || '',
+    date: d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+    category: n.category || '',
+    excerpt: n.summary || '',
+    url: n.url || '',
     pinned: false,
-  },
-  {
-    id: 4,
-    title: 'Marché du travail : les tendances 2026',
-    source: 'Capital',
-    date: '28 avril 2026',
-    category: 'Marché',
-    excerpt:
-      'Analyses des grandes évolutions du marché de l\'emploi en France : télétravail, IA et nouvelles compétences recherchées.',
-    pinned: false,
-  },
-]
+  }
+}
 
 export default function News() {
+  const [newsItems, setNewsItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [activeFilter, setActiveFilter] = useState('Tout')
   const [searchQuery, setSearchQuery] = useState('')
   const [savedIds, setSavedIds] = useState(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    api.getNews()
+      .then((res) => {
+        if (cancelled) return
+        const items = res?.items || res?.news || (Array.isArray(res) ? res : [])
+        setNewsItems(items.map(mapNews))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleSave = (id) => {
     setSavedIds((prev) => {
@@ -82,6 +72,9 @@ export default function News() {
         <h2 className="text-2xl font-bold text-gray-900">Veille Économique</h2>
         <p className="text-sm text-gray-500 mt-1">Actualités et tendances pour les entrepreneurs</p>
       </div>
+
+      {loading && <p className="text-gray-400 py-6 text-center">Chargement des actualités…</p>}
+      {error && <p className="text-red-500 py-6 text-center">{error}</p>}
 
       {/* Search */}
       <div className="relative mb-5">
@@ -204,10 +197,15 @@ export default function News() {
             <p className="text-sm text-gray-600 mb-4">{item.excerpt}</p>
 
             <div className="flex gap-3">
-              <button className="flex items-center gap-1.5 px-4 py-2 bg-primary-light hover:bg-primary text-white text-sm font-medium rounded-lg transition-colors">
+              <a
+                href={item.url || '#'}
+                target={item.url ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className={`flex items-center gap-1.5 px-4 py-2 bg-primary-light hover:bg-primary text-white text-sm font-medium rounded-lg transition-colors ${item.url ? '' : 'opacity-50 pointer-events-none'}`}
+              >
                 <ExternalLink size={14} />
                 Lire l'article
-              </button>
+              </a>
               <button
                 onClick={() => toggleSave(item.id)}
                 className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${

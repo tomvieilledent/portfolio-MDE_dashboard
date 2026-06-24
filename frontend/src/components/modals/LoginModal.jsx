@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import { X, Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+import { X, Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
 import RegisterModal from './RegisterModal'
 import ForgotPasswordModal from './ForgotPasswordModal'
+import { useAuth } from '../../context/AuthContext'
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -11,22 +13,22 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [showRegister, setShowRegister] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const ACCOUNTS = {
-    'admin@mde.fr':   { password: 'admin123',  role: 'admin',   name: 'Admin MDE'       },
-    'patron@mde.fr':  { password: 'patron123', role: 'patron',  name: 'Sophie Dubois'   },
-    'salarie@mde.fr': { password: 'salarie123',role: 'salarie', name: 'Emma Bernard'    },
-  }
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const account = ACCOUNTS[email.toLowerCase().trim()]
-    if (!account || account.password !== password) {
-      setError('Email ou mot de passe incorrect')
-      return
-    }
     setError('')
-    onLoginSuccess ? onLoginSuccess(account.role, account.name) : onClose()
+    setSubmitting(true)
+    try {
+      await login(email.trim(), password)
+      // Le rôle est désormais dérivé du backend via le contexte ;
+      // on signale simplement la réussite au parent.
+      onLoginSuccess ? onLoginSuccess() : onClose()
+    } catch (err) {
+      setError(err?.message || 'Email ou mot de passe incorrect')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (showRegister) {
@@ -117,19 +119,12 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
 
           <button
             type="submit"
-            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
+            disabled={submitting}
+            className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2 disabled:opacity-60"
           >
-            <LogIn size={18} />
-            Se connecter
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+            {submitting ? 'Connexion…' : 'Se connecter'}
           </button>
-
-          {/* Comptes démo */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-            <p className="font-semibold text-gray-600 mb-1.5">Comptes de démonstration :</p>
-            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">admin@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">admin123</span> — Super Admin</p>
-            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">patron@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">patron123</span> — Patron</p>
-            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">salarie@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">salarie123</span> — Salarié</p>
-          </div>
 
           <div className="text-center pt-1">
             <p className="text-sm text-gray-500 mb-2">Nouveau sur la plateforme ?</p>

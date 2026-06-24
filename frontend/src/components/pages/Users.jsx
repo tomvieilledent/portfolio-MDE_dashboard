@@ -1,16 +1,27 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, ImagePlus, Download } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
+import { api } from '../../lib/api'
 
-const initialUsers = [
-  { id: 0, name: 'Céline Marcilhac', role: 'Super Administratrice', company: 'Maison de l\'Économie', email: 'admin@mde.fr',                  phone: '+33 5 65 00 00 00', photo: 'https://randomuser.me/api/portraits/women/65.jpg', isAdmin: true },
-  { id: 1, name: 'Sophie Dubois',    role: 'CEO',                   company: 'Tech Innovators',       email: 'sophie@tech-innovators.fr',     phone: '+33 6 12 34 56 78', photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
-  { id: 2, name: 'Marc Laurent',     role: 'Directeur Marketing',   company: 'Digital Solutions',     email: 'marc@digital.fr',               phone: '+33 6 23 45 67 88', photo: 'https://randomuser.me/api/portraits/men/32.jpg'   },
-  { id: 3, name: 'Julie Martin',     role: 'DG',                    company: 'Green Energy Co.',      email: 'julie@greenenergy.fr',           phone: '+33 5 34 56 78 90', photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
-  { id: 4, name: 'Pierre Dupont',    role: 'Fondateur',             company: 'Creative Studio',       email: 'pierre@creativestudio.fr',      phone: '+33 6 45 67 89 01', photo: 'https://randomuser.me/api/portraits/men/45.jpg'   },
-  { id: 5, name: 'Emma Bernard',     role: 'CFO',                   company: 'Tech Innovators',       email: 'emma@tech-innovators.fr',       phone: '+33 6 56 78 90 12', photo: 'https://randomuser.me/api/portraits/women/17.jpg' },
-  { id: 6, name: 'Thomas Petit',     role: 'CTO',                   company: 'Digital Solutions',     email: 'thomas@digital.fr',             phone: '+33 6 67 89 01 23', photo: 'https://randomuser.me/api/portraits/men/22.jpg'   },
-]
+// Backend user : {id, email, first_name, last_name, phone, profile_picture,
+// business_card, is_super_admin, company_id}. Pas de « poste » ni de nom
+// d'entreprise → on dérive le rôle d'affichage et on résout le nom via les
+// entreprises chargées en parallèle.
+function mapUser(u, companyById = {}) {
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+  return {
+    id: u.id,
+    name,
+    role: u.is_super_admin ? 'Administrateur' : 'Membre',
+    company: companyById[u.company_id] || '',
+    email: u.email,
+    phone: u.phone || '—',
+    photo: u.profile_picture
+      || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
+    isAdmin: !!u.is_super_admin,
+    business_card: u.business_card || null,
+  }
+}
 
 const COMPANY_COLORS = {
   'Maison de l\'Économie': { bg: 'bg-primary-light', light: 'bg-primary-light/10', text: 'text-primary-light', hex: '#4f8a8b' },
@@ -188,11 +199,29 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
 }
 
 export default function Users({ onContact, role, profile }) {
-  const [users, setUsers] = useState(initialUsers)
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [flipped, setFlipped] = useState(new Set())
   const [businessCards, setBusinessCards] = useState({})
   const [createModal, setCreateModal] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    // Utilisateurs + entreprises (pour résoudre le nom d'entreprise par id).
+    Promise.all([api.getUsers(), api.getCompanies().catch(() => ({ companies: [] }))])
+      .then(([usersRes, compRes]) => {
+        if (cancelled) return
+        const list = usersRes?.users || (Array.isArray(usersRes) ? usersRes : [])
+        const companies = compRes?.companies || []
+        const companyById = Object.fromEntries(companies.map((c) => [c.id, c.name]))
+        setUsers(list.map((u) => mapUser(u, companyById)))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleFlip = (id) => setFlipped((prev) => {
     const next = new Set(prev)
@@ -256,6 +285,9 @@ export default function Users({ onContact, role, profile }) {
           className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white"
         />
       </div>
+
+      {loading && <p className="text-gray-400 py-8 text-center">Chargement des professionnels…</p>}
+      {error && <p className="text-red-500 py-8 text-center">{error}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((user) => (

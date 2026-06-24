@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link, X, BookOpen, Zap, Star } from 'lucide-react'
 import TrainingModal from '../modals/TrainingModal'
 import TrainingFormModal from '../modals/TrainingFormModal'
+import { api } from '../../lib/api'
 
 const FILTERS = ['Tout', 'Marketing', 'Finance', 'Management', 'Digital']
 
@@ -10,8 +11,28 @@ const frenchMonths = {
   Juillet: 6, Août: 7, Septembre: 8, Octobre: 9, Novembre: 10, Décembre: 11,
 }
 
+// Le backend ne stocke que {id, title, description, company_id, picture,
+// is_active}. Les champs riches de l'UI (catégorie, dates, capacité…) ne sont
+// pas exposés → on les comble avec des valeurs neutres en attendant un modèle
+// backend plus complet.
+function mapTraining(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description || '',
+    category: '',
+    duration: '',
+    endDate: '',
+    enrolled: 0,
+    capacity: 0,
+    url: '',
+  }
+}
+
 function daysRemaining(endDateStr) {
+  if (!endDateStr) return 0
   const [day, month, year] = endDateStr.split(' ')
+  if (!(month in frenchMonths) || !year) return 0
   const end = new Date(parseInt(year), frenchMonths[month], parseInt(day))
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -37,29 +58,6 @@ const categoryBar = {
   Finance:    'bg-blue-400',
   Management: 'bg-purple-400',
   Digital:    'bg-teal-400',
-}
-
-const initialTrainings = [
-  { id: 1, title: 'Marketing Digital 2026', category: 'Marketing', description: 'Stratégies marketing digital pour entrepreneurs', duration: '3 jours', endDate: '30 Juin 2026', enrolled: 11, capacity: 15, url: 'https://www.mde.mr/formations/marketing-digital' },
-  { id: 2, title: 'Gestion Financière pour PME', category: 'Finance', description: 'Bases de la gestion financière pour petites entreprises', duration: '3 jours', endDate: '5 Juillet 2026', enrolled: 8, capacity: 12, url: '' },
-  { id: 3, title: 'Leadership et Management', category: 'Management', description: 'Développer ses compétences en leadership', duration: '5 jours', endDate: '20 Juillet 2026', enrolled: 14, capacity: 14, url: 'https://www.mde.mr/formations/leadership' },
-  { id: 4, title: 'Transformation Digitale', category: 'Digital', description: "Accompagner le développement digital d'une entreprise", duration: '5 jours', endDate: '10 Août 2026', enrolled: 5, capacity: 16, url: '' },
-]
-
-const MOCK_USERS = [
-  { id: 1, name: 'Sophie Dubois',  photo: 'https://randomuser.me/api/portraits/women/44.jpg', role: 'CEO',                 company: 'Tech Innovators'   },
-  { id: 2, name: 'Marc Laurent',   photo: 'https://randomuser.me/api/portraits/men/32.jpg',   role: 'Dir. Marketing',       company: 'Digital Solutions' },
-  { id: 3, name: 'Julie Martin',   photo: 'https://randomuser.me/api/portraits/women/68.jpg', role: 'DG',                   company: 'Green Energy Co.'  },
-  { id: 4, name: 'Pierre Dupont',  photo: 'https://randomuser.me/api/portraits/men/45.jpg',   role: 'Fondateur',            company: 'Creative Studio'   },
-  { id: 5, name: 'Emma Bernard',   photo: 'https://randomuser.me/api/portraits/women/17.jpg', role: 'CFO',                  company: 'Tech Innovators'   },
-  { id: 6, name: 'Thomas Petit',   photo: 'https://randomuser.me/api/portraits/men/22.jpg',   role: 'CTO',                  company: 'Digital Solutions' },
-]
-
-const initialInterests = {
-  1: [MOCK_USERS[0], MOCK_USERS[2], MOCK_USERS[4]],
-  2: [MOCK_USERS[1], MOCK_USERS[5]],
-  3: [MOCK_USERS[0], MOCK_USERS[3]],
-  4: [],
 }
 
 function LinkModal({ training, onClose, onSave }) {
@@ -376,7 +374,9 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Trainings({ isAdmin = false, profile = null }) {
-  const [trainings, setTrainings] = useState(initialTrainings)
+  const [trainings, setTrainings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [subTab, setSubTab] = useState('catalogue')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Tout')
@@ -384,8 +384,21 @@ export default function Trainings({ isAdmin = false, profile = null }) {
   const [formModal, setFormModal] = useState(null)
   const [saved, setSaved] = useState(new Set())
   const [linkModal, setLinkModal] = useState(null)
-  const [interests, setInterests] = useState(initialInterests)
+  const [interests, setInterests] = useState({})
   const [interestedSet, setInterestedSet] = useState(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    api.getTrainings()
+      .then((res) => {
+        if (cancelled) return
+        const list = res?.trainings || res?.items || (Array.isArray(res) ? res : [])
+        setTrainings(list.map(mapTraining))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const toggleSave = (id) => setSaved((prev) => {
     const next = new Set(prev)
@@ -518,7 +531,10 @@ export default function Trainings({ isAdmin = false, profile = null }) {
             ))}
           </div>
 
-          {displayed.length > 0 ? (
+          {loading && <p className="text-gray-400 py-8 text-center">Chargement des formations…</p>}
+          {error && <p className="text-red-500 py-8 text-center">{error}</p>}
+
+          {!loading && displayed.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {displayed.map((training) =>
                 subTab === 'actives' ? (
@@ -528,7 +544,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
                 )
               )}
             </div>
-          ) : (
+          ) : (!loading && (
             <div className="text-center py-12">
               <p className="text-gray-400">
                 {subTab === 'actives' ? 'Aucune formation active en ce moment'
@@ -536,7 +552,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
                   : 'Aucune formation ne correspond à votre recherche'}
               </p>
             </div>
-          )}
+          ))}
         </div>
 
         {/* ── Right panel (admin only) ── */}

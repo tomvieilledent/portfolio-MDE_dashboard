@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useAuth, displayName } from '../context/AuthContext'
 import Header from './Header'
 import TabNavigation from './TabNavigation'
 import Companies from './pages/Companies'
@@ -40,48 +41,61 @@ const SALARIE_TABS = [
   { id: 'news',       label: 'Veille économique' },
 ]
 
-const DEFAULT_PROFILES = {
-  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', company: "Maison de l'Économie", isSuperAdmin: true,  bio: '', photo: null, businessCard: null },
-  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', company: 'Tech Innovators',      isSuperAdmin: false, bio: '', photo: null, businessCard: null },
-  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', company: 'Tech Innovators',      isSuperAdmin: false, bio: '', photo: null, businessCard: null },
-}
-
 function getTabsForRole(role) {
   if (role === 'admin')  return ADMIN_TABS
   if (role === 'patron') return PATRON_TABS
   return SALARIE_TABS
 }
 
+// Construit l'objet `profile` attendu par le Header / les pages à partir de
+// l'utilisateur authentifié. Les champs cosmétiques absents du backend
+// (company, bio) sont laissés vides en attendant leur câblage.
+function profileFromUser(user, role) {
+  if (!user) return null
+  return {
+    id: user.id,
+    name: displayName(user),
+    email: user.email,
+    phone: user.phone || '',
+    company: '',
+    isSuperAdmin: !!user.is_super_admin,
+    bio: user.bio || '',
+    photo: user.profile_picture || null,
+    businessCard: user.business_card || null,
+    role,
+  }
+}
+
 export default function DashboardContainer() {
-  const [role, setRole] = useState('salarie')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [profile, setProfile] = useState(null)
+  const { user, role, isAuthenticated, loading, logout } = useAuth()
+  const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('darkMode') === 'true'
   )
-  const [unreadCount, setUnreadCount] = useState(2)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  // Profil effectif = données backend + modifications locales non encore
+  // persistées (l'édition de profil sera câblée à une étape ultérieure).
+  const profile = useMemo(() => {
+    const base = profileFromUser(user, role)
+    return base ? { ...base, ...(profileOverride || {}) } : null
+  }, [user, role, profileOverride])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
 
-  const handleLogin = (newRole = 'salarie') => {
-    setRole(newRole)
-    setIsLoggedIn(true)
-    setProfile({ ...DEFAULT_PROFILES[newRole], role: newRole })
+  // Réinitialise l'onglet et les surcharges de profil à chaque (dé)connexion.
+  useEffect(() => {
     setActiveTab('dashboard')
-  }
+    setProfileOverride(null)
+  }, [user?.id])
 
-  const handleLogout = () => {
-    setRole('salarie')
-    setIsLoggedIn(false)
-    setProfile(null)
-    setActiveTab('dashboard')
-  }
+  const handleLogout = () => { logout() }
 
   const handleContact = (contactName) => {
     setMessagingContact(contactName)
@@ -108,24 +122,26 @@ export default function DashboardContainer() {
     }
   }
 
-  if (!isLoggedIn) {
+  if (loading) {
     return (
-      <LandingPage
-        onLoginSuccess={(role, name) => {
-          handleLogin(role, name)
-        }}
-      />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
+      </div>
     )
+  }
+
+  if (!isAuthenticated) {
+    // La connexion est gérée par le contexte ; on ferme simplement la landing.
+    return <LandingPage onLoginSuccess={() => {}} />
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         role={role}
-        isLoggedIn={isLoggedIn}
+        isLoggedIn={isAuthenticated}
         profile={profile}
-        onProfileSave={setProfile}
-        onLogin={handleLogin}
+        onProfileSave={setProfileOverride}
         onLogout={handleLogout}
         onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
         unreadCount={unreadCount}

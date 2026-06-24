@@ -1,61 +1,73 @@
-import React, { useState } from 'react'
-import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, Hash, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, Hash, ExternalLink, ChevronDown, ChevronUp, Power, Trash2, Loader2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
+import { api } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 
-const initialCompanies = [
-  {
-    id: 1, name: 'Tech Innovators', sector: 'Technologies', location: 'Toulouse',
-    joinDate: 'Membre depuis 2024', employees: '8 employés', status: 'Active', siren: '882 345 671',
-    url: 'https://www.example.com/tech-innovators',
-    description: 'Startup spécialisée dans le développement de solutions SaaS pour les PME. Lauréate du prix Innovation 2025.',
-    team: [
-      { name: 'Alice Martin', role: 'CEO', photo: 'https://picsum.photos/seed/alice1/80' },
-      { name: 'Marc Dupuis', role: 'CTO', photo: 'https://picsum.photos/seed/marc2/80' },
-      { name: 'Sara Benali', role: 'Designer', photo: 'https://picsum.photos/seed/sara3/80' },
-      { name: 'Tom Leroy', role: 'Dev', photo: 'https://picsum.photos/seed/tom4/80' },
-    ],
-  },
-  {
-    id: 2, name: 'Digital Solutions', sector: 'Marketing Digital', location: 'Montpellier',
-    joinDate: 'Membre depuis 2025', employees: '12 employés', status: 'Active', siren: '791 234 508',
-    url: 'https://www.example.com/digital-solutions',
-    description: 'Agence digitale proposant des services de marketing, SEO et gestion des réseaux sociaux pour les entreprises locales.',
-    team: [
-      { name: 'Julie Morin', role: 'Directrice', photo: 'https://picsum.photos/seed/julie5/80' },
-      { name: 'Karim Faure', role: 'Dev', photo: 'https://picsum.photos/seed/karim6/80' },
-      { name: 'Léa Petit', role: 'Marketing', photo: 'https://picsum.photos/seed/lea7/80' },
-    ],
-  },
-  {
-    id: 3, name: 'Green Energy Co.', sector: 'Énergie Renouvelable', location: 'Rodez',
-    joinDate: 'Membre depuis 2023', employees: '15 employés', status: 'Active', siren: '523 891 042',
-    url: '',
-    description: "Entreprise engagée dans la transition énergétique, spécialisée dans l'installation de panneaux solaires et la gestion de l'énergie verte.",
-    team: [
-      { name: 'Paul Garnier', role: 'CEO', photo: 'https://picsum.photos/seed/paul8/80' },
-      { name: 'Nadia Chou', role: 'Ingénieure', photo: 'https://picsum.photos/seed/nadia9/80' },
-      { name: 'Hugo Roux', role: 'Commercial', photo: 'https://picsum.photos/seed/hugo10/80' },
-      { name: 'Emma Blanc', role: 'RH', photo: 'https://picsum.photos/seed/emma11/80' },
-      { name: 'Yann Simon', role: 'Tech Lead', photo: 'https://picsum.photos/seed/yann12/80' },
-    ],
-  },
-  {
-    id: 4, name: 'Creative Studio', sector: 'Design & Communication', location: 'Nîmes',
-    joinDate: 'Membre depuis 2025', employees: '6 employés', status: 'Active', siren: '410 673 829',
-    url: 'https://www.example.com/creative-studio',
-    description: 'Studio créatif offrant des services de branding, identité visuelle et production de contenus pour startups et PME.',
-    team: [
-      { name: 'Camille Rey', role: 'Art Director', photo: 'https://picsum.photos/seed/camille13/80' },
-      { name: 'Ines Dumas', role: 'Graphiste', photo: 'https://picsum.photos/seed/ines14/80' },
-    ],
-  },
-]
+// Le backend renvoie {id, name, admin_email, description, website_link,
+// company_picture, is_active, created_at}. On comble les champs absents côté
+// JSX (sector/location/employees/siren/url/team) avec des valeurs de repli.
+function mapCompany(c) {
+  const year = c.created_at ? new Date(c.created_at).getFullYear() : null
+  return {
+    ...c,
+    sector: c.description || '—',
+    location: '—',
+    joinDate: year ? `Membre depuis ${year}` : '',
+    employees: '',
+    status: c.is_active ? 'Active' : 'Inactive',
+    siren: '',
+    url: c.website_link || '',
+    team: [], // pas d'équipe exposée par le backend pour l'instant
+  }
+}
 
-export default function Companies({ isAdmin = false }) {
-  const [companies, setCompanies] = useState(initialCompanies)
+export default function Companies() {
+  const { user, role } = useAuth()
+  const isSuperAdmin = role === 'admin'
+  const [companies, setCompanies] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [modal, setModal] = useState(null)
   const [expanded, setExpanded] = useState(new Set())
+  const [userEmails, setUserEmails] = useState([]) // pour le champ admin_email du modal
+  const [busyId, setBusyId] = useState(null)        // entreprise en cours d'action
+
+  // L'utilisateur courant est-il l'admin de cette entreprise ?
+  const isCompanyAdmin = (company) => {
+    if (!user) return false
+    if (company.admin_id && company.admin_id === user.id) return true
+    const adminEmail = (company.admin_email || '').toLowerCase().trim()
+    const myEmail = (user.email || '').toLowerCase().trim()
+    return !!adminEmail && adminEmail === myEmail
+  }
+
+  const handleDeactivate = async (company) => {
+    if (!window.confirm(`Désactiver l'entreprise « ${company.name} » ?`)) return
+    setBusyId(company.id)
+    try {
+      const { company: updated } = await api.deactivateCompany(company.id)
+      setCompanies((prev) => prev.map((c) => (c.id === updated.id ? mapCompany(updated) : c)))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleDelete = async (company) => {
+    if (!window.confirm(`Supprimer définitivement « ${company.name} » ? Cette action est irréversible.`)) return
+    setBusyId(company.id)
+    try {
+      await api.deleteCompany(company.id)
+      setCompanies((prev) => prev.filter((c) => c.id !== company.id))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const toggleExpand = (id) => setExpanded((prev) => {
     const next = new Set(prev)
@@ -63,19 +75,47 @@ export default function Companies({ isAdmin = false }) {
     return next
   })
 
+  useEffect(() => {
+    let cancelled = false
+    // companies pour la liste, users pour proposer un admin_email valide à la création
+    Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
+      .then(([{ companies }, { users }]) => {
+        if (cancelled) return
+        setCompanies(companies.map(mapCompany))
+        setUserEmails(users.map((u) => u.email).filter(Boolean))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
   const filtered = companies.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.sector.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.location.toLowerCase().includes(searchQuery.toLowerCase())
+      (c.sector || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleSave = (data) => {
+  // Création / édition persistées via l'API. Le backend ne stocke que
+  // name / description / website_link (+ admin_email requis à la création) ;
+  // les autres champs du formulaire (secteur, SIREN…) restent cosmétiques.
+  const handleSave = async (form) => {
+    const payload = {
+      name: form.name,
+      description: form.description || null,
+      website_link: form.url || null,
+    }
+    if (form.admin_email) payload.admin_email = form.admin_email
+
+    const isEdit = typeof form.id === 'string'
+    const { company } = isEdit
+      ? await api.updateCompany(form.id, payload)
+      : await api.createCompany(payload)
+    const saved = mapCompany(company)
+
     setCompanies((prev) => {
-      const exists = prev.find((c) => c.id === data.id)
-      return exists
-        ? prev.map((c) => (c.id === data.id ? data : c))
-        : [...prev, { team: [], ...data }]
+      const exists = prev.some((c) => c.id === saved.id)
+      return exists ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]
     })
   }
 
@@ -87,15 +127,13 @@ export default function Companies({ isAdmin = false }) {
             <h2 className="text-2xl font-bold text-gray-900">Entreprises</h2>
             <p className="text-sm text-gray-500 mt-1">Gestion des entreprises de la pépinière</p>
           </div>
-          {isAdmin && (
-            <button
-              onClick={() => setModal({ mode: 'add' })}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Ajouter une entreprise
-            </button>
-          )}
+          <button
+            onClick={() => setModal({ mode: 'add' })}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Ajouter une entreprise
+          </button>
         </div>
 
         <div className="relative mb-6">
@@ -109,10 +147,16 @@ export default function Companies({ isAdmin = false }) {
           />
         </div>
 
+        {loading && <p className="text-gray-400 py-8 text-center">Chargement des entreprises…</p>}
+        {error && <p className="text-red-500 py-8 text-center">{error}</p>}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((company) => {
             const isExpanded = expanded.has(company.id)
             const hasTeam = company.team && company.team.length > 0
+            const canDeactivate = isSuperAdmin || isCompanyAdmin(company)
+            const canDelete = isSuperAdmin
+            const busy = busyId === company.id
 
             return (
               <div key={company.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
@@ -139,8 +183,8 @@ export default function Companies({ isAdmin = false }) {
                         <p className="text-xs text-gray-500">{company.sector}</p>
                       </div>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 flex-shrink-0">
-                      ✓ Active
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                      {company.is_active ? '✓ Active' : 'Inactive'}
                     </span>
                   </div>
 
@@ -188,6 +232,31 @@ export default function Companies({ isAdmin = false }) {
                       </button>
                     )}
                   </div>
+
+                  {/* Actions de gestion : désactivation (super admin ou admin de
+                      l'entreprise) et suppression définitive (super admin). */}
+                  {(canDeactivate || canDelete) && (
+                    <div className="flex gap-2 mt-2">
+                      {canDeactivate && company.is_active && (
+                        <button
+                          onClick={() => handleDeactivate(company)}
+                          disabled={busy}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 py-2 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {busy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />} Désactiver
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(company)}
+                          disabled={busy}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border border-red-200 text-red-500 hover:bg-red-50 py-2 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {busy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Supprimer
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Dépliant équipe */}
@@ -228,6 +297,7 @@ export default function Companies({ isAdmin = false }) {
       {modal && (
         <CompanyModal
           company={modal.mode === 'edit' ? modal.company : null}
+          userEmails={userEmails}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />
