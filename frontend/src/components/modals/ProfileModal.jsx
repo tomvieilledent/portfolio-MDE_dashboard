@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard } from 'lucide-react'
+import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard, Briefcase } from 'lucide-react'
 
 const ROLE_LABELS = { admin: 'Super Administrateur', patron: 'Patron', salarie: 'Salarié' }
 const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: 'bg-purple-100 text-purple-600', salarie: 'bg-gray-100 text-gray-600' }
@@ -7,6 +7,7 @@ const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: '
 export default function ProfileModal({ profile, onClose, onSave }) {
   const [form, setForm] = useState({
     name:         profile.name         || '',
+    jobTitle:     profile.jobTitle     || '',
     email:        profile.email        || '',
     phone:        profile.phone        || '',
     bio:          profile.bio          || '',
@@ -110,6 +111,15 @@ export default function ProfileModal({ profile, onClose, onSave }) {
                 <User size={13} className="text-gray-400" /> Nom complet
               </label>
               <input type="text" placeholder="Prénom Nom" value={form.name} onChange={set('name')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+            </div>
+
+            {/* Intitulé de poste */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                <Briefcase size={13} className="text-gray-400" /> Intitulé de poste <span className="text-gray-400 font-normal">(optionnel)</span>
+              </label>
+              <input type="text" placeholder="ex : Directeur Commercial, CEO…" value={form.jobTitle} onChange={set('jobTitle')}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
             </div>
 
