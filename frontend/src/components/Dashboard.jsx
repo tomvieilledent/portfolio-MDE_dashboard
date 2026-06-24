@@ -11,6 +11,7 @@ import GererEquipe from './pages/GererEquipe'
 import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
 import LandingPage from './pages/LandingPage'
+import GestionPage from './pages/GestionPage'
 
 const ADMIN_TABS = [
   { id: 'dashboard',  label: 'Accueil' },
@@ -18,6 +19,7 @@ const ADMIN_TABS = [
   { id: 'users',      label: 'Trombinoscope' },
   { id: 'trainings',  label: 'Formations' },
   { id: 'news',       label: 'Veille économique' },
+  { id: 'gestion',    label: 'Gestion' },
 ]
 
 const PATRON_TABS = [
@@ -99,6 +101,7 @@ export default function DashboardContainer() {
       case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
       case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
       case 'news':          return <News />
+      case 'gestion':       return <GestionPage />
       case 'equipe':        return <GererEquipe />
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
