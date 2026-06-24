@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LogIn, Mail, Lightbulb, TrendingUp, Key } from 'lucide-react'
+import { LogIn, Mail, Lightbulb, TrendingUp, Key, X, User, Phone, FileText, Send, CheckCircle } from 'lucide-react'
 import LoginModal from '../modals/LoginModal'
 
 const SECTIONS = [
@@ -35,8 +35,139 @@ const SECTIONS = [
   },
 ]
 
+function ContactModal({ onClose }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
+  const [sent, setSent] = useState(false)
+
+  const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSent(true)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-primary-light px-6 py-5 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+              <Mail size={20} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Nous contacter</h2>
+              <p className="text-sm text-white/80">Maison de l'Économie · Rodez Agglomération</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors mt-0.5">
+            <X size={20} />
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="px-6 py-10 flex flex-col items-center text-center gap-3">
+            <CheckCircle size={48} className="text-primary-light" />
+            <h3 className="text-lg font-bold text-gray-900">Message envoyé !</h3>
+            <p className="text-sm text-gray-500">Nous reviendrons vers vous dans les plus brefs délais.</p>
+            <button
+              onClick={onClose}
+              className="mt-4 px-6 py-2.5 bg-primary-light hover:bg-primary text-white font-semibold rounded-xl text-sm transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1.5">
+                  <User size={12} className="text-gray-400" /> Nom complet
+                </label>
+                <input
+                  required type="text" placeholder="Jean Dupont"
+                  value={form.name} onChange={set('name')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1.5">
+                  <Phone size={12} className="text-gray-400" /> Téléphone
+                </label>
+                <input
+                  type="tel" placeholder="+33 6 00 00 00 00"
+                  value={form.phone} onChange={set('phone')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1.5">
+                <Mail size={12} className="text-gray-400" /> Email
+              </label>
+              <input
+                required type="email" placeholder="votre.email@exemple.fr"
+                value={form.email} onChange={set('email')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1.5">
+                <FileText size={12} className="text-gray-400" /> Sujet
+              </label>
+              <select
+                required value={form.subject} onChange={set('subject')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white text-gray-700"
+              >
+                <option value="">Choisir un sujet…</option>
+                <option value="incubateur">Incubateur</option>
+                <option value="pepiniere">Pépinière d'entreprises</option>
+                <option value="hotel">Hôtel d'entreprises</option>
+                <option value="location">Location de bureaux</option>
+                <option value="autre">Autre demande</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1.5">
+                <FileText size={12} className="text-gray-400" /> Message
+              </label>
+              <textarea
+                required rows={4} placeholder="Décrivez votre projet ou votre demande…"
+                value={form.message} onChange={set('message')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button" onClick={onClose}
+                className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-primary-light hover:bg-primary text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Send size={15} /> Envoyer
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function LandingPage({ onLoginSuccess }) {
-  const [loginOpen, setLoginOpen] = useState(false)
+  const [loginOpen, setLoginOpen]   = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
 
   return (
     <>
@@ -82,10 +213,7 @@ export default function LandingPage({ onLoginSuccess }) {
             {SECTIONS.map((s) => {
               const Icon = s.icon
               return (
-                <div
-                  key={s.title}
-                  className={`rounded-2xl border backdrop-blur-sm p-5 flex flex-col gap-3 ${s.color}`}
-                >
+                <div key={s.title} className={`rounded-2xl border backdrop-blur-sm p-5 flex flex-col gap-3 ${s.color}`}>
                   <div className="flex items-center gap-2">
                     <Icon size={20} className={s.iconColor} />
                     <div>
@@ -101,18 +229,17 @@ export default function LandingPage({ onLoginSuccess }) {
               )
             })}
           </div>
-
         </div>
 
         {/* Bottom bubbles */}
         <div className="relative z-10 flex justify-center gap-4 pb-10">
-          <a
-            href="mailto:contact@mde-rodez.fr"
+          <button
+            onClick={() => setContactOpen(true)}
             className="flex items-center gap-2 px-7 py-3.5 rounded-full border-2 border-white/60 text-white font-semibold text-sm hover:bg-white/10 transition-colors backdrop-blur-sm"
           >
             <Mail size={17} />
             Contact
-          </a>
+          </button>
           <button
             onClick={() => setLoginOpen(true)}
             className="flex items-center gap-2 px-7 py-3.5 rounded-full bg-primary-light hover:bg-primary text-white font-semibold text-sm transition-colors shadow-lg shadow-primary-light/30"
@@ -122,6 +249,8 @@ export default function LandingPage({ onLoginSuccess }) {
           </button>
         </div>
       </div>
+
+      {contactOpen && <ContactModal onClose={() => setContactOpen(false)} />}
 
       {loginOpen && (
         <LoginModal
