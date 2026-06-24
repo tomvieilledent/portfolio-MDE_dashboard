@@ -79,6 +79,8 @@ class Message(Base):
     recipient_id = Column(String(36))
     conversation_id = Column(String(36))
     content = Column(String(5000), nullable=False)
+    is_read = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
     uploaded_at = Column(DateTime(timezone=True))

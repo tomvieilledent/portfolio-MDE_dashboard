@@ -14,9 +14,10 @@
 - `GET /users/me` / `GET /me`
 - `PATCH /users/me` / `PATCH /me`
 - `GET /users/{id}`
-- `PATCH /users/{id}`
 - `PUT /users/{id}`
+- `PATCH /users/{id}`
 - `DELETE /users/{id}`
+- `PATCH /users/{id}/deactivate`
 - `POST /users/{id}/reset-password`
 - `GET /users/{id}/trainings`
 - `GET /me/trainings`
@@ -36,12 +37,25 @@
 
 - `GET /trainings`
 - `POST /trainings`
+- `GET /trainings/completions`
 - `GET /trainings/{id}`
 - `PATCH /trainings/{id}`
 - `DELETE /trainings/{id}`
-- `POST /trainings/{id}/enroll`
-- `POST /trainings/{id}/join`
+- `POST /trainings/{id}/interest`
+- `DELETE /trainings/{id}/interest`
+- `GET /trainings/{id}/interested`
 - `GET /trainings/{id}/enrollments`
+- `GET /trainings/{id}/sessions`
+- `POST /trainings/{id}/sessions`
+
+## Training Sessions
+
+- `GET /training-sessions`
+- `GET /training-sessions/{id}`
+- `PATCH /training-sessions/{id}`
+- `DELETE /training-sessions/{id}`
+- `POST /training-sessions/{id}/enroll`
+- `DELETE /training-sessions/{id}/enroll`
 
 ## Conversations / Rooms
 
@@ -68,17 +82,24 @@
 ## News
 
 - `GET /news`
-- `GET /news/{id}`
 - `POST /news`
 - `POST /news/sync`
+- `GET /news/{id}`
+- `DELETE /news/{id}`
 
 ## Formation Users
 
 - `GET /formation-users`
-- `POST /formation-users`
 - `GET /formation-users/{id}`
 - `PATCH /formation-users/{id}`
 - `DELETE /formation-users/{id}`
+
+## Misc
+
+- `GET /status`
+- `GET /openapi.json`
+- `GET /` / `GET /docs` / `GET /swagger` — Swagger UI
+- `GET /uploads/{filename}`
 
 ## Error Codes
 

@@ -19,7 +19,15 @@ from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, Au
 from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
 from backend.api.resources.conversation import ConversationListResource, ConversationResource
 from backend.api.resources.formation_user import FormationUserListResource, FormationUserResource
-from backend.api.resources.message import ConversationMessagesResource, MessageListResource, MessageResource
+from backend.api.resources.message import (
+    ConversationMessagesResource,
+    ConversationReadResource,
+    MessageListResource,
+    MessageReadResource,
+    MessageResource,
+    PresenceResource,
+    UnreadCountResource,
+)
 from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.training import (
@@ -43,14 +51,19 @@ from backend.persistence.db import engine
 import backend.persistence.models  # ensure models are imported
 from pathlib import Path
 from backend.api.state import BLOCKLIST
+from backend.api.sockets import socketio
+from backend.api.socket_events import message
 
 
 def create_app():
     app = Flask(__name__)
     app.config['JWT_SECRET_KEY'] = os.getenv(
         'JWT_SECRET_KEY', 'change-this-secret-to-a-long-random-string-32chars-min')
+    from flask_cors import CORS
+    CORS(app, resources={r"/*": {"origins": "*"}})
     api = Api(app)
     jwt = JWTManager(app)
+    socketio.init_app(app)
 
     @jwt.token_in_blocklist_loader
     def is_token_revoked(_jwt_header, jwt_payload):
@@ -158,8 +171,14 @@ def create_app():
     api.add_resource(ConversationMessagesResource,
                      '/conversations/<string:conversation_id>/messages',
                      '/rooms/<string:conversation_id>/messages')
+    api.add_resource(ConversationReadResource,
+                     '/conversations/<string:conversation_id>/read',
+                     '/rooms/<string:conversation_id>/read')
 
+    api.add_resource(PresenceResource, '/presence')
     api.add_resource(MessageListResource, '/messages')
+    api.add_resource(UnreadCountResource, '/messages/unread')
+    api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')
     api.add_resource(MessageResource, '/messages/<string:message_id>')
 
     api.add_resource(NotificationListResource, '/notifications')
@@ -174,7 +193,7 @@ def create_app():
     api.add_resource(FormationUserResource,
                      '/formation-users/<string:relation_id>')
 
-    @app.route('/')
+    @app.route('/status')
     def home():
         return jsonify({'ok': True})
 
@@ -183,6 +202,7 @@ def create_app():
         """Return the OpenAPI specification as JSON."""
         return jsonify(OPENAPI_SPEC)
 
+    @app.route('/')
     @app.route('/docs')
     @app.route('/swagger')
     def swagger_docs():

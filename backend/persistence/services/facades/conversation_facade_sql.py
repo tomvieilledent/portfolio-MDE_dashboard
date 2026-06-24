@@ -29,7 +29,8 @@ class ConversationFacade:
             conversation = ORMConversation(
                 participant_ids=to_csv(participant_ids or []),
                 is_active=kwargs.get('is_active', True),
-                created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
+                created_at=kwargs.get(
+                    'created_at') or datetime.now(timezone.utc),
             )
             db.add(conversation)
             db.flush()
@@ -40,7 +41,7 @@ class ConversationFacade:
         """Retrieve a conversation by primary key.
 
         Args:
-            conversation_id (str): Conversation UUID.
+            conversation_id(str): Conversation UUID.
 
         Returns:
             dict | None: Conversation dict, or ``None`` if not found.
@@ -54,7 +55,7 @@ class ConversationFacade:
         """Return a list of conversations, newest first.
 
         Args:
-            limit (int): Maximum number of rows. Defaults to 100.
+            limit(int): Maximum number of rows. Defaults to 100.
 
         Returns:
             list[dict]: Serialised conversation dicts.
@@ -64,12 +65,53 @@ class ConversationFacade:
                 ORMConversation.created_at.desc()).limit(limit).all()
             return [self._to_dict(row) for row in rows]
 
-    def add_participant(self, conversation_id, user_id):
-        """Add a participant to a conversation (idempotent).
+    def list_by_participant(self, user_id, limit=100):
+        """Return conversations the given user participates in, newest first.
+
+        Args:
+            user_id (str): User UUID to filter on.
+            limit (int): Maximum number of rows. Defaults to 100.
+
+        Returns:
+            list[dict]: Serialised conversation dicts the user belongs to.
+        """
+        with session_scope() as db:
+            rows: Any = db.query(ORMConversation).order_by(
+                ORMConversation.created_at.desc()).all()
+            result = []
+            for row in rows:
+                if user_id in from_csv(row.participant_ids):
+                    result.append(self._to_dict(row))
+                    if len(result) >= limit:
+                        break
+            return result
+
+    def is_participant(self, conversation_id, user_id):
+        """Check whether a user belongs to a conversation.
+
+        Reads the ``participant_ids`` CSV column, which is the source of
+        truth written by :meth:`create` / :meth:`add_participant`.
 
         Args:
             conversation_id (str): Conversation UUID.
-            user_id (str): User UUID to add.
+            user_id (str): User UUID.
+
+        Returns:
+            bool: ``True`` when the user is a participant.
+        """
+        with session_scope() as db:
+            conversation: Any = db.query(ORMConversation).filter(
+                ORMConversation.id == conversation_id).first()
+            if not conversation:
+                return False
+            return user_id in from_csv(conversation.participant_ids)
+
+    def add_participant(self, conversation_id, user_id):
+        """Add a participant to a conversation(idempotent).
+
+        Args:
+            conversation_id(str): Conversation UUID.
+            user_id(str): User UUID to add.
 
         Returns:
             dict | None: Updated conversation dict, or ``None`` if not found.
@@ -92,8 +134,8 @@ class ConversationFacade:
         """Remove a participant from a conversation.
 
         Args:
-            conversation_id (str): Conversation UUID.
-            user_id (str): User UUID to remove.
+            conversation_id(str): Conversation UUID.
+            user_id(str): User UUID to remove.
 
         Returns:
             dict | None: Updated conversation dict, or ``None`` if not found.
@@ -115,7 +157,7 @@ class ConversationFacade:
         """Soft-deactivate a conversation.
 
         Args:
-            conversation_id (str): Conversation UUID.
+            conversation_id(str): Conversation UUID.
 
         Returns:
             bool: ``True`` when deactivated, ``False`` when not found.
