@@ -13,27 +13,29 @@ import Messagerie from './Messagerie'
 import LandingPage from './pages/LandingPage'
 
 const ADMIN_TABS = [
-  { id: 'dashboard',   label: 'Accueil' },
-  { id: 'companies',   label: 'Entreprises' },
-  { id: 'users',       label: 'Trombinoscope' },
-  { id: 'trainings',   label: 'Formations' },
-  { id: 'news',        label: 'Veille économique' },
+  { id: 'dashboard',  label: 'Accueil' },
+  { id: 'companies',  label: 'Entreprises' },
+  { id: 'users',      label: 'Trombinoscope' },
+  { id: 'trainings',  label: 'Formations' },
+  { id: 'news',       label: 'Veille économique' },
 ]
 
 const PATRON_TABS = [
   { id: 'dashboard',     label: 'Accueil' },
-  { id: 'monentreprise', label: 'Mon entreprise' },
+  { id: 'companies',     label: 'Entreprises' },
   { id: 'users',         label: 'Trombinoscope' },
   { id: 'trainings',     label: 'Formations' },
   { id: 'news',          label: 'Veille économique' },
+  { id: 'monentreprise', label: 'Mon entreprise' },
   { id: 'equipe',        label: "Gérer l'équipe" },
 ]
 
 const SALARIE_TABS = [
-  { id: 'dashboard', label: 'Accueil' },
-  { id: 'trainings', label: 'Formations' },
-  { id: 'news',      label: 'Veille économique' },
-  { id: 'users',     label: 'Trombinoscope' },
+  { id: 'dashboard',  label: 'Accueil' },
+  { id: 'companies',  label: 'Entreprises' },
+  { id: 'users',      label: 'Trombinoscope' },
+  { id: 'trainings',  label: 'Formations' },
+  { id: 'news',       label: 'Veille économique' },
 ]
 
 const DEFAULT_PROFILES = {
