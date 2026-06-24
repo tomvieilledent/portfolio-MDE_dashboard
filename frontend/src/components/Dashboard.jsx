@@ -115,7 +115,7 @@ export default function DashboardContainer() {
       case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
       case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
       case 'news':          return <News />
-      case 'gestion':       return <GestionPage currentUserIsSuperAdmin={!!profile?.isSuperAdmin} currentUserCompany={profile?.company || ''} />
+      case 'gestion':       return <GestionPage />
       case 'equipe':        return <GererEquipe />
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />

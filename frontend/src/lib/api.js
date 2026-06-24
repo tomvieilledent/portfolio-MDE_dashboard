@@ -97,11 +97,15 @@ export const api = {
   createCompany: (payload) => request('/companies', { method: 'POST', body: payload }),
   updateCompany: (id, payload) => request(`/companies/${id}`, { method: 'PATCH', body: payload }),
   deactivateCompany: (id) => request(`/companies/${id}/deactivate`, { method: 'PATCH' }),
+  reactivateCompany: (id) => request(`/companies/${id}/reactivate`, { method: 'PATCH' }),
   deleteCompany: (id) => request(`/companies/${id}`, { method: 'DELETE' }),
 
   // --- Users (admin) ---
   createUser: (payload) => request('/users', { method: 'POST', body: payload }),
   deactivateUser: (id) => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+  reactivateUser: (id) => request(`/users/${id}/reactivate`, { method: 'PATCH' }),
+  setUserRole: (id, is_super_admin) =>
+    request(`/users/${id}/role`, { method: 'PATCH', body: { is_super_admin } }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   resetUserPassword: (id, password) =>
     request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),
