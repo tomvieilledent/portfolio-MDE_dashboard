@@ -234,6 +234,37 @@ class CompanyDeactivateResource(Resource):
         return {'msg': 'company deactivated'}
 
 
+class CompanyReactivateResource(Resource):
+    """Re-activate a previously deactivated company."""
+
+    @jwt_required()
+    def patch(self, company_id):
+        """Set ``is_active`` back to True for the given company.
+
+        Allowed for a super admin (any company) or for the company's own
+        admin, mirroring :class:`CompanyDeactivateResource`.
+
+        Args:
+            company_id (str): Company UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg, company}`` and 200, 403, or 404.
+        """
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        company = company_service.facade.get(company_id)
+        if not company:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        if not _can_manage_company(current, company):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to reactivate this company', 403)
+        updated = company_service.facade.update(company_id, is_active=True)
+        if not updated:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        return {'msg': 'company reactivated', 'company': updated}
+
+
 class CompanyUsersResource(Resource):
     """List users that belong to a specific company."""
 

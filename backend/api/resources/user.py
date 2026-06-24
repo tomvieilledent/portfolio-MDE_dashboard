@@ -321,6 +321,78 @@ class UserDeactivateResource(Resource):
         return {'msg': 'deactivated'}
 
 
+class UserReactivateResource(Resource):
+    """Re-activate a previously deactivated user (super admins only)."""
+
+    @jwt_required()
+    def patch(self, user_id):
+        """Set ``is_active`` back to True for the given user.
+
+        Args:
+            user_id (str): User UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg, user}`` and 200, 403, or 404.
+        """
+        current = service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can reactivate users', 403)
+        user = service.update(user_id, is_active=True)
+        if not user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'msg': 'reactivated', 'user': user}
+
+
+class UserRoleResource(Resource):
+    """Promote or demote a user's super-admin role (super admins only)."""
+
+    @jwt_required()
+    def patch(self, user_id):
+        """Set a user's ``is_super_admin`` flag.
+
+        Expected JSON body:
+            is_super_admin (bool): Target role.
+
+        Refuses to demote the last remaining active super admin so the
+        platform always keeps at least one.
+
+        Args:
+            user_id (str): User UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{user}`` and 200, 400, 403, or 404.
+        """
+        current = service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can change roles', 403)
+        data = request.get_json(silent=True) or {}
+        if 'is_super_admin' not in data:
+            return error_response(ERROR_CODES['BAD_REQUEST'], 'is_super_admin is required', 400)
+        target = service.get_by_id(user_id)
+        if not target:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        make_super = bool(data.get('is_super_admin'))
+        # Never leave the platform without an active super admin.
+        if target.get('is_super_admin') and not make_super:
+            active_supers = [
+                u for u in service.list_users(limit=1000)
+                if u.get('is_super_admin') and u.get('is_active')
+                and u.get('id') != user_id
+            ]
+            if not active_supers:
+                return error_response(
+                    ERROR_CODES['FORBIDDEN'],
+                    'cannot demote the last active super admin', 403)
+        user = service.update(user_id, is_super_admin=make_super)
+        if not user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'user': user}
+
+
 class UserResetPasswordResource(Resource):
     """Reset a user's password."""
 

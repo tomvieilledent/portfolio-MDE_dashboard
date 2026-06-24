@@ -550,3 +550,83 @@ def test_company_deactivate_and_delete_permissions(seeded_context):
     assert deleted.get_json() == {'msg': 'company deleted'}
     assert_error(client.get(f'/companies/{company_id}', headers=admin_headers),
                  404, ERROR_CODES['NOT_FOUND'])
+
+
+def test_user_reactivate_permissions(seeded_context):
+    """Only super admins may reactivate a deactivated user."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_headers = seeded_context['member_headers']
+    member_id = seeded_context['member_user']['id']
+
+    # Member deactivates their own account.
+    assert client.patch(f'/users/{member_id}/deactivate',
+                        headers=member_headers).status_code == 200
+
+    # A non-super (company admin) cannot reactivate.
+    assert_error(client.patch(f'/users/{member_id}/reactivate',
+                              headers=company_admin_headers), 403, ERROR_CODES['FORBIDDEN'])
+
+    # A super admin can.
+    res = client.patch(f'/users/{member_id}/reactivate', headers=admin_headers)
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body['msg'] == 'reactivated'
+    assert body['user']['is_active'] is True
+
+
+def test_user_role_change_and_last_super_admin_guard(seeded_context):
+    """Super admins toggle roles; the last active super admin can't be demoted."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_headers = seeded_context['member_headers']
+    member_id = seeded_context['member_user']['id']
+    admin_id = seeded_context['admin_user']['id']
+
+    # A non-super may not change roles.
+    assert_error(client.patch(f'/users/{member_id}/role', headers=member_headers,
+                              json={'is_super_admin': True}), 403, ERROR_CODES['FORBIDDEN'])
+
+    # A super admin promotes the member.
+    promoted = client.patch(f'/users/{member_id}/role', headers=admin_headers,
+                            json={'is_super_admin': True})
+    assert promoted.status_code == 200
+    assert promoted.get_json()['user']['is_super_admin'] is True
+
+    # ...and can demote them back.
+    demoted = client.patch(f'/users/{member_id}/role', headers=admin_headers,
+                           json={'is_super_admin': False})
+    assert demoted.status_code == 200
+    assert demoted.get_json()['user']['is_super_admin'] is False
+
+    # The seed admin is now the sole active super admin and cannot be demoted.
+    assert_error(client.patch(f'/users/{admin_id}/role', headers=admin_headers,
+                              json={'is_super_admin': False}), 403, ERROR_CODES['FORBIDDEN'])
+
+
+def test_company_reactivate_permissions(seeded_context):
+    """A company admin may reactivate their own company; a member may not."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_headers = seeded_context['member_headers']
+    company_admin_email = seeded_context['company_admin_user']['email']
+
+    created = client.post('/companies', headers=admin_headers, json={
+        'name': 'Beta', 'admin_email': company_admin_email,
+    })
+    company_id = created.get_json()['company']['id']
+    assert client.patch(f'/companies/{company_id}/deactivate',
+                        headers=company_admin_headers).status_code == 200
+
+    # A plain member cannot reactivate it.
+    assert_error(client.patch(f'/companies/{company_id}/reactivate',
+                              headers=member_headers), 403, ERROR_CODES['FORBIDDEN'])
+
+    # The company's own admin can.
+    res = client.patch(f'/companies/{company_id}/reactivate', headers=company_admin_headers)
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body['msg'] == 'company reactivated'
+    assert body['company']['is_active'] is True
