@@ -24,7 +24,7 @@ function getColor(company) {
   return COMPANY_COLORS[company] || { bg: 'bg-gray-500', light: 'bg-gray-50', text: 'text-gray-600', hex: '#6b7280' }
 }
 
-function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard }) {
+function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard, bio }) {
   const color = getColor(user.company)
   const fileRef = useRef()
 
@@ -69,6 +69,12 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
               <span className="text-xs">{user.phone}</span>
             </div>
           </div>
+
+          {bio && (
+            <p className="text-xs text-gray-500 italic text-center leading-relaxed px-1 mb-2 border-t border-gray-100 pt-3 w-full line-clamp-3">
+              {bio}
+            </p>
+          )}
 
           {/* Bouton upload carte de visite */}
           <button
@@ -202,6 +208,11 @@ export default function Users({ onContact, role, profile }) {
     return businessCards[user.id] || null
   }
 
+  const resolveBio = (user) => {
+    if (profile?.name === user.name && profile?.bio) return profile.bio
+    return null
+  }
+
   const handleNewAccount = (data) => {
     setUsers((prev) => [...prev, {
       id: Date.now(),
@@ -256,6 +267,7 @@ export default function Users({ onContact, role, profile }) {
             businessCard={resolveCard(user)}
             onUploadCard={(url) => handleUploadCard(user.id, url)}
             onRemoveCard={() => handleRemoveCard(user.id)}
+            bio={resolveBio(user)}
           />
         ))}
       </div>
