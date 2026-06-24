@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth, displayName } from '../context/AuthContext'
+import { connectSocket } from '../lib/socket'
 import Header from './Header'
 import TabNavigation from './TabNavigation'
 import Companies from './pages/Companies'
@@ -95,6 +96,40 @@ export default function DashboardContainer() {
     setProfileOverride(null)
   }, [user?.id])
 
+  // Notification globale de réception : le composant Messagerie n'est monté que
+  // lorsque le panneau est ouvert, donc on écoute aussi `new_message` ici
+  // (toujours monté) pour incrémenter le badge + jouer le son même panneau
+  // fermé. On ignore quand le panneau est ouvert (Messagerie gère alors ses
+  // propres badges par contact). Un ref évite de se réabonner à chaque toggle.
+  const messagingOpenRef = useRef(messagingOpen)
+  useEffect(() => { messagingOpenRef.current = messagingOpen }, [messagingOpen])
+
+  useEffect(() => {
+    const myId = user?.id
+    if (!myId) return
+    const socket = connectSocket()
+    if (!socket) return
+    const onNew = ({ message }) => {
+      if (!message || message.author_id === myId) return
+      // Message qui m'est adressé (DM) — on ne notifie que panneau fermé.
+      if (message.recipient_id !== myId) return
+      if (!messagingOpenRef.current) {
+        setUnreadCount((n) => n + 1)
+        setMsgToast(message.content ? `📨 ${message.content}` : '📨 Nouveau message reçu')
+      }
+    }
+    socket.on('new_message', onNew)
+    return () => { socket.off('new_message', onNew) }
+  }, [user?.id])
+
+  // Toast de réception (auto-disparition au bout de 5 s).
+  const [msgToast, setMsgToast] = useState(null)
+  useEffect(() => {
+    if (!msgToast) return
+    const t = setTimeout(() => setMsgToast(null), 5000)
+    return () => clearTimeout(t)
+  }, [msgToast])
+
   const handleLogout = () => { logout() }
 
   const handleContact = (contactName) => {
@@ -143,7 +178,7 @@ export default function DashboardContainer() {
         profile={profile}
         onProfileSave={setProfileOverride}
         onLogout={handleLogout}
-        onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0) }}
+        onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0); setMsgToast(null) }}
         unreadCount={unreadCount}
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
@@ -158,6 +193,16 @@ export default function DashboardContainer() {
           initialContact={messagingContact}
           onNewMessage={() => setUnreadCount((n) => n + 1)}
         />
+      )}
+
+      {/* Notification de réception (panneau fermé) — cliquable pour ouvrir le chat */}
+      {msgToast && !messagingOpen && (
+        <button
+          onClick={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0); setMsgToast(null) }}
+          className="fixed bottom-6 right-6 z-50 max-w-xs flex items-center gap-3 bg-gray-900 text-white text-sm font-medium pl-4 pr-5 py-3 rounded-xl shadow-lg hover:bg-gray-800 transition-colors animate-fade-in text-left"
+        >
+          <span className="truncate">{msgToast}</span>
+        </button>
       )}
     </div>
   )
