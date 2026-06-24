@@ -67,15 +67,12 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
   return (
     <>
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-5">
-            <img src="/logo-rodez.png" alt="Rodez Agglomération" className="h-16 w-auto" />
-            <div className="w-px h-14 bg-gray-200" />
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 leading-snug">Maison de l'Économie</h1>
-              <p className="text-sm text-gray-500 leading-snug">Pépinière d'entreprises</p>
-            </div>
+            <img src="/logo-rodez.png" alt="Rodez Agglomération" className="h-14 w-auto" />
+            <div className="w-px h-10 bg-gray-200" />
+            <h1 className="text-xl font-bold text-gray-900">Maison de l'Économie</h1>
           </div>
 
           {/* Right side */}
@@ -163,6 +160,7 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
           profile={profile}
           onClose={() => setProfileOpen(false)}
           onSave={(updated) => { onProfileSave?.(updated); setProfileOpen(false) }}
+          onDeactivate={() => { setProfileOpen(false); onLogout?.() }}
         />
       )}
 

@@ -10,35 +10,40 @@ import MonOnglet from './pages/MonOnglet'
 import GererEquipe from './pages/GererEquipe'
 import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
+import LandingPage from './pages/LandingPage'
+import GestionPage from './pages/GestionPage'
 
 const ADMIN_TABS = [
-  { id: 'dashboard',   label: 'Accueil' },
-  { id: 'companies',   label: 'Entreprises' },
-  { id: 'users',       label: 'Trombinoscope' },
-  { id: 'trainings',   label: 'Formations' },
-  { id: 'news',        label: 'Veille économique' },
+  { id: 'dashboard',  label: 'Accueil' },
+  { id: 'companies',  label: 'Entreprises' },
+  { id: 'users',      label: 'Trombinoscope' },
+  { id: 'trainings',  label: 'Formations' },
+  { id: 'news',       label: 'Veille économique' },
+  { id: 'gestion',    label: 'Gestion' },
 ]
 
 const PATRON_TABS = [
   { id: 'dashboard',     label: 'Accueil' },
-  { id: 'monentreprise', label: 'Mon entreprise' },
+  { id: 'companies',     label: 'Entreprises' },
   { id: 'users',         label: 'Trombinoscope' },
   { id: 'trainings',     label: 'Formations' },
   { id: 'news',          label: 'Veille économique' },
+  { id: 'monentreprise', label: 'Mon entreprise' },
   { id: 'equipe',        label: "Gérer l'équipe" },
 ]
 
 const SALARIE_TABS = [
-  { id: 'dashboard', label: 'Accueil' },
-  { id: 'trainings', label: 'Formations' },
-  { id: 'news',      label: 'Veille économique' },
-  { id: 'users',     label: 'Trombinoscope' },
+  { id: 'dashboard',  label: 'Accueil' },
+  { id: 'companies',  label: 'Entreprises' },
+  { id: 'users',      label: 'Trombinoscope' },
+  { id: 'trainings',  label: 'Formations' },
+  { id: 'news',       label: 'Veille économique' },
 ]
 
 const DEFAULT_PROFILES = {
-  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', bio: '', photo: null, businessCard: null },
-  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', bio: '', photo: null, businessCard: null },
-  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', bio: '', photo: null, businessCard: null },
+  admin:   { name: 'Céline Marcilhac', email: 'admin@mde.fr',   phone: '+33 5 65 00 00 00', company: "Maison de l'Économie", isSuperAdmin: true,  bio: '', photo: null, businessCard: null },
+  patron:  { name: 'Sophie Dubois',    email: 'patron@mde.fr',  phone: '+33 6 12 34 56 78', company: 'Tech Innovators',      isSuperAdmin: false, bio: '', photo: null, businessCard: null },
+  salarie: { name: 'Emma Bernard',     email: 'salarie@mde.fr', phone: '+33 6 56 78 90 12', company: 'Tech Innovators',      isSuperAdmin: false, bio: '', photo: null, businessCard: null },
 }
 
 function getTabsForRole(role) {
@@ -96,10 +101,21 @@ export default function DashboardContainer() {
       case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
       case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
       case 'news':          return <News />
+      case 'gestion':       return <GestionPage currentUserIsSuperAdmin={!!profile?.isSuperAdmin} currentUserCompany={profile?.company || ''} />
       case 'equipe':        return <GererEquipe />
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
     }
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <LandingPage
+        onLoginSuccess={(role, name) => {
+          handleLogin(role, name)
+        }}
+      />
+    )
   }
 
   return (

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, RotateCcw, ImagePlus, Download } from 'lucide-react'
+import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, ImagePlus, Download } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
 
 const initialUsers = [
@@ -24,7 +24,7 @@ function getColor(company) {
   return COMPANY_COLORS[company] || { bg: 'bg-gray-500', light: 'bg-gray-50', text: 'text-gray-600', hex: '#6b7280' }
 }
 
-function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard }) {
+function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard, bio }) {
   const color = getColor(user.company)
   const fileRef = useRef()
 
@@ -51,7 +51,7 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             className="w-20 h-20 rounded-full object-cover mb-3 border-2 border-gray-100 shadow-sm"
           />
           <h3 className="font-bold text-gray-900 text-base">{user.name}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>
+          {!user.isAdmin && <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>}
           {user.isAdmin && (
             <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-light/10 text-primary-light">
               ★ Admin MDE
@@ -70,15 +70,22 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             </div>
           </div>
 
-          {/* Bouton upload carte de visite */}
-          <button
-            onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
-            className="mt-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50"
-            title="Uploader une carte de visite"
-          >
-            <ImagePlus size={13} />
-            {businessCard ? 'Changer la carte' : 'Ajouter une carte de visite'}
-          </button>
+          {bio && (
+            <p className="text-xs text-gray-500 italic text-center leading-relaxed px-1 mb-2 border-t border-gray-100 pt-3 w-full line-clamp-3">
+              {bio}
+            </p>
+          )}
+
+          <div className="mt-auto flex flex-col items-center gap-1 w-full pt-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
+              className="flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50 w-full"
+              title="Uploader une carte de visite"
+            >
+              <ImagePlus size={13} />
+              {businessCard ? 'Changer la carte' : 'Ajouter une carte de visite'}
+            </button>
+          </div>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
         </div>
 
@@ -202,6 +209,11 @@ export default function Users({ onContact, role, profile }) {
     return businessCards[user.id] || null
   }
 
+  const resolveBio = (user) => {
+    if (profile?.name === user.name && profile?.bio) return profile.bio
+    return null
+  }
+
   const handleNewAccount = (data) => {
     setUsers((prev) => [...prev, {
       id: Date.now(),
@@ -256,6 +268,7 @@ export default function Users({ onContact, role, profile }) {
             businessCard={resolveCard(user)}
             onUploadCard={(url) => handleUploadCard(user.id, url)}
             onRemoveCard={() => handleRemoveCard(user.id)}
+            bio={resolveBio(user)}
           />
         ))}
       </div>
