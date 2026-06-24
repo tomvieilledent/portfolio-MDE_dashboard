@@ -46,6 +46,22 @@ const initialTrainings = [
   { id: 4, title: 'Transformation Digitale', category: 'Digital', description: "Accompagner le développement digital d'une entreprise", duration: '5 jours', endDate: '10 Août 2026', enrolled: 5, capacity: 16, url: '' },
 ]
 
+const MOCK_USERS = [
+  { id: 1, name: 'Sophie Dubois',  photo: 'https://randomuser.me/api/portraits/women/44.jpg', role: 'CEO',                 company: 'Tech Innovators'   },
+  { id: 2, name: 'Marc Laurent',   photo: 'https://randomuser.me/api/portraits/men/32.jpg',   role: 'Dir. Marketing',       company: 'Digital Solutions' },
+  { id: 3, name: 'Julie Martin',   photo: 'https://randomuser.me/api/portraits/women/68.jpg', role: 'DG',                   company: 'Green Energy Co.'  },
+  { id: 4, name: 'Pierre Dupont',  photo: 'https://randomuser.me/api/portraits/men/45.jpg',   role: 'Fondateur',            company: 'Creative Studio'   },
+  { id: 5, name: 'Emma Bernard',   photo: 'https://randomuser.me/api/portraits/women/17.jpg', role: 'CFO',                  company: 'Tech Innovators'   },
+  { id: 6, name: 'Thomas Petit',   photo: 'https://randomuser.me/api/portraits/men/22.jpg',   role: 'CTO',                  company: 'Digital Solutions' },
+]
+
+const initialInterests = {
+  1: [MOCK_USERS[0], MOCK_USERS[2], MOCK_USERS[4]],
+  2: [MOCK_USERS[1], MOCK_USERS[5]],
+  3: [MOCK_USERS[0], MOCK_USERS[3]],
+  4: [],
+}
+
 function LinkModal({ training, onClose, onSave }) {
   const [url, setUrl] = useState(training.url || '')
   const isValid = url === '' || url.startsWith('http://') || url.startsWith('https://')
@@ -104,10 +120,102 @@ function LinkModal({ training, onClose, onSave }) {
   )
 }
 
-// ── Catalogue card (simplified, no enrollment) ──────────────────────────────
-function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink }) {
+function UserAvatar({ user, size = 'md' }) {
+  const dim = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm'
+  const initials = user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+  return user.photo ? (
+    <img src={user.photo} alt={user.name} title={user.name}
+      className={`${dim} rounded-full object-cover border-2 border-white flex-shrink-0`} />
+  ) : (
+    <div title={user.name}
+      className={`${dim} rounded-full bg-primary-light flex items-center justify-center text-white font-bold border-2 border-white flex-shrink-0`}>
+      {initials}
+    </div>
+  )
+}
+
+// ── Right panel: interest recap (admin only) ──────────────────────────────────
+function InterestPanel({ trainings, interests }) {
+  const total = Object.values(interests).reduce((acc, arr) => acc + arr.length, 0)
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+    <aside className="w-64 flex-shrink-0">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sticky top-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Star size={15} className="text-amber-500" fill="currentColor" />
+            <h3 className="text-sm font-bold text-gray-900">Intérêts exprimés</h3>
+          </div>
+          {total > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-600">{total}</span>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {trainings.map((training) => {
+            const users = interests[training.id] || []
+            return (
+              <div key={training.id} className="pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                <p className="text-xs font-semibold text-gray-700 leading-snug mb-2 line-clamp-2">{training.title}</p>
+
+                {users.length === 0 ? (
+                  <p className="text-xs text-gray-300 italic">Aucun intérêt pour l'instant</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2 mb-1.5">
+                      {users.map((user) => (
+                        <div key={user.id} className="flex flex-col items-center gap-0.5" style={{ width: '44px' }}>
+                          <UserAvatar user={user} size="sm" />
+                          <span className="text-gray-500 leading-tight text-center w-full truncate" style={{ fontSize: '10px' }}>
+                            {user.name.split(' ')[0]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {users.length} personne{users.length > 1 ? 's' : ''} intéressée{users.length > 1 ? 's' : ''}
+                    </p>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ── Star interest button ──────────────────────────────────────────────────────
+function StarButton({ interested, count, onClick, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'Connectez-vous pour exprimer votre intérêt' : interested ? 'Retirer mon intérêt' : 'Je suis intéressé(e)'}
+      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+        interested
+          ? 'bg-amber-50 border-amber-300 text-amber-600 hover:bg-amber-100'
+          : disabled
+          ? 'border-gray-100 text-gray-300 cursor-default'
+          : 'border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-500 hover:bg-amber-50'
+      }`}
+    >
+      <Star size={13} fill={interested ? 'currentColor' : 'none'} />
+      {interested ? 'Intéressé(e)' : 'M\'intéresse'}
+      {count > 0 && (
+        <span className={`ml-0.5 px-1.5 py-0.5 rounded-full font-bold ${interested ? 'bg-amber-200 text-amber-700' : 'bg-gray-100 text-gray-500'}`} style={{ fontSize: '10px' }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// ── Catalogue card ────────────────────────────────────────────────────────────
+function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink, interested, interestCount, onToggleInterest, canInteract }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow flex flex-col">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 ${categoryIcon[training.category]?.bg || 'bg-gray-100'} rounded-xl flex items-center justify-center`}>
@@ -145,24 +253,30 @@ function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink 
 
       <p className="text-sm text-gray-600 mb-4">{training.description}</p>
 
-      <div className="flex items-center gap-4 text-sm text-gray-500">
+      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
         <span className="flex items-center gap-1.5"><Clock size={14} className="text-gray-400" />{training.duration}</span>
         <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" />{training.capacity} places</span>
       </div>
 
-      {isAdmin && (
-        <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+      <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100">
+        <StarButton
+          interested={interested}
+          count={interestCount}
+          onClick={onToggleInterest}
+          disabled={!canInteract}
+        />
+        {isAdmin && (
           <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors text-gray-500 hover:text-purple-500 text-xs font-medium">
             <Edit2 size={13} /> Modifier
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
-// ── Active formation card (with enrollment) ──────────────────────────────────
-function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, onLink }) {
+// ── Active formation card ─────────────────────────────────────────────────────
+function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, onLink, interested, interestCount, onToggleInterest, canInteract }) {
   const days = daysRemaining(training.endDate)
   const pct = Math.round((training.enrolled / training.capacity) * 100)
   const full = training.enrolled >= training.capacity
@@ -176,7 +290,7 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
     : 'bg-green-100 text-green-600'
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow flex flex-col">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 ${categoryIcon[training.category]?.bg || 'bg-gray-100'} rounded-xl flex items-center justify-center`}>
@@ -225,8 +339,7 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
         </div>
       </div>
 
-      {/* Jauge */}
-      <div className="mb-5">
+      <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
           <span className="flex items-center gap-1.5 text-xs text-gray-500"><Users size={13} className="text-gray-400" />Inscrits</span>
           <span className={`text-xs font-semibold ${full ? 'text-red-500' : 'text-gray-700'}`}>
@@ -238,23 +351,31 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <button onClick={onEnroll} disabled={full || ended}
-          className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-          {full ? 'Complet' : ended ? 'Terminée' : "S'inscrire"}
-        </button>
-        {isAdmin && (
-          <button onClick={onEdit} className="p-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-gray-500 hover:text-purple-500" title="Modifier">
-            <Edit2 size={16} />
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <StarButton
+          interested={interested}
+          count={interestCount}
+          onClick={onToggleInterest}
+          disabled={!canInteract}
+        />
+        <div className="flex gap-2">
+          <button onClick={onEnroll} disabled={full || ended}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm px-4 py-2">
+            {full ? 'Complet' : ended ? 'Terminée' : "S'inscrire"}
           </button>
-        )}
+          {isAdmin && (
+            <button onClick={onEdit} className="p-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-gray-500 hover:text-purple-500" title="Modifier">
+              <Edit2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function Trainings({ isAdmin = false }) {
+export default function Trainings({ isAdmin = false, profile = null }) {
   const [trainings, setTrainings] = useState(initialTrainings)
   const [subTab, setSubTab] = useState('catalogue')
   const [searchQuery, setSearchQuery] = useState('')
@@ -263,12 +384,36 @@ export default function Trainings({ isAdmin = false }) {
   const [formModal, setFormModal] = useState(null)
   const [saved, setSaved] = useState(new Set())
   const [linkModal, setLinkModal] = useState(null)
+  const [interests, setInterests] = useState(initialInterests)
+  const [interestedSet, setInterestedSet] = useState(new Set())
 
   const toggleSave = (id) => setSaved((prev) => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
     return next
   })
+
+  const toggleInterest = (trainingId) => {
+    if (!profile) return
+    const user = {
+      id: `profile-${profile.name}`,
+      name: profile.name,
+      photo: profile.photo || null,
+      role: profile.role || '',
+      company: '',
+    }
+    setInterestedSet((prev) => {
+      const next = new Set(prev)
+      if (next.has(trainingId)) {
+        next.delete(trainingId)
+        setInterests((p) => ({ ...p, [trainingId]: (p[trainingId] || []).filter((u) => u.id !== user.id) }))
+      } else {
+        next.add(trainingId)
+        setInterests((p) => ({ ...p, [trainingId]: [...(p[trainingId] || []), user] }))
+      }
+      return next
+    })
+  }
 
   const handleSave = (data) => {
     setTrainings((prev) => {
@@ -297,132 +442,105 @@ export default function Trainings({ isAdmin = false }) {
     subTab === 'actives'   ? activeTrainings :
                              savedTrainings
 
+  const cardProps = (training) => ({
+    training,
+    isAdmin,
+    saved: saved.has(training.id),
+    onToggleSave: () => toggleSave(training.id),
+    interested: interestedSet.has(training.id),
+    interestCount: (interests[training.id] || []).length,
+    onToggleInterest: () => toggleInterest(training.id),
+    canInteract: !!profile && !isAdmin,
+    onEdit: () => setFormModal({ mode: 'edit', training }),
+    onLink: () => setLinkModal(training),
+  })
+
   return (
     <>
-      <div>
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Formations</h2>
-            <p className="text-sm text-gray-500 mt-1">Formations professionnelles pour entrepreneurs</p>
+      <div className={`flex gap-6 items-start`}>
+        {/* ── Main content ── */}
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Formations</h2>
+              <p className="text-sm text-gray-500 mt-1">Formations professionnelles pour entrepreneurs</p>
+            </div>
+            {isAdmin && (
+              <button onClick={() => setFormModal({ mode: 'create' })}
+                className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm">
+                <Plus size={16} /> Créer une formation
+              </button>
+            )}
           </div>
-          {isAdmin && (
-            <button onClick={() => setFormModal({ mode: 'create' })}
-              className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm">
-              <Plus size={16} /> Créer une formation
+
+          <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+            <button onClick={() => setSubTab('catalogue')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'catalogue' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <BookOpen size={15} /> Catalogue
             </button>
+            <button onClick={() => setSubTab('actives')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'actives' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Zap size={15} />
+              Formations actives
+              {trainings.filter((t) => daysRemaining(t.endDate) > 0).length > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'actives' ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-500'}`}>
+                  {trainings.filter((t) => daysRemaining(t.endDate) > 0).length}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setSubTab('saved')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'saved' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Star size={15} />
+              Sauvegardées
+              {saved.size > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'saved' ? 'bg-amber-100 text-amber-600' : 'bg-gray-200 text-gray-500'}`}>
+                  {saved.size}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="relative mb-4">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Rechercher par titre ou catégorie..."
+              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white" />
+          </div>
+
+          <div className="flex gap-2 mb-6 flex-wrap">
+            {FILTERS.map((f) => (
+              <button key={f} onClick={() => setActiveFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  activeFilter === f ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-500'
+                }`}>
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {displayed.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {displayed.map((training) =>
+                subTab === 'actives' ? (
+                  <ActiveCard key={training.id} {...cardProps(training)} onEnroll={() => setSelectedTraining(training)} />
+                ) : (
+                  <CatalogueCard key={training.id} {...cardProps(training)} />
+                )
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-400">
+                {subTab === 'actives' ? 'Aucune formation active en ce moment'
+                  : subTab === 'saved' ? "Vous n'avez pas encore sauvegardé de formation"
+                  : 'Aucune formation ne correspond à votre recherche'}
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Sub-tabs */}
-        <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setSubTab('catalogue')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              subTab === 'catalogue' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <BookOpen size={15} /> Catalogue
-          </button>
-          <button
-            onClick={() => setSubTab('actives')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              subTab === 'actives' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Zap size={15} />
-            Formations actives
-            {trainings.filter((t) => daysRemaining(t.endDate) > 0).length > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                subTab === 'actives' ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {trainings.filter((t) => daysRemaining(t.endDate) > 0).length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setSubTab('saved')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              subTab === 'saved' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Star size={15} />
-            Sauvegardées
-            {saved.size > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                subTab === 'saved' ? 'bg-amber-100 text-amber-600' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {saved.size}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher par titre ou catégorie..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light bg-white"
-          />
-        </div>
-
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {FILTERS.map((f) => (
-            <button key={f} onClick={() => setActiveFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                activeFilter === f
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-500'
-              }`}>
-              {f}
-            </button>
-          ))}
-        </div>
-
-        {/* Cards */}
-        {displayed.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {displayed.map((training) =>
-              subTab === 'actives' ? (
-                <ActiveCard
-                  key={training.id}
-                  training={training}
-                  isAdmin={isAdmin}
-                  saved={saved.has(training.id)}
-                  onToggleSave={() => toggleSave(training.id)}
-                  onEnroll={() => setSelectedTraining(training)}
-                  onEdit={() => setFormModal({ mode: 'edit', training })}
-                  onLink={() => setLinkModal(training)}
-                />
-              ) : (
-                <CatalogueCard
-                  key={training.id}
-                  training={training}
-                  isAdmin={isAdmin}
-                  saved={saved.has(training.id)}
-                  onToggleSave={() => toggleSave(training.id)}
-                  onEdit={() => setFormModal({ mode: 'edit', training })}
-                  onLink={() => setLinkModal(training)}
-                />
-              )
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-400">
-              {subTab === 'actives'
-                ? 'Aucune formation active en ce moment'
-                : subTab === 'saved'
-                ? 'Vous n\'avez pas encore sauvegardé de formation'
-                : 'Aucune formation ne correspond à votre recherche'}
-            </p>
-          </div>
-        )}
+        {/* ── Right panel (admin only) ── */}
+        {isAdmin && <InterestPanel trainings={trainings} interests={interests} />}
       </div>
 
       {selectedTraining && (

@@ -94,7 +94,7 @@ export default function DashboardContainer() {
       case 'companies':     return <Companies isAdmin={role === 'admin'} />
       case 'monentreprise': return <MonEntreprise />
       case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
-      case 'trainings':     return <Trainings isAdmin={role === 'admin'} />
+      case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
       case 'news':          return <News />
       case 'equipe':        return <GererEquipe />
       case 'mononglet':     return <MonOnglet />
