@@ -30,7 +30,10 @@ export class ApiError extends Error {
 }
 
 async function request(path, { method = 'GET', body, auth = true, headers = {} } = {}) {
-  const finalHeaders = { 'Content-Type': 'application/json', ...headers }
+  // Les uploads (logo, photo…) passent par un FormData : on laisse alors le
+  // navigateur poser le Content-Type (avec sa boundary) et on n'encode pas en JSON.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
+  const finalHeaders = { ...(isForm ? {} : { 'Content-Type': 'application/json' }), ...headers }
   const token = getToken()
   if (auth && token) finalHeaders.Authorization = `Bearer ${token}`
 
@@ -39,7 +42,7 @@ async function request(path, { method = 'GET', body, auth = true, headers = {} }
     res = await fetch(`${BASE}${path}`, {
       method,
       headers: finalHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? (isForm ? body : JSON.stringify(body)) : undefined,
     })
   } catch (networkErr) {
     throw new ApiError('Impossible de joindre le serveur. Est-il démarré ?', 0)

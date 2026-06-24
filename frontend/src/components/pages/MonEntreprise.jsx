@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { Building2, MapPin, Calendar, Users, Hash, ExternalLink, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
+import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
-// Backend company → forme attendue par le JSX (champs absents en repli).
+// Backend company → forme attendue par le JSX.
 function mapCompany(c, team = []) {
   const year = c.created_at ? new Date(c.created_at).getFullYear() : null
+  const count = typeof c.employee_count === 'number' ? c.employee_count : team.length
   return {
     ...c,
-    sector: c.description || '—',
-    location: '—',
+    location: c.location || '—',
     joinDate: year ? `Membre depuis ${year}` : '',
-    employees: `${team.length} membre${team.length > 1 ? 's' : ''}`,
-    status: c.is_active ? 'Active' : 'Inactive',
-    siren: '',
+    employees: `${count} membre${count > 1 ? 's' : ''}`,
     url: c.website_link || '',
+    logo: c.company_picture || null,
     team,
   }
 }
@@ -57,12 +56,24 @@ export default function MonEntreprise() {
   }, [myCompanyId])
 
   const handleSave = async (form) => {
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      website_link: form.url || null,
+    let payload
+    if (form.logoFile) {
+      payload = new FormData()
+      payload.append('name', form.name)
+      payload.append('description', form.description || '')
+      payload.append('location', form.location || '')
+      payload.append('website_link', form.url || '')
+      if (form.admin_email) payload.append('admin_email', form.admin_email)
+      payload.append('company_picture_file', form.logoFile)
+    } else {
+      payload = {
+        name: form.name,
+        description: form.description || null,
+        location: form.location || null,
+        website_link: form.url || null,
+      }
+      if (form.admin_email) payload.admin_email = form.admin_email
     }
-    if (form.admin_email) payload.admin_email = form.admin_email
     const { company: updated } = await api.updateCompany(form.id, payload)
     setCompany((prev) => mapCompany(updated, prev?.team || []))
   }
@@ -91,8 +102,12 @@ export default function MonEntreprise() {
           {/* Fiche principale */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-start gap-4 mb-5">
-              <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Building2 size={28} className="text-orange-400" />
+              <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {company.logo ? (
+                  <img src={company.logo} alt={company.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 size={28} className="text-orange-400" />
+                )}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -107,7 +122,9 @@ export default function MonEntreprise() {
                   )}
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{company.is_active ? '✓ Active' : 'Inactive'}</span>
                 </div>
-                <p className="text-sm text-gray-500 mt-0.5">{company.sector}</p>
+                {company.location && company.location !== '—' && (
+                  <p className="text-sm text-gray-500 mt-0.5">{company.location}</p>
+                )}
               </div>
             </div>
 
@@ -119,9 +136,6 @@ export default function MonEntreprise() {
               <div className="flex items-center gap-2"><MapPin size={15} className="text-gray-400" />{company.location}</div>
               <div className="flex items-center gap-2"><Calendar size={15} className="text-gray-400" />{company.joinDate}</div>
               <div className="flex items-center gap-2"><Users size={15} className="text-gray-400" />{company.employees}</div>
-              {company.siren && (
-                <div className="flex items-center gap-2"><Hash size={15} className="text-gray-400" /><span className="font-mono text-xs">SIREN {company.siren}</span></div>
-              )}
             </div>
           </div>
 

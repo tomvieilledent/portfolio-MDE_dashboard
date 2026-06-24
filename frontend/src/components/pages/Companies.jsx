@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, Hash, ExternalLink, ChevronDown, ChevronUp, Power, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, ExternalLink, ChevronDown, ChevronUp, Power, Trash2, Loader2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
-// Le backend renvoie {id, name, admin_email, description, website_link,
-// company_picture, is_active, created_at}. On comble les champs absents côté
-// JSX (sector/location/employees/siren/url/team) avec des valeurs de repli.
+// Le backend renvoie {id, name, admin_email, description, location,
+// website_link, company_picture, employee_count, is_active, created_at}.
 function mapCompany(c) {
   const year = c.created_at ? new Date(c.created_at).getFullYear() : null
+  const count = typeof c.employee_count === 'number' ? c.employee_count : 0
   return {
     ...c,
-    sector: c.description || '—',
-    location: '—',
+    location: c.location || '—',
     joinDate: year ? `Membre depuis ${year}` : '',
-    employees: '',
-    status: c.is_active ? 'Active' : 'Inactive',
-    siren: '',
+    employees: `${count} membre${count > 1 ? 's' : ''}`,
     url: c.website_link || '',
+    logo: c.company_picture || null,
     team: [], // pas d'équipe exposée par le backend pour l'instant
   }
 }
@@ -96,18 +94,29 @@ export default function Companies() {
       (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Création / édition persistées via l'API. Le backend ne stocke que
-  // name / description / website_link (+ admin_email requis à la création) ;
-  // les autres champs du formulaire (secteur, SIREN…) restent cosmétiques.
+  // Création / édition persistées via l'API. Avec un logo on envoie un
+  // multipart (company_picture_file), sinon du JSON.
   const handleSave = async (form) => {
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      website_link: form.url || null,
-    }
-    if (form.admin_email) payload.admin_email = form.admin_email
-
     const isEdit = typeof form.id === 'string'
+    let payload
+    if (form.logoFile) {
+      payload = new FormData()
+      payload.append('name', form.name)
+      payload.append('description', form.description || '')
+      payload.append('location', form.location || '')
+      payload.append('website_link', form.url || '')
+      if (form.admin_email) payload.append('admin_email', form.admin_email)
+      payload.append('company_picture_file', form.logoFile)
+    } else {
+      payload = {
+        name: form.name,
+        description: form.description || null,
+        location: form.location || null,
+        website_link: form.url || null,
+      }
+      if (form.admin_email) payload.admin_email = form.admin_email
+    }
+
     const { company } = isEdit
       ? await api.updateCompany(form.id, payload)
       : await api.createCompany(payload)
@@ -127,13 +136,15 @@ export default function Companies() {
             <h2 className="text-2xl font-bold text-gray-900">Entreprises</h2>
             <p className="text-sm text-gray-500 mt-1">Gestion des entreprises de la pépinière</p>
           </div>
-          <button
-            onClick={() => setModal({ mode: 'add' })}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Ajouter une entreprise
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setModal({ mode: 'add' })}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Ajouter une entreprise
+            </button>
+          )}
         </div>
 
         <div className="relative mb-6">
@@ -163,8 +174,12 @@ export default function Companies() {
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Building2 size={22} className="text-orange-400" />
+                      <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {company.logo ? (
+                          <img src={company.logo} alt={company.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Building2 size={22} className="text-orange-400" />
+                        )}
                       </div>
                       <div>
                         {company.url ? (
@@ -180,7 +195,9 @@ export default function Companies() {
                         ) : (
                           <h3 className="font-bold text-gray-900">{company.name}</h3>
                         )}
-                        <p className="text-xs text-gray-500">{company.sector}</p>
+                        {company.location && company.location !== '—' && (
+                          <p className="text-xs text-gray-500">{company.location}</p>
+                        )}
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
@@ -201,12 +218,6 @@ export default function Companies() {
                       <Users size={15} className="text-gray-400" />
                       <span>{company.employees}</span>
                     </div>
-                    {company.siren && (
-                      <div className="flex items-center gap-2">
-                        <Hash size={15} className="text-gray-400" />
-                        <span className="font-mono text-xs text-gray-500">SIREN {company.siren}</span>
-                      </div>
-                    )}
                   </div>
 
                   {company.description && (

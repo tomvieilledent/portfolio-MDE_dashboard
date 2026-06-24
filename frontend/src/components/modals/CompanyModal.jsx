@@ -1,31 +1,37 @@
-import React, { useState } from 'react'
-import { X, Building2, MapPin, Calendar, Users, Save, Hash, Link, Mail, Loader2 } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { X, Building2, MapPin, Save, Link, Mail, Loader2, ImagePlus, Users } from 'lucide-react'
 
 export default function CompanyModal({ company, userEmails = [], onClose, onSave }) {
   const isEdit = !!company
   const [form, setForm] = useState({
     name:        company?.name        || '',
     admin_email: company?.admin_email || '',
-    sector:      company?.sector      || '',
-    siren:       company?.siren       || '',
     location:    company?.location    || '',
-    joinDate:    company?.joinDate    || '',
-    employees:   company?.employees   || '',
-    status:      company?.status      || 'Active',
-    url:         company?.url         || '',
+    url:         company?.url         || company?.website_link || '',
     description: company?.description || '',
   })
+  const [logoFile, setLogoFile]   = useState(null)
+  const [logoPreview, setLogoPreview] = useState(company?.company_picture || null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const fileRef = useRef(null)
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const handleLogo = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      await onSave?.({ ...company, ...form, id: company?.id })
+      await onSave?.({ ...company, ...form, id: company?.id, logoFile })
       onClose()
     } catch (err) {
       setError(err.message || "Échec de l'enregistrement")
@@ -66,6 +72,26 @@ export default function CompanyModal({ company, userEmails = [], onClose, onSave
               {error}
             </div>
           )}
+
+          {/* Logo */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {logoPreview ? (
+                <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+              ) : (
+                <Building2 size={28} className="text-orange-400" />
+              )}
+            </div>
+            <div>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 text-sm font-medium text-primary-light hover:text-primary transition-colors">
+                <ImagePlus size={15} /> {logoPreview ? 'Changer le logo' : 'Ajouter un logo'}
+              </button>
+              <p className="text-xs text-gray-400 mt-0.5">PNG/JPG, carré de préférence.</p>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogo} />
+          </div>
+
           {/* Nom */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom de l'entreprise *</label>
@@ -88,30 +114,22 @@ export default function CompanyModal({ company, userEmails = [], onClose, onSave
             <p className="mt-1 text-xs text-gray-400">Doit correspondre à un utilisateur existant.</p>
           </div>
 
-          {/* SIREN */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <span className="flex items-center gap-1"><Hash size={13} /> Numéro SIREN</span>
-            </label>
-            <input type="text" placeholder="Ex : 882 345 671" maxLength={11}
-              value={form.siren} onChange={set('siren')}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-light" />
-          </div>
-
-          {/* Secteur */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Secteur d'activité *</label>
-            <input required type="text" placeholder="Ex : Technologies, Marketing Digital…"
-              value={form.sector} onChange={set('sector')}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-          </div>
-
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
             <textarea rows={3} placeholder="Activité, spécialité, points forts…"
               value={form.description} onChange={set('description')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light resize-none" />
+          </div>
+
+          {/* Localisation */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <span className="flex items-center gap-1"><MapPin size={13} /> Localisation</span>
+            </label>
+            <input type="text" placeholder="Ville"
+              value={form.location} onChange={set('location')}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
           </div>
 
           {/* Site web */}
@@ -124,50 +142,11 @@ export default function CompanyModal({ company, userEmails = [], onClose, onSave
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Localisation */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                <span className="flex items-center gap-1"><MapPin size={13} /> Localisation</span>
-              </label>
-              <input type="text" placeholder="Ville"
-                value={form.location} onChange={set('location')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
-
-            {/* Employés */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                <span className="flex items-center gap-1"><Users size={13} /> Employés</span>
-              </label>
-              <input type="text" placeholder="Ex : 8 employés"
-                value={form.employees} onChange={set('employees')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Membre depuis */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                <span className="flex items-center gap-1"><Calendar size={13} /> Membre depuis</span>
-              </label>
-              <input type="text" placeholder="Ex : Membre depuis 2024"
-                value={form.joinDate} onChange={set('joinDate')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
-
-            {/* Statut */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Statut</label>
-              <select value={form.status} onChange={set('status')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white">
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="En attente">En attente</option>
-              </select>
-            </div>
-          </div>
+          {isEdit && typeof company.employee_count === 'number' && (
+            <p className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Users size={13} /> {company.employee_count} membre{company.employee_count > 1 ? 's' : ''} (calculé automatiquement)
+            </p>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
