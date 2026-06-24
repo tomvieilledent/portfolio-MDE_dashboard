@@ -12,20 +12,6 @@ class NewsFacade:
 
     def create(self, title, source=None, summary=None, url=None,
                published_at=None, category=None, **kwargs):
-        """Persist a new news item.
-
-        Args:
-            title (str): Article headline (stripped before storage).
-            source (str | None): Publisher name.
-            summary (str | None): Short article summary.
-            url (str | None): Link to the original article.
-            published_at (datetime | None): Original publication datetime.
-            category (str | None): News category.
-            **kwargs: Optional ``created_at`` datetime override.
-
-        Returns:
-            dict: Newly created news item as a serialisable dict.
-        """
         with session_scope() as db:
             news = ORMNews(
                 title=normalize_text(title),
@@ -42,14 +28,6 @@ class NewsFacade:
             return self._to_dict(news)
 
     def get(self, news_id):
-        """Retrieve a news item by primary key.
-
-        Args:
-            news_id (str): News UUID.
-
-        Returns:
-            dict | None: News dict, or ``None`` if not found.
-        """
         with session_scope() as db:
             news: Any = db.query(ORMNews).filter(ORMNews.id == news_id).first()
             return self._to_dict(news) if news else None
@@ -89,14 +67,6 @@ class NewsFacade:
             return db.query(ORMNews).filter(ORMNews.url == url).first() is not None
 
     def delete(self, news_id):
-        """Permanently delete a news item.
-
-        Args:
-            news_id (str): News UUID.
-
-        Returns:
-            bool: ``True`` when deleted, ``False`` when not found.
-        """
         with session_scope() as db:
             news: Any = db.query(ORMNews).filter(ORMNews.id == news_id).first()
             if not news:

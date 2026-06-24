@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Moon, Sun, LogOut, LogIn } from 'lucide-react'
 import LoginModal from './modals/LoginModal'
+import ProfileModal from './modals/ProfileModal'
 
 function createImpulse(ctx, duration = 0.6, decay = 0.4) {
   const length = ctx.sampleRate * duration
@@ -45,9 +46,18 @@ async function playNotifSound() {
   } catch (_) {}
 }
 
-export default function Header({ role = 'user', onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
+const ROLE_LABELS = { admin: 'Administrateur', patron: 'Patron', salarie: 'Salarié' }
+
+export default function Header({ role = 'salarie', isLoggedIn = false, profile, onProfileSave, onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
   const [loginOpen, setLoginOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [toast, setToast] = useState(null)
   const prevCount = useRef(unreadCount)
+
+  const showToast = (msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
 
   useEffect(() => {
     if (unreadCount > prevCount.current) playNotifSound()
@@ -87,19 +97,24 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
               )}
             </button>
 
-            {role === 'admin' ? (
+            {isLoggedIn && profile ? (
               <>
                 <button
-                  onClick={() => setLoginOpen(true)}
+                  onClick={() => setProfileOpen(true)}
                   className="flex items-center gap-3 hover:bg-gray-50 rounded-xl px-3 py-2 transition-colors"
+                  title="Modifier mon profil"
                 >
                   <div className="text-right">
-                    <p className="text-base font-semibold text-gray-900 leading-snug">Céline Marcilhac</p>
-                    <p className="text-sm text-gray-500 leading-snug">Administrateur</p>
+                    <p className="text-base font-semibold text-gray-900 leading-snug">{profile.name}</p>
+                    <p className="text-sm text-gray-500 leading-snug">{ROLE_LABELS[role] || role}</p>
                   </div>
-                  <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                    CM
-                  </div>
+                  {profile.photo ? (
+                    <img src={profile.photo} alt="avatar" className="w-11 h-11 rounded-full object-cover border-2 border-gray-100 flex-shrink-0" />
+                  ) : (
+                    <div className="w-11 h-11 bg-primary-light rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                      {profile.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
                 </button>
                 <button
                   onClick={onLogout}
@@ -134,8 +149,28 @@ export default function Header({ role = 'user', onLogin, onLogout, onOpenMessagi
       {loginOpen && (
         <LoginModal
           onClose={() => setLoginOpen(false)}
-          onLoginSuccess={() => { setLoginOpen(false); onLogin?.() }}
+          onLoginSuccess={(role, name) => {
+            setLoginOpen(false)
+            onLogin?.(role, name)
+            const label = role === 'admin' ? 'Super Admin' : role === 'patron' ? 'Patron' : 'Salarié'
+            showToast(`✓ Connecté en tant que ${label}${name ? ` — ${name}` : ''}`)
+          }}
         />
+      )}
+
+      {profileOpen && profile && (
+        <ProfileModal
+          profile={profile}
+          onClose={() => setProfileOpen(false)}
+          onSave={(updated) => { onProfileSave?.(updated); setProfileOpen(false) }}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg animate-fade-in">
+          {toast}
+        </div>
       )}
     </>
   )

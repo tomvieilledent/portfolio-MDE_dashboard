@@ -10,10 +10,23 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [remember, setRemember] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [error, setError] = useState('')
+
+  const ACCOUNTS = {
+    'admin@mde.fr':   { password: 'admin123',  role: 'admin',   name: 'Admin MDE'       },
+    'patron@mde.fr':  { password: 'patron123', role: 'patron',  name: 'Sophie Dubois'   },
+    'salarie@mde.fr': { password: 'salarie123',role: 'salarie', name: 'Emma Bernard'    },
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onLoginSuccess ? onLoginSuccess() : onClose()
+    const account = ACCOUNTS[email.toLowerCase().trim()]
+    if (!account || account.password !== password) {
+      setError('Email ou mot de passe incorrect')
+      return
+    }
+    setError('')
+    onLoginSuccess ? onLoginSuccess(account.role, account.name) : onClose()
   }
 
   if (showRegister) {
@@ -98,6 +111,10 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
               </button>
             </div>
 
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
+
           <button
             type="submit"
             className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
@@ -105,6 +122,14 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
             <LogIn size={18} />
             Se connecter
           </button>
+
+          {/* Comptes démo */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-500 space-y-1">
+            <p className="font-semibold text-gray-600 mb-1.5">Comptes de démonstration :</p>
+            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">admin@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">admin123</span> — Super Admin</p>
+            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">patron@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">patron123</span> — Patron</p>
+            <p><span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">salarie@mde.fr</span> / <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200">salarie123</span> — Salarié</p>
+          </div>
 
           <div className="text-center pt-1">
             <p className="text-sm text-gray-500 mb-2">Nouveau sur la plateforme ?</p>
