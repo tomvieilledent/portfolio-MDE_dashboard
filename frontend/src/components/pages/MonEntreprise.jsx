@@ -1,30 +1,75 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Building2, MapPin, Calendar, Users, Hash, ExternalLink, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
+import { api } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 
-const MY_COMPANY = {
-  id: 1,
-  name: 'Tech Innovators',
-  sector: 'Technologies',
-  location: 'Toulouse',
-  joinDate: 'Membre depuis 2024',
-  employees: '8 employés',
-  status: 'Active',
-  siren: '882 345 671',
-  url: 'https://www.example.com/tech-innovators',
-  description: 'Startup spécialisée dans le développement de solutions SaaS pour les PME. Lauréate du prix Innovation 2025.',
-  team: [
-    { name: 'Alice Martin', role: 'CEO',      photo: 'https://picsum.photos/seed/alice1/80' },
-    { name: 'Marc Dupuis',  role: 'CTO',      photo: 'https://picsum.photos/seed/marc2/80' },
-    { name: 'Sara Benali',  role: 'Designer', photo: 'https://picsum.photos/seed/sara3/80' },
-    { name: 'Tom Leroy',    role: 'Dev',      photo: 'https://picsum.photos/seed/tom4/80' },
-  ],
+// Backend company → forme attendue par le JSX (champs absents en repli).
+function mapCompany(c, team = []) {
+  const year = c.created_at ? new Date(c.created_at).getFullYear() : null
+  return {
+    ...c,
+    sector: c.description || '—',
+    location: '—',
+    joinDate: year ? `Membre depuis ${year}` : '',
+    employees: `${team.length} membre${team.length > 1 ? 's' : ''}`,
+    status: c.is_active ? 'Active' : 'Inactive',
+    siren: '',
+    url: c.website_link || '',
+    team,
+  }
+}
+
+function mapMember(u) {
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+  return {
+    name,
+    role: u.is_super_admin ? 'Administrateur' : 'Membre',
+    photo: u.profile_picture
+      || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
+  }
 }
 
 export default function MonEntreprise() {
-  const [company, setCompany] = useState(MY_COMPANY)
+  const { user, companyAdminId } = useAuth()
+  const myCompanyId = companyAdminId || user?.company_id || null
+  const [company, setCompany] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [userEmails, setUserEmails] = useState([])
   const [teamExpanded, setTeamExpanded] = useState(true)
   const [editModal, setEditModal] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
+      .then(([{ companies }, { users }]) => {
+        if (cancelled) return
+        const mine = (companies || []).find((c) => c.id === myCompanyId) || (companies || [])[0]
+        setUserEmails((users || []).map((u) => u.email).filter(Boolean))
+        if (!mine) { setCompany(null); return }
+        const team = (users || []).filter((u) => u.company_id === mine.id).map(mapMember)
+        setCompany(mapCompany(mine, team))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [myCompanyId])
+
+  const handleSave = async (form) => {
+    const payload = {
+      name: form.name,
+      description: form.description || null,
+      website_link: form.url || null,
+    }
+    if (form.admin_email) payload.admin_email = form.admin_email
+    const { company: updated } = await api.updateCompany(form.id, payload)
+    setCompany((prev) => mapCompany(updated, prev?.team || []))
+  }
+
+  if (loading) return <p className="text-gray-400 py-12 text-center">Chargement de votre entreprise…</p>
+  if (error) return <p className="text-red-500 py-12 text-center">{error}</p>
+  if (!company) return <p className="text-gray-400 py-12 text-center">Aucune entreprise associée à votre compte.</p>
 
   return (
     <>
@@ -60,7 +105,7 @@ export default function MonEntreprise() {
                   ) : (
                     <h3 className="text-xl font-bold text-gray-900">{company.name}</h3>
                   )}
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">✓ Active</span>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{company.is_active ? '✓ Active' : 'Inactive'}</span>
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">{company.sector}</p>
               </div>
@@ -88,8 +133,8 @@ export default function MonEntreprise() {
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Statut</p>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-700">
-                ✓ Entreprise active
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                {company.is_active ? '✓ Entreprise active' : 'Entreprise désactivée'}
               </span>
             </div>
           </div>
@@ -125,8 +170,9 @@ export default function MonEntreprise() {
       {editModal && (
         <CompanyModal
           company={company}
+          userEmails={userEmails}
           onClose={() => setEditModal(false)}
-          onSave={(data) => { setCompany((prev) => ({ ...prev, ...data })); setEditModal(false) }}
+          onSave={handleSave}
         />
       )}
     </>

@@ -1,27 +1,54 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { UserPlus, Mail, CheckCircle, Clock, Users } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
+import { api } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 
-const initialTeam = [
-  { id: 1, name: 'Alice Martin',  role: 'CTO',       email: 'alice@techinnovators.fr',  status: 'Actif',        photo: 'https://picsum.photos/seed/alice1/80' },
-  { id: 2, name: 'Marc Dupuis',   role: 'Dev',        email: 'marc@techinnovators.fr',   status: 'Actif',        photo: 'https://picsum.photos/seed/marc2/80' },
-  { id: 3, name: 'Sara Benali',   role: 'Designer',   email: 'sara@techinnovators.fr',   status: 'En attente',   photo: 'https://picsum.photos/seed/sara3/80' },
-  { id: 4, name: 'Tom Leroy',     role: 'Commercial', email: 'tom@techinnovators.fr',    status: 'En attente',   photo: 'https://picsum.photos/seed/tom4/80' },
-]
+// Backend user → membre d'équipe. Pas de poste ni d'état « en attente »
+// (tant que la feature email d'activation n'existe pas) → Actif / Désactivé.
+function mapMember(u) {
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+  return {
+    id: u.id,
+    name,
+    role: u.is_super_admin ? 'Administrateur' : 'Membre',
+    email: u.email,
+    status: u.is_active ? 'Actif' : 'Désactivé',
+    photo: u.profile_picture
+      || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
+  }
+}
 
 export default function GererEquipe() {
-  const [team, setTeam] = useState(initialTeam)
+  const { user, companyAdminId } = useAuth()
+  const myCompanyId = companyAdminId || user?.company_id || null
+  const [team, setTeam] = useState([])
+  const [companyName, setCompanyName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [modal, setModal] = useState(false)
 
-  const actifs    = team.filter((m) => m.status === 'Actif')
-  const enAttente = team.filter((m) => m.status === 'En attente')
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([api.getUsers(), api.getCompanies().catch(() => ({ companies: [] }))])
+      .then(([{ users }, { companies }]) => {
+        if (cancelled) return
+        const mine = (companies || []).find((c) => c.id === myCompanyId)
+        setCompanyName(mine?.name || '')
+        setTeam((users || []).filter((u) => u.company_id === myCompanyId).map(mapMember))
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [myCompanyId])
 
-  const handleNewMember = (data) => {
-    setTeam((prev) => [...prev, {
-      ...data,
-      id: Date.now(),
-      photo: `https://picsum.photos/seed/${data.name.replace(' ', '')}/80`,
-    }])
+  const actifs    = team.filter((m) => m.status === 'Actif')
+  const inactifs  = team.filter((m) => m.status !== 'Actif')
+
+  const handleNewMember = () => {
+    // Création réelle bloquée tant que la feature email d'activation n'est pas
+    // tranchée ; on recharge simplement la liste après fermeture du modal.
+    setModal(false)
   }
 
   return (
@@ -30,7 +57,7 @@ export default function GererEquipe() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Gérer l'équipe</h2>
-            <p className="text-sm text-gray-500 mt-1">Membres de Tech Innovators sur la plateforme</p>
+            <p className="text-sm text-gray-500 mt-1">Membres{companyName ? ` de ${companyName}` : ''} sur la plateforme</p>
           </div>
           <button
             onClick={() => setModal(true)}
@@ -39,6 +66,9 @@ export default function GererEquipe() {
             <UserPlus size={16} /> Inviter un salarié
           </button>
         </div>
+
+        {loading && <p className="text-gray-400 py-6 text-center">Chargement de l'équipe…</p>}
+        {error && <p className="text-red-500 py-6 text-center">{error}</p>}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
@@ -61,12 +91,12 @@ export default function GererEquipe() {
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-              <Clock size={20} className="text-orange-400" />
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Clock size={20} className="text-gray-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{enAttente.length}</p>
-              <p className="text-xs text-gray-500">En attente</p>
+              <p className="text-2xl font-bold text-gray-900">{inactifs.length}</p>
+              <p className="text-xs text-gray-500">Désactivés</p>
             </div>
           </div>
         </div>
@@ -88,11 +118,11 @@ export default function GererEquipe() {
                 <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
                   member.status === 'Actif'
                     ? 'bg-green-100 text-green-700'
-                    : 'bg-orange-100 text-orange-600'
+                    : 'bg-gray-100 text-gray-500'
                 }`}>
                   {member.status === 'Actif'
                     ? <><CheckCircle size={11} /> Actif</>
-                    : <><Clock size={11} /> En attente</>
+                    : <><Clock size={11} /> Désactivé</>
                   }
                 </span>
               </div>
