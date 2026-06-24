@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { X, Building2, MapPin, Save, Link, Mail, Loader2, ImagePlus, Users } from 'lucide-react'
+import { mediaUrl } from '../../lib/api'
 
 export default function CompanyModal({ company, userEmails = [], onClose, onSave }) {
   const isEdit = !!company
@@ -11,7 +12,7 @@ export default function CompanyModal({ company, userEmails = [], onClose, onSave
     description: company?.description || '',
   })
   const [logoFile, setLogoFile]   = useState(null)
-  const [logoPreview, setLogoPreview] = useState(company?.company_picture || null)
+  const [logoPreview, setLogoPreview] = useState(mediaUrl(company?.company_picture) || null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef(null)
