@@ -46,6 +46,39 @@ class MessageListResource(Resource):
         return {'messages': message_service.facade.list_by_author(identity, limit=limit)}
 
 
+class DirectMessagesResource(Resource):
+    """Return the direct-message thread between the caller and another user."""
+
+    @jwt_required()
+    def get(self, user_id):
+        """Return all direct messages exchanged with ``user_id``.
+
+        Args:
+            user_id (str): The other participant's UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{messages}`` (oldest first) and 200.
+        """
+        limit = request.args.get('limit', default=100, type=int)
+        identity = get_jwt_identity()
+        return {'messages': message_service.facade.list_direct(
+            identity, user_id, limit=limit)}
+
+    @jwt_required()
+    def post(self, user_id):
+        """Mark every direct message from ``user_id`` to the caller as read.
+
+        Args:
+            user_id (str): The sender's UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{updated}`` (count newly marked) and 200.
+        """
+        identity = get_jwt_identity()
+        updated = message_service.facade.mark_direct_read(identity, user_id)
+        return {'updated': updated}
+
+
 class MessageResource(Resource):
     """Delete a single message by id."""
 
@@ -105,6 +138,9 @@ class UnreadCountResource(Resource):
             'unread': conversation_unread + direct_unread,
             'conversations': conversation_unread,
             'direct': direct_unread,
+            # Per-sender breakdown for direct messages (author_id -> count),
+            # used by the chat UI to badge which contact has unread messages.
+            'by_sender': message_service.facade.count_unread_dms_by_sender(identity),
         }
 
 

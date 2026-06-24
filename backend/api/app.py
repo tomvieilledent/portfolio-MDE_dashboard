@@ -15,13 +15,21 @@ from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationE
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.uploads import UPLOAD_ROOT, ensure_upload_dirs
 from backend.api.swagger import OPENAPI_SPEC, SWAGGER_UI_HTML
-from backend.api.resources.auth import AuthLoginResource, AuthLogoutResource, AuthRefreshResource, AuthRegisterResource
-from backend.api.resources.company import CompanyAssignUserResource, CompanyListResource, CompanyResource, CompanyUsersResource
+from backend.api.resources.auth import (
+    AuthForgotPasswordResource,
+    AuthLoginResource,
+    AuthLogoutResource,
+    AuthRefreshResource,
+    AuthRegisterResource,
+    AuthResetPasswordResource,
+)
+from backend.api.resources.company import CompanyAssignUserResource, CompanyDeactivateResource, CompanyListResource, CompanyResource, CompanyUsersResource
 from backend.api.resources.conversation import ConversationListResource, ConversationResource
 from backend.api.resources.formation_user import FormationUserListResource, FormationUserResource
 from backend.api.resources.message import (
     ConversationMessagesResource,
     ConversationReadResource,
+    DirectMessagesResource,
     MessageListResource,
     MessageReadResource,
     MessageResource,
@@ -128,6 +136,8 @@ def create_app():
     api.add_resource(AuthLoginResource, '/auth/login')
     api.add_resource(AuthRefreshResource, '/auth/refresh')
     api.add_resource(AuthLogoutResource, '/auth/logout')
+    api.add_resource(AuthForgotPasswordResource, '/auth/forgot-password')
+    api.add_resource(AuthResetPasswordResource, '/auth/reset-password')
     api.add_resource(UserListResource, '/users')
     api.add_resource(UserMeResource, '/users/me', '/me')
     api.add_resource(UserResource, '/users/<string:user_id>')
@@ -138,6 +148,8 @@ def create_app():
 
     api.add_resource(CompanyListResource, '/companies')
     api.add_resource(CompanyResource, '/companies/<string:company_id>')
+    api.add_resource(CompanyDeactivateResource,
+                     '/companies/<string:company_id>/deactivate')
     api.add_resource(CompanyUsersResource,
                      '/companies/<string:company_id>/users')
     api.add_resource(CompanyAssignUserResource,
@@ -177,6 +189,7 @@ def create_app():
 
     api.add_resource(PresenceResource, '/presence')
     api.add_resource(MessageListResource, '/messages')
+    api.add_resource(DirectMessagesResource, '/messages/direct/<string:user_id>')
     api.add_resource(UnreadCountResource, '/messages/unread')
     api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')
     api.add_resource(MessageResource, '/messages/<string:message_id>')
