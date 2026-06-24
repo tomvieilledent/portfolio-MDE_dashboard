@@ -10,6 +10,7 @@ import MonOnglet from './pages/MonOnglet'
 import GererEquipe from './pages/GererEquipe'
 import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
+import LandingPage from './pages/LandingPage'
 
 const ADMIN_TABS = [
   { id: 'dashboard',   label: 'Accueil' },
@@ -100,6 +101,16 @@ export default function DashboardContainer() {
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
     }
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <LandingPage
+        onLoginSuccess={(role, name) => {
+          handleLogin(role, name)
+        }}
+      />
+    )
   }
 
   return (
