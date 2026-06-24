@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard, Briefcase } from 'lucide-react'
+import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard, Briefcase, Loader2 } from 'lucide-react'
 
 const ROLE_LABELS = { admin: 'Super Administrateur', patron: 'Patron', salarie: 'Salarié' }
 const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: 'bg-purple-100 text-purple-600', salarie: 'bg-gray-100 text-gray-600' }
@@ -14,8 +14,14 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
     photo:        profile.photo        || null,
     businessCard: profile.businessCard || null,
   })
+  // Fichiers réels à téléverser (null = inchangé).
+  const [photoFile, setPhotoFile] = useState(null)
+  const [cardFile, setCardFile]   = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const [error, setError] = useState('')
 
   const photoRef = useRef()
   const cardRef  = useRef()
@@ -25,12 +31,14 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setPhotoFile(file)
     setForm((prev) => ({ ...prev, photo: URL.createObjectURL(file) }))
   }
 
   const handleCardChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setCardFile(file)
     setForm((prev) => ({ ...prev, businessCard: URL.createObjectURL(file) }))
     e.target.value = ''
   }
@@ -40,13 +48,42 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
     setDragOver(false)
     const file = e.dataTransfer.files?.[0]
     if (!file || !file.type.startsWith('image/')) return
+    setCardFile(file)
     setForm((prev) => ({ ...prev, businessCard: URL.createObjectURL(file) }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSave({ ...profile, ...form })
-    onClose()
+    setError('')
+    setSubmitting(true)
+    try {
+      // Le backend stocke first_name / last_name / phone / profile_picture /
+      // business_card. On scinde le nom complet en prénom + nom.
+      const [first, ...rest] = (form.name || '').trim().split(/\s+/)
+      const fd = new FormData()
+      fd.append('first_name', first || '')
+      fd.append('last_name', rest.join(' '))
+      fd.append('phone', form.phone || '')
+      if (photoFile) fd.append('profile_picture_file', photoFile)
+      if (cardFile) fd.append('business_card_file', cardFile)
+      await onSave?.(fd)
+      onClose()
+    } catch (err) {
+      setError(err.message || "Échec de l'enregistrement")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeactivate = async () => {
+    setError('')
+    setDeactivating(true)
+    try {
+      await onDeactivate?.()
+    } catch (err) {
+      setError(err.message || 'Échec de la désactivation')
+      setDeactivating(false)
+    }
   }
 
   const initials = form.name
@@ -224,8 +261,8 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
                 </p>
                 <div className="bg-white border border-red-100 rounded-lg p-3 text-xs text-gray-600 leading-relaxed">
                   Pour une <span className="font-semibold">suppression définitive</span> de votre compte et de vos données, contactez le super administrateur :{' '}
-                  <a href="mailto:admin@mde.fr" className="text-primary-light font-semibold hover:underline">
-                    admin@mde.fr
+                  <a href="mailto:admin@admin.com" className="text-primary-light font-semibold hover:underline">
+                    admin@admin.com
                   </a>
                 </div>
                 <div className="flex gap-2">
@@ -238,25 +275,34 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
                   </button>
                   <button
                     type="button"
-                    onClick={onDeactivate}
-                    className="flex-1 text-xs bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors"
+                    onClick={handleDeactivate}
+                    disabled={deactivating}
+                    className="flex-1 text-xs bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
                   >
-                    Confirmer la désactivation
+                    {deactivating && <Loader2 size={12} className="animate-spin" />}
+                    {deactivating ? 'Désactivation…' : 'Confirmer la désactivation'}
                   </button>
                 </div>
               </div>
             )}
           </div>
 
+          {error && (
+            <div className="mx-6 mb-3 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="px-6 pb-6 flex gap-3">
-            <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
+            <button type="button" onClick={onClose} disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60">
               Annuler
             </button>
-            <button type="submit"
-              className="flex-1 bg-primary-light hover:bg-primary text-white font-medium py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
-              <Save size={15} /> Enregistrer
+            <button type="submit" disabled={submitting}
+              className="flex-1 bg-primary-light hover:bg-primary text-white font-medium py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              {submitting ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </div>
         </form>

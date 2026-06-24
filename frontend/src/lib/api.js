@@ -10,6 +10,15 @@ export function getToken() {
   return localStorage.getItem(TOKEN_KEY)
 }
 
+// Le backend renvoie les images uploadées en chemin relatif (/uploads/…).
+// Sans préfixe, le navigateur les résout sur l'origine du front (:3000) → 404.
+// On les rattache au backend ; les URLs absolues / blob / data sont laissées telles quelles.
+export function mediaUrl(path) {
+  if (!path) return path
+  if (/^(https?:|blob:|data:)/.test(path)) return path
+  return `${BASE}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
 export function setTokens({ access_token, refresh_token }) {
   if (access_token) localStorage.setItem(TOKEN_KEY, access_token)
   if (refresh_token) localStorage.setItem(REFRESH_KEY, refresh_token)
@@ -87,6 +96,7 @@ export const api = {
     request('/auth/register', { method: 'POST', body: payload, auth: false }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/users/me'),
+  updateMe: (payload) => request('/users/me', { method: 'PATCH', body: payload }),
   forgotPassword: (email) =>
     request('/auth/forgot-password', { method: 'POST', body: { email }, auth: false }),
   resetPassword: (reset_token, password) =>

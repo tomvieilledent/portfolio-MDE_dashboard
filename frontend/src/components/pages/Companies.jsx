@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, MapPin, Calendar, Users, Search, Building2, ExternalLink, ChevronDown, ChevronUp, Power, Trash2, Loader2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
-import { api } from '../../lib/api'
+import { api, mediaUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
 // Le backend renvoie {id, name, admin_email, description, location,
@@ -15,7 +15,7 @@ function mapCompany(c) {
     joinDate: year ? `Membre depuis ${year}` : '',
     employees: `${count} membre${count > 1 ? 's' : ''}`,
     url: c.website_link || '',
-    logo: c.company_picture || null,
+    logo: mediaUrl(c.company_picture) || null,
     team: [], // pas d'équipe exposée par le backend pour l'instant
   }
 }

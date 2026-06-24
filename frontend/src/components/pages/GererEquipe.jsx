@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { UserPlus, Mail, CheckCircle, Clock, Users } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
-import { api } from '../../lib/api'
+import { api, mediaUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
 // Backend user → membre d'équipe. Pas de poste ni d'état « en attente »
@@ -14,7 +14,7 @@ function mapMember(u) {
     role: u.is_super_admin ? 'Administrateur' : 'Membre',
     email: u.email,
     status: u.is_active ? 'Actif' : 'Désactivé',
-    photo: u.profile_picture
+    photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
   }
 }

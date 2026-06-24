@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
-import { api } from '../../lib/api'
+import { api, mediaUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
 // Backend company → forme attendue par le JSX.
@@ -14,7 +14,7 @@ function mapCompany(c, team = []) {
     joinDate: year ? `Membre depuis ${year}` : '',
     employees: `${count} membre${count > 1 ? 's' : ''}`,
     url: c.website_link || '',
-    logo: c.company_picture || null,
+    logo: mediaUrl(c.company_picture) || null,
     team,
   }
 }
@@ -24,7 +24,7 @@ function mapMember(u) {
   return {
     name,
     role: u.is_super_admin ? 'Administrateur' : 'Membre',
-    photo: u.profile_picture
+    photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
   }
 }

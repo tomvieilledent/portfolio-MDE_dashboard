@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth, displayName } from '../context/AuthContext'
 import { connectSocket } from '../lib/socket'
+import { api, mediaUrl } from '../lib/api'
 import Header from './Header'
 import TabNavigation from './TabNavigation'
 import Companies from './pages/Companies'
@@ -61,14 +62,14 @@ function profileFromUser(user, role) {
     company: '',
     isSuperAdmin: !!user.is_super_admin,
     bio: user.bio || '',
-    photo: user.profile_picture || null,
-    businessCard: user.business_card || null,
+    photo: mediaUrl(user.profile_picture) || null,
+    businessCard: mediaUrl(user.business_card) || null,
     role,
   }
 }
 
 export default function DashboardContainer() {
-  const { user, role, isAuthenticated, loading, logout } = useAuth()
+  const { user, role, isAuthenticated, loading, logout, updateProfile } = useAuth()
   const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
@@ -132,6 +133,14 @@ export default function DashboardContainer() {
 
   const handleLogout = () => { logout() }
 
+  // Sauvegarde du profil (persistée via PATCH /users/me) + désactivation de
+  // son propre compte (puis déconnexion).
+  const handleProfileSave = async (formData) => { await updateProfile(formData) }
+  const handleDeactivateAccount = async () => {
+    if (user?.id) await api.deactivateUser(user.id)
+    logout()
+  }
+
   const handleContact = (contactName) => {
     setMessagingContact(contactName)
     setMessagingOpen(true)
@@ -176,7 +185,8 @@ export default function DashboardContainer() {
         role={role}
         isLoggedIn={isAuthenticated}
         profile={profile}
-        onProfileSave={setProfileOverride}
+        onProfileSave={handleProfileSave}
+        onDeactivateAccount={handleDeactivateAccount}
         onLogout={handleLogout}
         onOpenMessaging={() => { setMessagingContact(null); setMessagingOpen(true); setUnreadCount(0); setMsgToast(null) }}
         unreadCount={unreadCount}

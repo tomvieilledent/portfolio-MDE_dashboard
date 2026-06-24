@@ -109,6 +109,14 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  // Met à jour le profil courant (PATCH /users/me, multipart accepté) et
+  // rafraîchit l'utilisateur en mémoire pour que le Header / pages suivent.
+  async function updateProfile(payload) {
+    const { user: updated } = await api.updateMe(payload)
+    setUser(updated)
+    return updated
+  }
+
   async function logout() {
     try {
       await api.logout() // révoque le JTI côté backend
@@ -133,6 +141,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    updateProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

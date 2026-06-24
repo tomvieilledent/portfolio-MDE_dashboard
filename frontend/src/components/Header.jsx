@@ -48,7 +48,7 @@ async function playNotifSound() {
 
 const ROLE_LABELS = { admin: 'Administrateur', patron: 'Patron', salarie: 'Salarié' }
 
-export default function Header({ role = 'salarie', isLoggedIn = false, profile, onProfileSave, onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
+export default function Header({ role = 'salarie', isLoggedIn = false, profile, onProfileSave, onDeactivateAccount, onLogin, onLogout, onOpenMessaging, unreadCount = 2, darkMode, onToggleDark }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [toast, setToast] = useState(null)
@@ -159,8 +159,8 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
         <ProfileModal
           profile={profile}
           onClose={() => setProfileOpen(false)}
-          onSave={(updated) => { onProfileSave?.(updated); setProfileOpen(false) }}
-          onDeactivate={() => { setProfileOpen(false); onLogout?.() }}
+          onSave={onProfileSave}
+          onDeactivate={onDeactivateAccount}
         />
       )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, ImagePlus, Download } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
-import { api } from '../../lib/api'
+import { api, mediaUrl } from '../../lib/api'
 
 // Backend user : {id, email, first_name, last_name, phone, profile_picture,
 // business_card, is_super_admin, company_id}. Pas de « poste » ni de nom
@@ -16,10 +16,10 @@ function mapUser(u, companyById = {}) {
     company: companyById[u.company_id] || '',
     email: u.email,
     phone: u.phone || '—',
-    photo: u.profile_picture
+    photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
     isAdmin: !!u.is_super_admin,
-    business_card: u.business_card || null,
+    business_card: mediaUrl(u.business_card) || null,
   }
 }
 

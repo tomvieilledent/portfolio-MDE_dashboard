@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2 } from 'lucide-react'
-import { api } from '../../lib/api'
+import { api, mediaUrl } from '../../lib/api'
 
 // ── Rôle plateforme dérivé du backend ────────────────────────────────────────
 // superAdmin = is_super_admin ; admin = administrateur d'une entreprise
@@ -193,7 +193,7 @@ function mapUser(u, adminUserIds, companyById) {
     name,
     email: u.email,
     company: companyById[u.company_id] || '',
-    photo: u.profile_picture
+    photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
     isSuperAdmin: !!u.is_super_admin,
     isAdmin: adminUserIds.has(u.id),
