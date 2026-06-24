@@ -122,6 +122,7 @@ export const api = {
 
   // --- News ---
   getNews: () => request('/news'),
+  syncNews: () => request('/news/sync', { method: 'POST' }),
 
   // --- Chat ---
   getConversations: () => request('/conversations'),

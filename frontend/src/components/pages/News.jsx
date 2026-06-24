@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Search, ExternalLink, Bookmark, Newspaper, Tag, Pin, X } from 'lucide-react'
+import { Search, ExternalLink, Bookmark, Newspaper, Tag, Pin, X, RefreshCw } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 
 const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
 
@@ -28,25 +29,42 @@ function mapNews(n) {
 }
 
 export default function News() {
+  const { isAdmin } = useAuth()
   const [newsItems, setNewsItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
   const [activeFilter, setActiveFilter] = useState('Tout')
   const [searchQuery, setSearchQuery] = useState('')
   const [savedIds, setSavedIds] = useState(new Set())
 
+  const loadNews = async () => {
+    const res = await api.getNews()
+    const items = res?.items || res?.news || (Array.isArray(res) ? res : [])
+    setNewsItems(items.map(mapNews))
+  }
+
   useEffect(() => {
     let cancelled = false
-    api.getNews()
-      .then((res) => {
-        if (cancelled) return
-        const items = res?.items || res?.news || (Array.isArray(res) ? res : [])
-        setNewsItems(items.map(mapNews))
-      })
+    loadNews()
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
+
+  // Synchronisation manuelle des flux RSS (super admin).
+  const handleSync = async () => {
+    setSyncing(true)
+    setError('')
+    try {
+      await api.syncNews()
+      await loadNews()
+    } catch (err) {
+      setError(err.message || 'Échec de la synchronisation')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const toggleSave = (id) => {
     setSavedIds((prev) => {
@@ -68,9 +86,18 @@ export default function News() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Veille Économique</h2>
-        <p className="text-sm text-gray-500 mt-1">Actualités et tendances pour les entrepreneurs</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Veille Économique</h2>
+          <p className="text-sm text-gray-500 mt-1">Actualités et tendances pour les entrepreneurs</p>
+        </div>
+        {isAdmin && (
+          <button onClick={handleSync} disabled={syncing}
+            className="flex items-center gap-2 btn-primary text-sm disabled:opacity-60">
+            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Synchronisation…' : 'Synchroniser'}
+          </button>
+        )}
       </div>
 
       {loading && <p className="text-gray-400 py-6 text-center">Chargement des actualités…</p>}

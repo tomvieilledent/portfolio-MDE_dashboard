@@ -26,12 +26,12 @@ const ADMIN_TABS = [
 
 const PATRON_TABS = [
   { id: 'dashboard',     label: 'Accueil' },
-  { id: 'companies',     label: 'Entreprises' },
   { id: 'users',         label: 'Trombinoscope' },
   { id: 'trainings',     label: 'Formations' },
   { id: 'news',          label: 'Veille économique' },
-  { id: 'monentreprise', label: 'Mon entreprise' },
   { id: 'equipe',        label: "Gérer l'équipe" },
+  { id: 'companies',     label: 'Entreprises' },
+  { id: 'monentreprise', label: 'Gérer mon entreprise' },
 ]
 
 const SALARIE_TABS = [
