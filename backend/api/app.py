@@ -23,11 +23,13 @@ from backend.api.resources.message import ConversationMessagesResource, MessageL
 from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.training import (
+    CurrentUserSavedTrainingsResource,
     CurrentUserTrainingsResource,
     TrainingEnrollmentsResource,
     TrainingInterestResource,
     TrainingListResource,
     TrainingResource,
+    TrainingSavedResource,
     UserTrainingsResource,
 )
 from backend.api.resources.training_session import (
@@ -136,6 +138,8 @@ def create_app():
     api.add_resource(TrainingResource, '/trainings/<string:training_id>')
     api.add_resource(TrainingInterestResource,
                      '/trainings/<string:training_id>/interest')
+    api.add_resource(TrainingSavedResource,
+                     '/trainings/<string:training_id>/save')
     api.add_resource(TrainingEnrollmentsResource,
                      '/trainings/<string:training_id>/enrollments')
     api.add_resource(TrainingInterestedResource,
@@ -145,6 +149,7 @@ def create_app():
     api.add_resource(UserTrainingsResource,
                      '/users/<string:user_id>/trainings')
     api.add_resource(CurrentUserTrainingsResource, '/me/trainings')
+    api.add_resource(CurrentUserSavedTrainingsResource, '/me/saved-trainings')
 
     api.add_resource(TrainingSessionListResource, '/training-sessions')
     api.add_resource(TrainingSessionResource,

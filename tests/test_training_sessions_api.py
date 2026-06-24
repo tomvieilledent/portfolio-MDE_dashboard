@@ -447,6 +447,100 @@ class TestInterest:
 
 
 # ---------------------------------------------------------------------------
+# Saved (bookmark)
+# ---------------------------------------------------------------------------
+
+class TestSaved:
+    def test_save_training(self, seeded_context, training):
+        client = seeded_context['client']
+        resp = client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        assert_ok(resp, 201)
+        assert resp.get_json()['saved']['saved'] is True
+
+    def test_save_training_idempotent(self, seeded_context, training):
+        client = seeded_context['client']
+        r1 = client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        ).get_json()['saved']
+        r2 = client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        ).get_json()['saved']
+        assert r1['id'] == r2['id']
+
+    def test_list_saved_trainings(self, seeded_context, training):
+        client = seeded_context['client']
+        client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        resp = client.get(
+            '/me/saved-trainings',
+            headers=member_headers(seeded_context),
+        )
+        assert_ok(resp)
+        assert any(
+            s['training_id'] == training['id']
+            for s in resp.get_json()['saved']
+        )
+
+    def test_unsave_training(self, seeded_context, training):
+        client = seeded_context['client']
+        client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        resp = client.delete(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        assert_ok(resp)
+        assert resp.get_json()['msg'] == 'training unsaved'
+
+    def test_unsave_missing_returns_404(self, seeded_context, training):
+        client = seeded_context['client']
+        resp = client.delete(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        assert_error(resp, 404, ERROR_CODES['NOT_FOUND'])
+
+    def test_save_and_interest_coexist(self, seeded_context, training):
+        client = seeded_context['client']
+        client.post(
+            f"/trainings/{training['id']}/save",
+            headers=member_headers(seeded_context),
+        )
+        client.post(
+            f"/trainings/{training['id']}/interest",
+            headers=member_headers(seeded_context),
+        )
+        # removing interest keeps the bookmark
+        client.delete(
+            f"/trainings/{training['id']}/interest",
+            headers=member_headers(seeded_context),
+        )
+        resp = client.get(
+            '/me/saved-trainings',
+            headers=member_headers(seeded_context),
+        )
+        saved = resp.get_json()['saved']
+        assert any(s['training_id'] == training['id'] for s in saved)
+
+    def test_save_nonexistent_training_returns_404(self, seeded_context):
+        client = seeded_context['client']
+        resp = client.post(
+            '/trainings/nonexistent/save',
+            headers=member_headers(seeded_context),
+        )
+        assert_error(resp, 404, ERROR_CODES['NOT_FOUND'])
+
+
+# ---------------------------------------------------------------------------
 # Completions
 # ---------------------------------------------------------------------------
 
