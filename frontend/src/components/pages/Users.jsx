@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, RotateCcw, Upload, ImagePlus, Trash2 } from 'lucide-react'
+import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, RotateCcw, ImagePlus, Download } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
 
 const initialUsers = [
@@ -89,36 +89,30 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             /* Image uploadée — centrée à bonnes proportions */
             <>
               {/* Barre du haut */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 flex-shrink-0">
                 <span className="text-xs font-semibold text-gray-500">Carte de visite</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
-                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50"
-                  >
-                    <Upload size={11} /> Remplacer
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemoveCard() }}
-                    className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                <a
+                  href={businessCard}
+                  download="carte-de-visite.jpg"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-light transition-colors"
+                  title="Télécharger la carte"
+                >
+                  <Download size={14} />
+                </a>
               </div>
 
-              {/* Image centrée */}
-              <div className="flex-1 flex items-center justify-center p-4 bg-gray-50">
+              {/* Image élargie */}
+              <div className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-50">
                 <img
                   src={businessCard}
                   alt="Carte de visite"
-                  className="max-w-full max-h-44 object-contain rounded-lg shadow-md"
-                  style={{ aspectRatio: 'auto' }}
+                  className="w-full max-h-56 object-contain rounded-md shadow-md"
                 />
               </div>
 
               {/* Hint retour */}
-              <p className="text-center text-xs text-gray-300 py-2 flex-shrink-0">Cliquer pour retourner</p>
+              <p className="text-center text-xs text-gray-300 py-1.5 flex-shrink-0">Cliquer pour retourner</p>
             </>
           ) : (
             /* Carte générée par défaut */

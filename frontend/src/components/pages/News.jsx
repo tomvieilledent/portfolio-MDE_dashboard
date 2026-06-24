@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, ExternalLink, Bookmark, BarChart2, TrendingUp, Rss } from 'lucide-react'
+import { Search, ExternalLink, Bookmark, Newspaper, Tag, Pin, X } from 'lucide-react'
 
 const FILTERS = ['Tout', 'Économie', 'Innovation', 'Réglementation', 'Marché']
 
@@ -56,6 +56,17 @@ const newsItems = [
 export default function News() {
   const [activeFilter, setActiveFilter] = useState('Tout')
   const [searchQuery, setSearchQuery] = useState('')
+  const [savedIds, setSavedIds] = useState(new Set())
+
+  const toggleSave = (id) => {
+    setSavedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const savedArticles = newsItems.filter((item) => savedIds.has(item.id))
 
   const filtered = newsItems.filter((item) => {
     const matchesFilter = activeFilter === 'Tout' || item.category === activeFilter
@@ -85,29 +96,67 @@ export default function News() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-primary-light rounded-xl p-4 text-white flex items-center gap-3">
-          <BarChart2 size={28} className="opacity-80" />
-          <div>
-            <p className="text-2xl font-bold leading-none">6</p>
-            <p className="text-xs opacity-80 mt-1">Articles disponibles</p>
+      {(() => {
+        const uniqueSources = [...new Set(newsItems.map((a) => a.source))].length
+        const pinnedCount = newsItems.filter((a) => a.pinned).length
+        return (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-primary-light rounded-xl p-4 text-white flex items-center gap-3">
+              <Newspaper size={28} className="opacity-80" />
+              <div>
+                <p className="text-2xl font-bold leading-none">{newsItems.length}</p>
+                <p className="text-xs opacity-80 mt-1">Articles disponibles</p>
+              </div>
+            </div>
+            <div className="bg-amber-500 rounded-xl p-4 text-white flex items-center gap-3">
+              <Bookmark size={28} className="opacity-80" fill="currentColor" />
+              <div>
+                <p className="text-2xl font-bold leading-none">{savedIds.size}</p>
+                <p className="text-xs opacity-80 mt-1">Articles sauvegardés</p>
+              </div>
+            </div>
+            <div className="bg-indigo-500 rounded-xl p-4 text-white flex items-center gap-3">
+              <Tag size={28} className="opacity-80" />
+              <div>
+                <p className="text-2xl font-bold leading-none">{uniqueSources}</p>
+                <p className="text-xs opacity-80 mt-1">Sources couvertes</p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Saved articles */}
+      {savedArticles.length > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bookmark size={16} className="text-amber-600" fill="currentColor" />
+            <h3 className="text-sm font-semibold text-amber-800">
+              Articles sauvegardés ({savedArticles.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {savedArticles.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 bg-white rounded-lg px-3 py-2 shadow-sm border border-amber-100"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.title}</p>
+                  <p className="text-xs text-gray-400">{item.source} · {item.date}</p>
+                </div>
+                <button
+                  onClick={() => toggleSave(item.id)}
+                  className="flex-shrink-0 p-1 rounded hover:bg-amber-100 text-amber-500 transition-colors"
+                  title="Retirer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="bg-orange-400 rounded-xl p-4 text-white flex items-center gap-3">
-          <TrendingUp size={28} className="opacity-80" />
-          <div>
-            <p className="text-2xl font-bold leading-none">+12%</p>
-            <p className="text-xs opacity-80 mt-1">Tendance Innovation</p>
-          </div>
-        </div>
-        <div className="bg-indigo-500 rounded-xl p-4 text-white flex items-center gap-3">
-          <Rss size={28} className="opacity-80" />
-          <div>
-            <p className="text-2xl font-bold leading-none">8</p>
-            <p className="text-xs opacity-80 mt-1">Sources suivies</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -159,9 +208,16 @@ export default function News() {
                 <ExternalLink size={14} />
                 Lire l'article
               </button>
-              <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 text-sm font-medium rounded-lg transition-colors">
-                <Bookmark size={14} />
-                Sauvegarder
+              <button
+                onClick={() => toggleSave(item.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  savedIds.has(item.id)
+                    ? 'bg-amber-50 border border-amber-300 text-amber-600 hover:bg-amber-100'
+                    : 'border border-gray-200 hover:border-gray-300 text-gray-600'
+                }`}
+              >
+                {savedIds.has(item.id) ? <Bookmark size={14} fill="currentColor" /> : <Bookmark size={14} />}
+                {savedIds.has(item.id) ? 'Sauvegardé' : 'Sauvegarder'}
               </button>
             </div>
           </div>
