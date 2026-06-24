@@ -160,6 +160,7 @@ class FormationUser(Base):
     training_id = Column(String(36), nullable=False)
     session_id = Column(String(36))
     type = Column(String(50))
+    saved = Column(Boolean, default=False)
     enrolled_at = Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True))

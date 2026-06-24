@@ -94,3 +94,14 @@ try:
             conn.commit()
 except Exception:
     pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('formation_users')"))
+        fu_cols = [row[1] for row in res]
+        if 'saved' not in fu_cols:
+            conn.execute(text(
+                "ALTER TABLE formation_users ADD COLUMN saved BOOLEAN DEFAULT 0"))
+            conn.commit()
+except Exception:
+    pass

@@ -202,6 +202,59 @@ class TrainingInterestResource(Resource):
         return {'msg': 'interest removed'}
 
 
+class TrainingSavedResource(Resource):
+    """Bookmark or remove a training from the current user's saved list."""
+
+    @jwt_required()
+    def post(self, training_id):
+        """Bookmark a training for the current user.
+
+        Creates (or reuses) a FormationUser row with ``saved=True``,
+        independently of any interest/enrollment state. Idempotent.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{saved}`` and 201, or 404.
+        """
+        if not training_service.facade.get(training_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        result = formation_service.facade.save_training(
+            get_jwt_identity(), training_id)
+        return {'saved': result}, 201
+
+    @jwt_required()
+    def delete(self, training_id):
+        """Remove a training from the current user's saved list.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
+        if not training_service.facade.get(training_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        if not formation_service.facade.unsave_training(
+                get_jwt_identity(), training_id):
+            return error_response(ERROR_CODES['NOT_FOUND'], 'saved training not found', 404)
+        return {'msg': 'training unsaved'}
+
+
+class CurrentUserSavedTrainingsResource(Resource):
+    """List the trainings bookmarked by the currently authenticated user."""
+
+    @jwt_required()
+    def get(self):
+        """Return the current user's saved trainings.
+
+        Returns:
+            tuple[dict, int]: ``{saved}`` and 200.
+        """
+        return {'saved': formation_service.facade.list_saved(get_jwt_identity())}
+
+
 class TrainingEnrollmentsResource(Resource):
     """List enrollments for a given training."""
 
