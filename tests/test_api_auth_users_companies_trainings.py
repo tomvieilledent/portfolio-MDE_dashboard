@@ -273,7 +273,10 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     company_users = client.get(
         f'/companies/{company_id}/users', headers=admin_headers)
     assert company_users.status_code == 200
-    assert company_users.get_json()['users'] == []
+    # Creating a company assigns its admin to it (auto employee count).
+    users_before = company_users.get_json()['users']
+    assert len(users_before) == 1
+    assert users_before[0]['email'] == 'company.admin@example.com'
 
     assign_user = client.post(
         f'/companies/{company_id}/users/{seeded_context["member_user"]["id"]}', headers=admin_headers)
@@ -294,7 +297,8 @@ def test_company_flow_and_admin_email_requirement(seeded_context):
     company_users_after_assign = client.get(
         f'/companies/{company_id}/users', headers=admin_headers)
     assert company_users_after_assign.status_code == 200
-    assert len(company_users_after_assign.get_json()['users']) == 1
+    # The company admin + the freshly assigned member.
+    assert len(company_users_after_assign.get_json()['users']) == 2
 
     remove_user = client.delete(
         f'/companies/{company_id}/users/{seeded_context["member_user"]["id"]}', headers=admin_headers)
@@ -550,6 +554,33 @@ def test_company_deactivate_and_delete_permissions(seeded_context):
     assert deleted.get_json() == {'msg': 'company deleted'}
     assert_error(client.get(f'/companies/{company_id}', headers=admin_headers),
                  404, ERROR_CODES['NOT_FOUND'])
+
+
+def test_company_create_is_super_admin_only_with_location_and_count(seeded_context):
+    """Only super admins create companies; location + employee_count are exposed."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_headers = seeded_context['member_headers']
+    company_admin_email = seeded_context['company_admin_user']['email']
+
+    # A company admin / member may not create a company.
+    for headers in (company_admin_headers, member_headers):
+        assert_error(client.post('/companies', headers=headers, json={
+            'name': 'Nope', 'admin_email': company_admin_email,
+        }), 403, ERROR_CODES['FORBIDDEN'])
+
+    # A super admin can, and location persists.
+    created = client.post('/companies', headers=admin_headers, json={
+        'name': 'Gamma', 'admin_email': company_admin_email,
+        'location': 'Rodez', 'description': 'desc', 'website_link': 'https://g.fr',
+    })
+    assert created.status_code == 201
+    company = created.get_json()['company']
+    assert company['location'] == 'Rodez'
+    assert company['website_link'] == 'https://g.fr'
+    # The admin is auto-attached to the company → employee_count == 1.
+    assert company['employee_count'] == 1
 
 
 def test_user_reactivate_permissions(seeded_context):

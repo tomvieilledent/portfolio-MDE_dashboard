@@ -51,14 +51,22 @@ class CompanyFacade:
                 admin_email=normalized_admin_email,
                 admin_id=resolved_admin_id,
                 description=kwargs.get('description'),
+                location=kwargs.get('location'),
                 website_link=kwargs.get('website_link'),
                 company_picture=kwargs.get('company_picture'),
                 created_at=datetime.now(timezone.utc),
             )
             db.add(c)
+            db.flush()  # assign c.id before linking the admin
+            # The admin belongs to the company they administer (counts as an
+            # employee and drives the « patron » role on the frontend).
+            admin_user = db.query(ORMUser).filter(ORMUser.id == resolved_admin_id).first()
+            if admin_user is not None:
+                admin_user.company_id = c.id
+                db.add(admin_user)
             db.commit()
             db.refresh(c)
-            return self._to_dict(c)
+            return self._to_dict(c, self._count_employees(db, c.id))
         except IntegrityError:
             db.rollback()
             raise
@@ -78,9 +86,13 @@ class CompanyFacade:
             dict | None: Company dict, or ``None`` if not found.
         """
         db = SessionLocal()
-        c: Any = db.query(ORMCompany).filter(ORMCompany.id == company_id).first()
-        db.close()
-        return self._to_dict(c) if c else None
+        try:
+            c: Any = db.query(ORMCompany).filter(ORMCompany.id == company_id).first()
+            if not c:
+                return None
+            return self._to_dict(c, self._count_employees(db, c.id))
+        finally:
+            db.close()
 
     def list(self, limit=100):
         """Return a list of companies.
@@ -92,9 +104,11 @@ class CompanyFacade:
             list[dict]: Serialised company dicts.
         """
         db = SessionLocal()
-        rows = db.query(ORMCompany).limit(limit).all()
-        db.close()
-        return [self._to_dict(r) for r in rows]
+        try:
+            rows = db.query(ORMCompany).limit(limit).all()
+            return [self._to_dict(r, self._count_employees(db, r.id)) for r in rows]
+        finally:
+            db.close()
 
     def update(self, company_id, **kwargs):
         """Partially update a company's mutable fields.
@@ -114,7 +128,7 @@ class CompanyFacade:
                 ORMCompany.id == company_id).first()
             if not company:
                 return None
-            for field in ('name', 'description', 'website_link',
+            for field in ('name', 'description', 'location', 'website_link',
                           'company_picture', 'admin_email', 'admin_id'):
                 if field in kwargs:
                     setattr(company, field, kwargs.get(field))
@@ -124,7 +138,7 @@ class CompanyFacade:
             db.add(company)
             db.commit()
             db.refresh(company)
-            return self._to_dict(company)
+            return self._to_dict(company, self._count_employees(db, company.id))
         finally:
             db.close()
 
@@ -161,15 +175,21 @@ class CompanyFacade:
         finally:
             db.close()
 
-    def _to_dict(self, c):
+    def _count_employees(self, db, company_id):
+        """Number of users attached to *company_id* (auto employee count)."""
+        return db.query(ORMUser).filter(ORMUser.company_id == company_id).count()
+
+    def _to_dict(self, c, employee_count=0):
         return {
             'id': c.id,
             'name': c.name,
             'admin_email': c.admin_email,
             'admin_id': c.admin_id,
             'description': c.description,
+            'location': getattr(c, 'location', None),
             'website_link': c.website_link,
             'company_picture': c.company_picture,
+            'employee_count': employee_count,
             'is_active': c.is_active,
             'created_at': isoformat(c.created_at),
             'updated_at': isoformat(getattr(c, 'updated_at', None)),

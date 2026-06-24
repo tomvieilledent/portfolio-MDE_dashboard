@@ -56,6 +56,11 @@ class CompanyListResource(Resource):
         Returns:
             tuple[dict, int]: ``{company}`` and 201.
         """
+        current = user_service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can create companies', 403)
         data = _request_payload()
         name = data.get('name')
         admin_email = data.get('admin_email')
@@ -76,6 +81,7 @@ class CompanyListResource(Resource):
             DomainCompany(
                 name=name,
                 description=data.get('description'),
+                location=data.get('location'),
                 website_link=data.get('website_link'),
                 company_picture=company_picture,
                 admin_email=admin_email,
@@ -89,6 +95,7 @@ class CompanyListResource(Resource):
                 admin_email=admin_email,
                 admin_id=admin_id,
                 description=data.get('description'),
+                location=data.get('location'),
                 website_link=data.get('website_link'),
                 company_picture=company_picture,
             )
@@ -139,6 +146,7 @@ class CompanyResource(Resource):
             domain = DomainCompany(
                 name=current.get('name'),
                 description=current.get('description'),
+                location=current.get('location'),
                 website_link=current.get('website_link'),
                 company_picture=current.get('company_picture'),
                 admin_email=current.get('admin_email'),
@@ -153,7 +161,7 @@ class CompanyResource(Resource):
                 update_data['company_picture'] = save_image_upload(uploaded_file, 'companies')
             elif 'company_picture' in data:
                 update_data['company_picture'] = data.get('company_picture')
-            for field in ('name', 'description', 'website_link',
+            for field in ('name', 'description', 'location', 'website_link',
                           'admin_email', 'admin_id', 'is_active'):
                 if field in data:
                     update_data[field] = data.get(field)

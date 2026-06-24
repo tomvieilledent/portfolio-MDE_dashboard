@@ -26,6 +26,7 @@ class Company(BaseModel):
         admin_email=None,
         admin_id=None,
         description=None,
+        location=None,
         website_link=None,
         company_picture=None,
         **kwargs,
@@ -33,10 +34,26 @@ class Company(BaseModel):
         super().__init__(**kwargs)
         self.name = name
         self.description = description
+        self.location = location
         self.website_link = website_link
         self.company_picture = company_picture
         self.admin_email = admin_email
         self.admin_id = admin_id
+
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, value):
+        if value is None:
+            self._location = None
+            return
+        if not isinstance(value, str):
+            raise TypeError("Location must be a string")
+        if len(value) > 200:
+            raise ValueError("Location must be 200 characters or fewer")
+        self._location = value.strip()
 
     @property
     def name(self):

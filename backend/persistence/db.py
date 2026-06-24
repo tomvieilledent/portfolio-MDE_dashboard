@@ -105,3 +105,13 @@ try:
             conn.commit()
 except Exception:
     pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('companies')"))
+        company_cols = [row[1] for row in res]
+        if 'location' not in company_cols:
+            conn.execute(text("ALTER TABLE companies ADD COLUMN location VARCHAR(200)"))
+            conn.commit()
+except Exception:
+    pass

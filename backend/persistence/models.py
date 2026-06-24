@@ -39,6 +39,7 @@ class Company(Base):
                 default=lambda: str(uuid.uuid4()))
     name = Column(String(200), nullable=False)
     description = Column(String(2000))
+    location = Column(String(200))
     website_link = Column(String(512))
     company_picture = Column(String(512))
     admin_email = Column(String(254))
