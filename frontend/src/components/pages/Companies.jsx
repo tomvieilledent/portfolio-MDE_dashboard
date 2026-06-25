@@ -30,11 +30,14 @@ export default function Companies() {
   const [modal, setModal] = useState(null)
   const [expanded, setExpanded] = useState(new Set())
   const [userEmails, setUserEmails] = useState([]) // pour le champ admin_email du modal
+  const [allUsers, setAllUsers] = useState([])     // pour lister les membres dans le modal
   const [busyId, setBusyId] = useState(null)        // entreprise en cours d'action
 
   // L'utilisateur courant est-il l'admin de cette entreprise ?
   const isCompanyAdmin = (company) => {
     if (!user) return false
+    // Co-responsable : flag is_company_admin porté pour cette entreprise.
+    if (user.is_company_admin && user.company_id === company.id) return true
     if (company.admin_id && company.admin_id === user.id) return true
     const adminEmail = (company.admin_email || '').toLowerCase().trim()
     const myEmail = (user.email || '').toLowerCase().trim()
@@ -81,6 +84,7 @@ export default function Companies() {
         if (cancelled) return
         setCompanies(companies.map(mapCompany))
         setUserEmails(users.map((u) => u.email).filter(Boolean))
+        setAllUsers(users)
       })
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -165,6 +169,7 @@ export default function Companies() {
           {filtered.map((company) => {
             const isExpanded = expanded.has(company.id)
             const hasTeam = company.team && company.team.length > 0
+            const canEdit = isSuperAdmin || isCompanyAdmin(company)
             const canDeactivate = isSuperAdmin || isCompanyAdmin(company)
             const canDelete = isSuperAdmin
             const busy = busyId === company.id
@@ -218,6 +223,15 @@ export default function Companies() {
                       <Users size={15} className="text-gray-400" />
                       <span>{company.employees}</span>
                     </div>
+                    {company.url && (
+                      <div className="flex items-center gap-2">
+                        <ExternalLink size={15} className="text-gray-400" />
+                        <a href={company.url} target="_blank" rel="noopener noreferrer"
+                          className="text-primary-light hover:underline truncate">
+                          {company.url.replace(/^https?:\/\//, '')}
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {company.description && (
@@ -225,13 +239,15 @@ export default function Companies() {
                   )}
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setModal({ mode: 'edit', company })}
-                      className="flex-1 btn-primary flex items-center justify-center gap-2"
-                    >
-                      <Edit2 size={16} />
-                      Modifier la fiche
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => setModal({ mode: 'edit', company })}
+                        className="flex-1 btn-primary flex items-center justify-center gap-2"
+                      >
+                        <Edit2 size={16} />
+                        Modifier la fiche
+                      </button>
+                    )}
                     {hasTeam && (
                       <button
                         onClick={() => toggleExpand(company.id)}
@@ -309,6 +325,17 @@ export default function Companies() {
         <CompanyModal
           company={modal.mode === 'edit' ? modal.company : null}
           userEmails={userEmails}
+          members={modal.mode === 'edit'
+            ? allUsers
+                .filter((u) => u.company_id === modal.company.id)
+                .map((u) => ({
+                  id: u.id,
+                  name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
+                  role: u.is_super_admin ? 'Administrateur' : (u.is_company_admin ? 'Responsable' : 'Membre'),
+                  photo: mediaUrl(u.profile_picture)
+                    || `https://ui-avatars.com/api/?name=${encodeURIComponent([u.first_name, u.last_name].filter(Boolean).join(' ') || u.email)}&background=4f8a8b&color=fff`,
+                }))
+            : []}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

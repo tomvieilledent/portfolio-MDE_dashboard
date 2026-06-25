@@ -78,14 +78,20 @@ const categoryBar = {
   Digital:    'bg-teal-400',
 }
 
+// Normalise une URL saisie sans protocole : « www.google.com » → « https://www.google.com ».
+function normalizeUrl(raw) {
+  const v = (raw || '').trim()
+  if (!v) return ''
+  if (/^https?:\/\//i.test(v)) return v
+  return `https://${v}`
+}
+
 function LinkModal({ training, onClose, onSave }) {
   const [url, setUrl] = useState(training.url || '')
-  const isValid = url === '' || url.startsWith('http://') || url.startsWith('https://')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!isValid) return
-    onSave({ ...training, url: url.trim() })
+    onSave({ ...training, url: normalizeUrl(url) })
     onClose()
   }
 
@@ -110,13 +116,13 @@ function LinkModal({ training, onClose, onSave }) {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">URL de la formation</label>
             <input
-              autoFocus type="url" placeholder="https://www.exemple.com/formation"
+              autoFocus type="text" placeholder="www.exemple.com/formation"
               value={url} onChange={(e) => setUrl(e.target.value)}
-              className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${!isValid ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
-            {!isValid && <p className="mt-1 text-xs text-red-500">L'URL doit commencer par https:// ou http://</p>}
-            {url && isValid && (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-purple-500 hover:underline w-fit">
+            <p className="mt-1 text-xs text-gray-400">Pas besoin de https:// — il est ajouté automatiquement.</p>
+            {url && (
+              <a href={normalizeUrl(url)} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-purple-500 hover:underline w-fit">
                 <ExternalLink size={11} /> Tester le lien
               </a>
             )}
@@ -128,7 +134,7 @@ function LinkModal({ training, onClose, onSave }) {
           )}
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-xl text-sm transition-colors">Annuler</button>
-            <button type="submit" disabled={!isValid} className="flex-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-medium py-2 rounded-xl text-sm transition-colors">Enregistrer</button>
+            <button type="submit" className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 rounded-xl text-sm transition-colors">Enregistrer</button>
           </div>
         </form>
       </div>
@@ -268,11 +274,6 @@ function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink,
       </div>
 
       <p className="text-sm text-gray-600 mb-4">{training.description}</p>
-
-      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-        <span className="flex items-center gap-1.5"><Clock size={14} className="text-gray-400" />{training.duration}</span>
-        <span className="flex items-center gap-1.5"><Users size={14} className="text-gray-400" />{training.capacity} places</span>
-      </div>
 
       <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100">
         <StarButton

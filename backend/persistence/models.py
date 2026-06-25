@@ -18,10 +18,12 @@ class User(Base):
     password_hash = Column(String(256), nullable=False)
     first_name = Column(String(100))
     last_name = Column(String(100))
+    job_title = Column(String(120))
     phone = Column(String(30))
     profile_picture = Column(String(256))
     business_card = Column(String(256))
     is_super_admin = Column(Boolean, default=False)
+    is_company_admin = Column(Boolean, default=False)
     company_id = Column(String(36))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),

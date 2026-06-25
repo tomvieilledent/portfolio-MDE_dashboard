@@ -23,7 +23,11 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
     try {
       // La date et la jauge ne se définissent plus ici : elles relèvent de la
       // programmation d'une session (réservée au super admin).
-      await onSave({ ...training, ...form, id: training?.id })
+      // Lien sans protocole → on préfixe https:// automatiquement.
+      const url = form.url.trim()
+        ? (/^https?:\/\//i.test(form.url.trim()) ? form.url.trim() : `https://${form.url.trim()}`)
+        : ''
+      await onSave({ ...training, ...form, url, id: training?.id })
       onClose()
     } catch (err) {
       setError(err?.message || "Échec de l'enregistrement")
@@ -80,8 +84,8 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
             </label>
             <div className="relative">
               <input
-                type="url"
-                placeholder="https://www.exemple.com/formation"
+                type="text"
+                placeholder="www.exemple.com/formation"
                 value={form.url}
                 onChange={set('url')}
                 className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"

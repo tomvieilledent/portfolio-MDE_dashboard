@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, ImagePlus, Download } from 'lucide-react'
+import { Search, Mail, Phone, MessageCircle, UserPlus, Building2, CreditCard, Download } from 'lucide-react'
 import CreateAccountModal from '../modals/CreateAccountModal'
 import { api, mediaUrl } from '../../lib/api'
 
@@ -13,6 +13,7 @@ function mapUser(u, companyById = {}) {
     id: u.id,
     name,
     role: u.is_super_admin ? 'Administrateur' : 'Membre',
+    jobTitle: u.job_title || '',
     company: companyById[u.company_id] || '',
     email: u.email,
     phone: u.phone || '—',
@@ -35,16 +36,8 @@ function getColor(company) {
   return COMPANY_COLORS[company] || { bg: 'bg-gray-500', light: 'bg-gray-50', text: 'text-gray-600', hex: '#6b7280' }
 }
 
-function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard, onRemoveCard, bio }) {
+function FlipCard({ user, flipped, onFlip, onContact, businessCard, bio }) {
   const color = getColor(user.company)
-  const fileRef = useRef()
-
-  const handleUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    onUploadCard(URL.createObjectURL(file))
-    e.target.value = ''
-  }
 
   return (
     <div
@@ -62,7 +55,8 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             className="w-20 h-20 rounded-full object-cover mb-3 border-2 border-gray-100 shadow-sm"
           />
           <h3 className="font-bold text-gray-900 text-base">{user.name}</h3>
-          {!user.isAdmin && <p className="text-sm text-gray-500 mt-0.5">{user.role}</p>}
+          {user.jobTitle && <p className="text-sm font-medium text-gray-700 mt-0.5">{user.jobTitle}</p>}
+          {!user.isAdmin && <p className="text-xs text-gray-400 mt-0.5">{user.role}</p>}
           {user.isAdmin && (
             <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-light/10 text-primary-light">
               ★ Admin MDE
@@ -87,17 +81,11 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
             </p>
           )}
 
-          <div className="mt-auto flex flex-col items-center gap-1 w-full pt-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
-              className="flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-primary-light transition-colors px-2 py-1 rounded-lg hover:bg-gray-50 w-full"
-              title="Uploader une carte de visite"
-            >
-              <ImagePlus size={13} />
-              {businessCard ? 'Changer la carte' : 'Ajouter une carte de visite'}
-            </button>
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+          {businessCard && (
+            <div className="mt-auto flex items-center justify-center gap-1.5 text-xs text-gray-400 pt-2">
+              <CreditCard size={13} /> Carte de visite au dos
+            </div>
+          )}
         </div>
 
         {/* ── FACE ARRIÈRE — clic sur zone vide = flip retour ── */}
@@ -140,7 +128,7 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
                   <p className="text-xs font-semibold text-white/80 uppercase tracking-wider">{user.company}</p>
                 </div>
                 <h3 className="text-lg font-bold text-white leading-tight">{user.name}</h3>
-                <p className="text-sm text-white/80">{user.role}</p>
+                <p className="text-sm text-white/80">{user.jobTitle || user.role}</p>
               </div>
 
               <div className="relative flex-1 bg-white px-5 pb-4">
@@ -179,18 +167,10 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
                   >
                     <MessageCircle size={13} /> Contacter
                   </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); fileRef.current.click() }}
-                    className="flex items-center justify-center border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-500 px-3 py-1.5 rounded-xl transition-colors"
-                    title="Uploader une carte de visite"
-                  >
-                    <ImagePlus size={13} />
-                  </button>
                 </div>
               </div>
             </>
           )}
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
         </div>
 
       </div>
@@ -205,7 +185,6 @@ export default function Users({ onContact, role, profile }) {
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [flipped, setFlipped] = useState(new Set())
-  const [businessCards, setBusinessCards] = useState({})
   const [createModal, setCreateModal] = useState(false)
 
   // Utilisateurs + entreprises (pour résoudre le nom d'entreprise par id et
@@ -234,18 +213,11 @@ export default function Users({ onContact, role, profile }) {
     return next
   })
 
-  const handleUploadCard = (id, url) => setBusinessCards((prev) => ({ ...prev, [id]: url }))
-  const handleRemoveCard = (id) => setBusinessCards((prev) => { const next = { ...prev }; delete next[id]; return next })
-
-  // Résout la carte de visite effective : le profil connecté prime sur l'upload local du Trombinoscope
+  // Carte de visite effective : la carte fraîchement éditée du profil connecté
+  // prime sur la valeur persistée renvoyée par l'API (user.business_card).
   const resolveCard = (user) => {
-    if (profile?.name === user.name && profile?.businessCard) return profile.businessCard
-    return businessCards[user.id] || null
-  }
-
-  const resolveBio = (user) => {
-    if (profile?.name === user.name && profile?.bio) return profile.bio
-    return null
+    if (profile?.id === user.id && profile?.businessCard) return profile.businessCard
+    return user.business_card || null
   }
 
   // Création réelle : on recharge le répertoire après ajout d'un admin.
@@ -266,7 +238,7 @@ export default function Users({ onContact, role, profile }) {
         </div>
         {role === 'admin' && (
           <button onClick={() => setCreateModal(true)} className="flex items-center gap-2 btn-primary text-sm">
-            <UserPlus size={16} /> Créer un compte Patron
+            <UserPlus size={16} /> Créer un utilisateur
           </button>
         )}
       </div>
@@ -294,9 +266,6 @@ export default function Users({ onContact, role, profile }) {
             onFlip={() => toggleFlip(user.id)}
             onContact={onContact}
             businessCard={resolveCard(user)}
-            onUploadCard={(url) => handleUploadCard(user.id, url)}
-            onRemoveCard={() => handleRemoveCard(user.id)}
-            bio={resolveBio(user)}
           />
         ))}
       </div>

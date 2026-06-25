@@ -122,6 +122,8 @@ export const api = {
   reactivateUser: (id) => request(`/users/${id}/reactivate`, { method: 'PATCH' }),
   setUserRole: (id, is_super_admin) =>
     request(`/users/${id}/role`, { method: 'PATCH', body: { is_super_admin } }),
+  setUserCompanyRole: (id, is_company_admin) =>
+    request(`/users/${id}/company-admin`, { method: 'PATCH', body: { is_company_admin } }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   resetUserPassword: (id, password) =>
     request(`/users/${id}/reset-password`, { method: 'POST', body: { password } }),

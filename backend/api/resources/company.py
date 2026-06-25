@@ -140,6 +140,13 @@ class CompanyResource(Resource):
         current = company_service.facade.get(company_id)
         if not current:
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        # Seuls un super admin ou un responsable de cette entreprise peuvent
+        # modifier sa fiche.
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not _can_manage_company(current_user, current):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to edit this company', 403)
         previous_company_picture = current.get('company_picture')
 
         try:
@@ -203,6 +210,9 @@ def _can_manage_company(user, company):
     if not user or not company:
         return False
     if user.get('is_super_admin'):
+        return True
+    # Co-responsable : porte le flag is_company_admin pour cette entreprise.
+    if user.get('is_company_admin') and user.get('company_id') == company.get('id'):
         return True
     if company.get('admin_id') and company['admin_id'] == user.get('id'):
         return True

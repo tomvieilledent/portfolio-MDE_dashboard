@@ -45,10 +45,12 @@ class UserFacade:
                 password_hash=password_hash,
                 first_name=first_name,
                 last_name=last_name,
+                job_title=kwargs.get('job_title'),
                 phone=kwargs.get('phone'),
                 profile_picture=kwargs.get('profile_picture'),
                 business_card=kwargs.get('business_card'),
                 is_super_admin=kwargs.get('is_super_admin', False),
+                is_company_admin=kwargs.get('is_company_admin', False),
                 company_id=kwargs.get('company_id'),
                 is_active=kwargs.get('is_active', True),
                 created_at=datetime.now(timezone.utc),
@@ -176,12 +178,14 @@ class UserFacade:
             u: Any = db.query(ORMUser).filter(ORMUser.id == user_id).first()
             if not u:
                 return None
-            for field in ('first_name', 'last_name', 'phone',
+            for field in ('first_name', 'last_name', 'job_title', 'phone',
                           'profile_picture', 'business_card', 'company_id'):
                 if field in kwargs:
                     setattr(u, field, kwargs.get(field))
             if 'is_super_admin' in kwargs:
                 u.is_super_admin = bool(kwargs.get('is_super_admin'))
+            if 'is_company_admin' in kwargs:
+                u.is_company_admin = bool(kwargs.get('is_company_admin'))
             if 'is_active' in kwargs:
                 u.is_active = bool(kwargs.get('is_active'))
             u.updated_at = datetime.now(timezone.utc)
@@ -241,10 +245,12 @@ class UserFacade:
             'email': u.email,
             'first_name': u.first_name,
             'last_name': u.last_name,
+            'job_title': getattr(u, 'job_title', None),
             'phone': u.phone,
             'profile_picture': u.profile_picture,
             'business_card': u.business_card,
             'is_super_admin': u.is_super_admin,
+            'is_company_admin': getattr(u, 'is_company_admin', False),
             'is_active': u.is_active,
             'company_id': getattr(u, 'company_id', None),
             'created_at': isoformat(u.created_at),

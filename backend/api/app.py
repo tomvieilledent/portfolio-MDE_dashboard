@@ -60,7 +60,7 @@ from backend.api.resources.training_session import (
     TrainingSessionResource,
     TrainingSessionsByTrainingResource,
 )
-from backend.api.resources.user import UserDeactivateResource, UserListResource, UserMeResource, UserReactivateResource, UserResetPasswordResource, UserResource, UserRoleResource
+from backend.api.resources.user import UserCompanyAdminResource, UserDeactivateResource, UserListResource, UserMeResource, UserReactivateResource, UserResetPasswordResource, UserResource, UserRoleResource
 from backend.persistence.db import engine
 import backend.persistence.models  # ensure models are imported
 from pathlib import Path
@@ -153,6 +153,8 @@ def create_app():
                      '/users/<string:user_id>/reactivate')
     api.add_resource(UserRoleResource,
                      '/users/<string:user_id>/role')
+    api.add_resource(UserCompanyAdminResource,
+                     '/users/<string:user_id>/company-admin')
     api.add_resource(UserResetPasswordResource,
                      '/users/<string:user_id>/reset-password')
 

@@ -16,6 +16,7 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
     last_name: '',
     email: '',
     password: '',
+    confirm: '',
     company_id: isCreatingPatron ? (activeCompanies[0]?.id || '') : (companyId || ''),
   })
   const [submitting, setSubmitting] = useState(false)
@@ -27,6 +28,7 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
     e.preventDefault()
     setError('')
     if (isCreatingPatron && !form.company_id) { setError('Choisissez une entreprise'); return }
+    if (form.password !== form.confirm) { setError('Les mots de passe ne correspondent pas'); return }
     setSubmitting(true)
     try {
       const payload = {
@@ -104,6 +106,20 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
             <input required type="password" minLength={8} placeholder="8 caractères minimum"
               value={form.password} onChange={set('password')}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+              <Lock size={13} className="text-gray-400" /> Confirmer le mot de passe *
+            </label>
+            <input required type="password" minLength={8} placeholder="Retapez le mot de passe"
+              value={form.confirm} onChange={set('confirm')}
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light ${
+                form.confirm && form.confirm !== form.password ? 'border-red-300 bg-red-50' : 'border-gray-200'
+              }`} />
+            {form.confirm && form.confirm !== form.password && (
+              <p className="mt-1 text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+            )}
           </div>
 
           {/* Entreprise : sélection (patron) ou imposée (salarié) */}

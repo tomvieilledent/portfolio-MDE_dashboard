@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2 } from 'lucide-react'
+import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2, UserPlus, Mail, CheckCircle, Clock, Shield, ShieldOff, Loader2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
+import CreateAccountModal from '../modals/CreateAccountModal'
 import { api, mediaUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -22,34 +23,55 @@ function mapCompany(c, team = []) {
 function mapMember(u) {
   const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
   return {
+    id: u.id,
     name,
-    role: u.is_super_admin ? 'Administrateur' : 'Membre',
+    email: u.email,
+    isSuperAdmin: !!u.is_super_admin,
+    isCompanyAdmin: !!u.is_company_admin,
+    isActive: u.is_active !== false,
+    role: u.is_super_admin ? 'Administrateur' : (u.is_company_admin ? 'Co-responsable' : 'Membre'),
     photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
   }
 }
 
 export default function MonEntreprise() {
-  const { user, companyAdminId } = useAuth()
+  const { user, companyAdminId, role } = useAuth()
   const myCompanyId = companyAdminId || user?.company_id || null
+  const canManage = role === 'patron' || role === 'admin'
   const [company, setCompany] = useState(null)
+  const [team, setTeam] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [userEmails, setUserEmails] = useState([])
   const [teamExpanded, setTeamExpanded] = useState(true)
   const [editModal, setEditModal] = useState(false)
+  const [inviteModal, setInviteModal] = useState(false)
+  const [roleBusy, setRoleBusy] = useState(null) // id du membre en cours de maj
+
+  const loadAll = () =>
+    Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
+      .then(([{ companies }, { users }]) => {
+        const mine = (companies || []).find((c) => c.id === myCompanyId) || (companies || [])[0]
+        setUserEmails((users || []).map((u) => u.email).filter(Boolean))
+        if (!mine) { setCompany(null); setTeam([]); return }
+        const members = (users || []).filter((u) => u.company_id === mine.id).map(mapMember)
+        // Libellé selon le nombre de responsables : « Responsable » s'il est
+        // seul, « Co-responsable » s'ils sont plusieurs.
+        const adminCount = members.filter((m) => m.isCompanyAdmin).length
+        const labeled = members.map((m) => ({
+          ...m,
+          role: m.isSuperAdmin ? 'Administrateur'
+            : m.isCompanyAdmin ? (adminCount > 1 ? 'Co-responsable' : 'Responsable')
+            : 'Membre',
+        }))
+        setTeam(labeled)
+        setCompany(mapCompany(mine, labeled))
+      })
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
-      .then(([{ companies }, { users }]) => {
-        if (cancelled) return
-        const mine = (companies || []).find((c) => c.id === myCompanyId) || (companies || [])[0]
-        setUserEmails((users || []).map((u) => u.email).filter(Boolean))
-        if (!mine) { setCompany(null); return }
-        const team = (users || []).filter((u) => u.company_id === mine.id).map(mapMember)
-        setCompany(mapCompany(mine, team))
-      })
+    loadAll()
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -78,8 +100,26 @@ export default function MonEntreprise() {
     setCompany((prev) => mapCompany(updated, prev?.team || []))
   }
 
+  // Promotion / rétrogradation d'un membre en co-responsable de l'entreprise.
+  const toggleRole = async (member) => {
+    setRoleBusy(member.id)
+    setError('')
+    try {
+      await api.setUserCompanyRole(member.id, !member.isCompanyAdmin)
+      await loadAll()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRoleBusy(null)
+    }
+  }
+
+  const actifs = team.filter((m) => m.isActive)
+  const inactifs = team.filter((m) => !m.isActive)
+  const responsablesCount = team.filter((m) => m.isCompanyAdmin).length
+
   if (loading) return <p className="text-gray-400 py-12 text-center">Chargement de votre entreprise…</p>
-  if (error) return <p className="text-red-500 py-12 text-center">{error}</p>
+  if (error && !company) return <p className="text-red-500 py-12 text-center">{error}</p>
   if (!company) return <p className="text-gray-400 py-12 text-center">Aucune entreprise associée à votre compte.</p>
 
   return (
@@ -88,15 +128,27 @@ export default function MonEntreprise() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Mon entreprise</h2>
-            <p className="text-sm text-gray-500 mt-1">Fiche de votre entreprise sur la pépinière</p>
+            <p className="text-sm text-gray-500 mt-1">Fiche de votre entreprise et gestion de l'équipe</p>
           </div>
-          <button
-            onClick={() => setEditModal(true)}
-            className="flex items-center gap-2 btn-primary text-sm"
-          >
-            <Edit2 size={15} /> Modifier la fiche
-          </button>
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <button
+                onClick={() => setInviteModal(true)}
+                className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+              >
+                <UserPlus size={16} /> Inviter un salarié
+              </button>
+            )}
+            <button
+              onClick={() => setEditModal(true)}
+              className="flex items-center gap-2 btn-primary text-sm"
+            >
+              <Edit2 size={15} /> Modifier la fiche
+            </button>
+          </div>
         </div>
+
+        {error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Fiche principale */}
@@ -142,40 +194,87 @@ export default function MonEntreprise() {
           {/* Carte stats */}
           <div className="space-y-4">
             <div className="bg-primary-light rounded-xl p-5 text-white">
-              <p className="text-3xl font-bold">{company.team.length}</p>
+              <p className="text-3xl font-bold">{team.length}</p>
               <p className="text-sm opacity-80 mt-1">Membres sur la plateforme</p>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Statut</p>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                {company.is_active ? '✓ Entreprise active' : 'Entreprise désactivée'}
-              </span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle size={16} className="text-green-500" />
+                  <p className="text-xl font-bold text-gray-900">{actifs.length}</p>
+                </div>
+                <p className="text-xs text-gray-500">Actifs</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock size={16} className="text-gray-400" />
+                  <p className="text-xl font-bold text-gray-900">{inactifs.length}</p>
+                </div>
+                <p className="text-xs text-gray-500">Désactivés</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Équipe */}
+        {/* Équipe + gestion des rôles */}
         <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <button
             onClick={() => setTeamExpanded((v) => !v)}
             className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
           >
-            <span className="text-sm font-bold text-gray-900">Équipe — {company.team.length} membres</span>
+            <span className="text-sm font-bold text-gray-900">Équipe — {team.length} membre{team.length > 1 ? 's' : ''}</span>
             {teamExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
           </button>
           {teamExpanded && (
-            <div className="px-6 pb-5 border-t border-gray-100 pt-4">
-              <div className="flex flex-wrap gap-3">
-                {company.team.map((member, i) => (
-                  <div key={i} className="flex items-center gap-2.5 bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
-                    <img src={member.photo} alt={member.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 leading-tight">{member.name}</p>
-                      <p className="text-xs text-gray-400">{member.role}</p>
+            <div className="divide-y divide-gray-100 border-t border-gray-100">
+              {team.map((member) => (
+                <div key={member.id} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <img src={member.photo} alt={member.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{member.name}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <Mail size={12} /> <span className="truncate">{member.email}</span>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
+                    member.isSuperAdmin ? 'bg-primary-light/10 text-primary-light'
+                      : member.isCompanyAdmin ? 'bg-purple-100 text-purple-600'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {member.role}
+                  </span>
+                  <span className={`hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
+                    member.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {member.isActive ? <><CheckCircle size={11} /> Actif</> : <><Clock size={11} /> Désactivé</>}
+                  </span>
+                  {/* Changement de rôle : réservé au responsable / admin, pas sur les super admins ni soi-même.
+                      Impossible de rétrograder le dernier responsable de l'entreprise. */}
+                  {canManage && !member.isSuperAdmin && member.id !== user?.id && (() => {
+                    const isLastResponsable = member.isCompanyAdmin && responsablesCount <= 1
+                    return (
+                      <button
+                        onClick={() => toggleRole(member)}
+                        disabled={roleBusy === member.id || isLastResponsable}
+                        title={isLastResponsable ? "L'entreprise doit garder au moins un responsable"
+                          : member.isCompanyAdmin ? 'Retirer le rôle de responsable' : 'Promouvoir responsable'}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          member.isCompanyAdmin
+                            ? 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                            : 'border-purple-200 text-purple-600 hover:bg-purple-50'
+                        }`}
+                      >
+                        {roleBusy === member.id ? <Loader2 size={13} className="animate-spin" />
+                          : member.isCompanyAdmin ? <ShieldOff size={13} /> : <Shield size={13} />}
+                        {member.isCompanyAdmin ? 'Rétrograder' : 'Promouvoir'}
+                      </button>
+                    )
+                  })()}
+                </div>
+              ))}
+              {team.length === 0 && (
+                <p className="px-6 py-6 text-sm text-gray-400 text-center">Aucun membre pour le moment</p>
+              )}
             </div>
           )}
         </div>
@@ -185,8 +284,18 @@ export default function MonEntreprise() {
         <CompanyModal
           company={company}
           userEmails={userEmails}
+          members={team}
           onClose={() => setEditModal(false)}
           onSave={handleSave}
+        />
+      )}
+
+      {inviteModal && (
+        <CreateAccountModal
+          forRole="salarie"
+          companyId={myCompanyId}
+          onClose={() => setInviteModal(false)}
+          onSuccess={() => { setInviteModal(false); loadAll().catch((err) => setError(err.message)) }}
         />
       )}
     </>

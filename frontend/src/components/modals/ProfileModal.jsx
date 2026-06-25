@@ -1,18 +1,20 @@
 import React, { useState, useRef } from 'react'
-import { X, Camera, User, Mail, Phone, FileText, Upload, Trash2, Save, Shield, CreditCard, Briefcase, Loader2 } from 'lucide-react'
+import { X, Camera, User, Mail, Phone, Upload, Trash2, Save, Shield, CreditCard, Briefcase, Lock, Loader2 } from 'lucide-react'
 
 const ROLE_LABELS = { admin: 'Super Administrateur', patron: 'Patron', salarie: 'Salarié' }
 const ROLE_COLORS = { admin: 'bg-primary-light/10 text-primary-light', patron: 'bg-purple-100 text-purple-600', salarie: 'bg-gray-100 text-gray-600' }
 
 export default function ProfileModal({ profile, onClose, onSave, onDeactivate }) {
   const [form, setForm] = useState({
-    name:         profile.name         || '',
+    firstName:    profile.firstName    || '',
+    lastName:     profile.lastName     || '',
     jobTitle:     profile.jobTitle     || '',
     email:        profile.email        || '',
     phone:        profile.phone        || '',
-    bio:          profile.bio          || '',
     photo:        profile.photo        || null,
     businessCard: profile.businessCard || null,
+    password:     '',
+    confirm:      '',
   })
   // Fichiers réels à téléverser (null = inchangé).
   const [photoFile, setPhotoFile] = useState(null)
@@ -55,15 +57,21 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    // Validation du changement de mot de passe (optionnel).
+    if (form.password || form.confirm) {
+      if (form.password.length < 8) { setError('Le mot de passe doit faire au moins 8 caractères'); return }
+      if (form.password !== form.confirm) { setError('Les mots de passe ne correspondent pas'); return }
+    }
     setSubmitting(true)
     try {
-      // Le backend stocke first_name / last_name / phone / profile_picture /
-      // business_card. On scinde le nom complet en prénom + nom.
-      const [first, ...rest] = (form.name || '').trim().split(/\s+/)
+      // Le backend stocke first_name / last_name / job_title / phone /
+      // profile_picture / business_card (+ password en self-service).
       const fd = new FormData()
-      fd.append('first_name', first || '')
-      fd.append('last_name', rest.join(' '))
+      fd.append('first_name', form.firstName.trim())
+      fd.append('last_name', form.lastName.trim())
+      fd.append('job_title', form.jobTitle.trim())
       fd.append('phone', form.phone || '')
+      if (form.password) fd.append('password', form.password)
       if (photoFile) fd.append('profile_picture_file', photoFile)
       if (cardFile) fd.append('business_card_file', cardFile)
       await onSave?.(fd)
@@ -86,8 +94,9 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
     }
   }
 
-  const initials = form.name
-    ? form.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+  const fullName = [form.firstName, form.lastName].filter(Boolean).join(' ')
+  const initials = fullName
+    ? fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : '?'
 
   return (
@@ -136,38 +145,48 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
                 <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
               <div>
-                <p className="font-bold text-gray-900 text-base">{form.name || 'Votre nom'}</p>
+                <p className="font-bold text-gray-900 text-base">{fullName || 'Votre nom'}</p>
                 <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[profile.role] || 'bg-gray-100 text-gray-600'}`}>
                   <Shield size={10} /> {ROLE_LABELS[profile.role] || profile.role}
                 </span>
               </div>
             </div>
 
-            {/* Nom */}
+            {/* Prénom + Nom */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                  <User size={13} className="text-gray-400" /> Prénom
+                </label>
+                <input type="text" placeholder="Prénom" value={form.firstName} onChange={set('firstName')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                  <User size={13} className="text-gray-400" /> Nom
+                </label>
+                <input type="text" placeholder="Nom" value={form.lastName} onChange={set('lastName')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+              </div>
+            </div>
+
+            {/* Poste / rôle dans l'entreprise */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <User size={13} className="text-gray-400" /> Nom complet
+                <Briefcase size={13} className="text-gray-400" /> Poste dans l'entreprise <span className="text-gray-400 font-normal">(optionnel)</span>
               </label>
-              <input type="text" placeholder="Prénom Nom" value={form.name} onChange={set('name')}
+              <input type="text" placeholder="ex : Gérant, Directrice Commerciale…" value={form.jobTitle} onChange={set('jobTitle')}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
             </div>
 
-            {/* Intitulé de poste */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <Briefcase size={13} className="text-gray-400" /> Intitulé de poste <span className="text-gray-400 font-normal">(optionnel)</span>
-              </label>
-              <input type="text" placeholder="ex : Directeur Commercial, CEO…" value={form.jobTitle} onChange={set('jobTitle')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
-
-            {/* Email */}
+            {/* Email (non modifiable : sert d'identifiant de connexion) */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
                 <Mail size={13} className="text-gray-400" /> Email
               </label>
-              <input type="email" placeholder="email@exemple.fr" value={form.email} onChange={set('email')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+              <input type="email" value={form.email} disabled readOnly
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed" />
+              <p className="mt-1 text-xs text-gray-400">L'email de connexion ne peut pas être modifié ici.</p>
             </div>
 
             {/* Téléphone */}
@@ -177,15 +196,6 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
               </label>
               <input type="tel" placeholder="+33 6 00 00 00 00" value={form.phone} onChange={set('phone')}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <FileText size={13} className="text-gray-400" /> Bio <span className="text-gray-400 font-normal">(optionnel)</span>
-              </label>
-              <textarea rows={2} placeholder="Quelques mots sur vous…" value={form.bio} onChange={set('bio')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light resize-none" />
             </div>
 
             {/* Carte de visite */}
@@ -235,6 +245,26 @@ export default function ProfileModal({ profile, onClose, onSave, onDeactivate })
                 </div>
               )}
               <input ref={cardRef} type="file" accept="image/*" className="hidden" onChange={handleCardChange} />
+            </div>
+
+            {/* Changement de mot de passe */}
+            <div className="border-t border-gray-100 pt-5">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-3">
+                <Lock size={13} className="text-gray-400" /> Changer le mot de passe <span className="text-gray-400 font-normal">(optionnel)</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="password" placeholder="Nouveau mot de passe" autoComplete="new-password"
+                  value={form.password} onChange={set('password')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+                <input type="password" placeholder="Confirmer" autoComplete="new-password"
+                  value={form.confirm} onChange={set('confirm')}
+                  className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light ${
+                    form.confirm && form.confirm !== form.password ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  }`} />
+              </div>
+              {form.confirm && form.confirm !== form.password && (
+                <p className="mt-1 text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+              )}
             </div>
           </div>
 

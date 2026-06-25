@@ -5,7 +5,8 @@ export default function RegisterModal({ onClose, onBackToLogin }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [form, setForm] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     company: '',
@@ -52,16 +53,31 @@ export default function RegisterModal({ onClose, onBackToLogin }) {
         {/* Formulaire */}
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom complet <span className="text-red-400">*</span></label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Prénom <span className="text-red-400">*</span></label>
               <div className="relative">
                 <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   required
-                  placeholder="Jean Dupont"
-                  value={form.fullName}
-                  onChange={set('fullName')}
+                  placeholder="Jean"
+                  value={form.firstName}
+                  onChange={set('firstName')}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Dupont"
+                  value={form.lastName}
+                  onChange={set('lastName')}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light"
                 />
               </div>

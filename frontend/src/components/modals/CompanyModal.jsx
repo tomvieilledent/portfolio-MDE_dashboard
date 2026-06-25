@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { X, Building2, MapPin, Save, Link, Mail, Loader2, ImagePlus, Users } from 'lucide-react'
 import { mediaUrl } from '../../lib/api'
 
-export default function CompanyModal({ company, userEmails = [], onClose, onSave }) {
+export default function CompanyModal({ company, userEmails = [], members = [], onClose, onSave }) {
   const isEdit = !!company
   const [form, setForm] = useState({
     name:        company?.name        || '',
@@ -147,6 +147,26 @@ export default function CompanyModal({ company, userEmails = [], onClose, onSave
             <p className="flex items-center gap-1.5 text-xs text-gray-400">
               <Users size={13} /> {company.employee_count} membre{company.employee_count > 1 ? 's' : ''} (calculé automatiquement)
             </p>
+          )}
+
+          {/* Membres de l'entreprise + rôles */}
+          {members.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <span className="flex items-center gap-1"><Users size={13} /> Membres</span>
+              </label>
+              <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                {members.map((m, i) => (
+                  <div key={m.id || i} className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                    {m.photo && <img src={m.photo} alt={m.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />}
+                    <span className="text-sm text-gray-800 flex-1 truncate">{m.name}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${
+                      /admin|responsable/i.test(m.role || '') ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-600'
+                    }`}>{m.role || 'Membre'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Actions */}

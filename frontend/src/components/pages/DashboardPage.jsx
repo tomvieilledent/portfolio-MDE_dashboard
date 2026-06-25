@@ -22,6 +22,8 @@ export default function DashboardPage() {
   const todayKey = toKey(today)
 
   const [events, setEvents] = useState([])
+  const [sessions, setSessions] = useState([])
+  const [trainingTitles, setTrainingTitles] = useState({})
   const [error, setError] = useState('')
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(todayKey)
@@ -32,13 +34,45 @@ export default function DashboardPage() {
   // en créer ; seul le créateur (ou un super admin) peut modifier/supprimer.
   useEffect(() => {
     let cancelled = false
-    api.getEvents()
-      .then((res) => { if (!cancelled) setEvents(res?.events || (Array.isArray(res) ? res : [])) })
+    Promise.all([
+      api.getEvents(),
+      api.getSessions().catch(() => ({ sessions: [] })),
+      api.getTrainings().catch(() => ({ trainings: [] })),
+    ])
+      .then(([evRes, sRes, tRes]) => {
+        if (cancelled) return
+        setEvents(evRes?.events || (Array.isArray(evRes) ? evRes : []))
+        setSessions(sRes?.sessions || (Array.isArray(sRes) ? sRes : []))
+        const tList = tRes?.trainings || tRes?.items || (Array.isArray(tRes) ? tRes : [])
+        setTrainingTitles(Object.fromEntries(tList.map((t) => [t.id, t.title])))
+      })
       .catch((err) => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true }
   }, [])
 
-  const canEdit = (ev) => isAdmin || (user && ev.created_by === user.id)
+  // Les sessions de formation programmées sont injectées dans l'agenda comme
+  // des événements (non modifiables : ils se gèrent depuis l'onglet Formations).
+  const sessionEvents = sessions
+    .filter((s) => s.status !== 'cancelled' && s.status !== 'completed' && s.start_date)
+    .map((s) => {
+      const d = new Date(s.start_date)
+      if (isNaN(d)) return null
+      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      return {
+        id: `session-${s.id}`,
+        title: trainingTitles[s.training_id] || 'Formation',
+        date: toKey(d),
+        time,
+        color: 'bg-purple-500',
+        creator: 'Formation',
+        isSession: true,
+      }
+    })
+    .filter(Boolean)
+
+  const allEvents = [...events, ...sessionEvents]
+
+  const canEdit = (ev) => !ev.isSession && (isAdmin || (user && ev.created_by === user.id))
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
@@ -50,7 +84,7 @@ export default function DashboardPage() {
   for (let i = 0; i < firstDayOffset; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
-  const eventsByDate = events.reduce((acc, ev) => {
+  const eventsByDate = allEvents.reduce((acc, ev) => {
     acc[ev.date] = acc[ev.date] || []
     acc[ev.date].push(ev)
     return acc
@@ -60,14 +94,13 @@ export default function DashboardPage() {
     .slice()
     .sort((a, b) => a.time.localeCompare(b.time))
 
-  const upcoming = events
+  const upcoming = allEvents
     .filter((ev) => ev.date >= todayKey)
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
     .slice(0, 5)
 
   const handleDayClick = (key) => {
     setSelectedDate(key)
-    setCreateModal(key)
   }
 
   const handleSaveEvent = async (ev) => {
@@ -150,7 +183,7 @@ export default function DashboardPage() {
                   <button
                     key={key}
                     onClick={() => handleDayClick(key)}
-                    title="Cliquer pour créer un événement"
+                    title="Voir les événements du jour"
                     className={`group relative mx-auto w-9 h-9 flex flex-col items-center justify-center rounded-full text-sm font-medium transition-colors
                       ${isSelected
                         ? 'bg-primary-light text-white'
@@ -162,13 +195,6 @@ export default function DashboardPage() {
                     {day}
                     {hasEvents && !isSelected && (
                       <span className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-400" />
-                    )}
-                    {/* "+" hint on hover for empty days */}
-                    {!hasEvents && !isSelected && (
-                      <Plus
-                        size={10}
-                        className="absolute bottom-0.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                      />
                     )}
                   </button>
                 )
@@ -242,9 +268,14 @@ export default function DashboardPage() {
                     <div key={ev.id} className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${ev.color}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                          {ev.title}
+                          {ev.isSession && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-600">Formation</span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-400">{formatDateLabel(ev.date)} · {ev.time}</p>
-                        {ev.creator && (
+                        {ev.creator && !ev.isSession && (
                           <p className="text-xs text-gray-400 mt-0.5">Par {ev.creator}</p>
                         )}
                       </div>

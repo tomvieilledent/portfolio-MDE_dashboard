@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutDashboard, Building2, Users, GraduationCap, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, GraduationCap, TrendingUp, Settings, Store } from 'lucide-react'
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -7,6 +7,8 @@ const ICONS = {
   users: Users,
   trainings: GraduationCap,
   news: TrendingUp,
+  gestion: Settings,
+  monentreprise: Store,
 }
 
 const ICON_COLORS = {
@@ -15,6 +17,8 @@ const ICON_COLORS = {
   users: 'text-blue-500',
   trainings: 'text-purple-500',
   news: 'text-amber-500',
+  gestion: 'text-gray-500',
+  monentreprise: 'text-teal-500',
 }
 
 export default function TabNavigation({ tabs, activeTab, setActiveTab }) {

@@ -17,7 +17,10 @@ const AuthContext = createContext(null)
 export function roleOf(user, companyAdminId = null) {
   if (!user) return 'guest'
   if (user.is_super_admin) return 'admin'
-  if (companyAdminId) return 'patron'
+  // « patron » = administrateur d'une entreprise : soit porté explicitement par
+  // le flag is_company_admin (co-responsables), soit déduit de l'entreprise
+  // administrée (champ admin_id/admin_email, détecté dans companyAdminId).
+  if (user.is_company_admin || companyAdminId) return 'patron'
   return 'salarie'
 }
 

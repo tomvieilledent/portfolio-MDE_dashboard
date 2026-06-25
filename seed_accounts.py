@@ -41,7 +41,7 @@ def main() -> int:
 
         admin = upsert_user(
             session, "admin@mde.com", "admin", "Admin", "MDE",
-            is_super_admin=False, company_id=company.id)
+            is_super_admin=False, is_company_admin=True, company_id=company.id)
 
         upsert_user(
             session, "user@mde.com", "user", "Simple", "User",

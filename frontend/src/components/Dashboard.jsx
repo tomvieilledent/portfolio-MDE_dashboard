@@ -10,38 +10,25 @@ import Trainings from './pages/Trainings'
 import News from './pages/News'
 import DashboardPage from './pages/DashboardPage'
 import MonOnglet from './pages/MonOnglet'
-import GererEquipe from './pages/GererEquipe'
 import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
 import LandingPage from './pages/LandingPage'
 import GestionPage from './pages/GestionPage'
 
-const ADMIN_TABS = [
-  { id: 'dashboard',  label: 'Accueil' },
-  { id: 'companies',  label: 'Entreprises' },
-  { id: 'users',      label: 'Trombinoscope' },
-  { id: 'trainings',  label: 'Formations' },
-  { id: 'news',       label: 'Veille économique' },
-  { id: 'gestion',    label: 'Gestion' },
-]
-
-const PATRON_TABS = [
-  { id: 'dashboard',     label: 'Accueil' },
-  { id: 'users',         label: 'Trombinoscope' },
-  { id: 'trainings',     label: 'Formations' },
-  { id: 'news',          label: 'Veille économique' },
-  { id: 'equipe',        label: "Gérer l'équipe" },
-  { id: 'companies',     label: 'Entreprises' },
-  { id: 'monentreprise', label: 'Gérer mon entreprise' },
-]
-
-const SALARIE_TABS = [
+// Ordre des onglets identique pour tous les rôles ; seul le dernier onglet
+// (spécifique au rôle) diffère : Gestion pour l'admin, Mon entreprise pour le
+// patron, rien de plus pour le salarié.
+const COMMON_TABS = [
   { id: 'dashboard',  label: 'Accueil' },
   { id: 'companies',  label: 'Entreprises' },
   { id: 'users',      label: 'Trombinoscope' },
   { id: 'trainings',  label: 'Formations' },
   { id: 'news',       label: 'Veille économique' },
 ]
+
+const ADMIN_TABS = [...COMMON_TABS, { id: 'gestion', label: 'Gestion' }]
+const PATRON_TABS = [...COMMON_TABS, { id: 'monentreprise', label: 'Mon entreprise' }]
+const SALARIE_TABS = COMMON_TABS
 
 function getTabsForRole(role) {
   if (role === 'admin')  return ADMIN_TABS
@@ -57,11 +44,13 @@ function profileFromUser(user, role) {
   return {
     id: user.id,
     name: displayName(user),
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    jobTitle: user.job_title || '',
     email: user.email,
     phone: user.phone || '',
     company: '',
     isSuperAdmin: !!user.is_super_admin,
-    bio: user.bio || '',
     photo: mediaUrl(user.profile_picture) || null,
     businessCard: mediaUrl(user.business_card) || null,
     role,
@@ -160,7 +149,6 @@ export default function DashboardContainer() {
       case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
       case 'news':          return <News />
       case 'gestion':       return <GestionPage />
-      case 'equipe':        return <GererEquipe />
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
     }

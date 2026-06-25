@@ -107,6 +107,7 @@ class UserListResource(Resource):
         password = data.get('password')
         first_name = data.get('first_name')
         last_name = data.get('last_name')
+        job_title = data.get('job_title')
         phone = data.get('phone')
         profile_picture = _extract_profile_picture(data)
         business_card = _extract_business_card(data)
@@ -134,8 +135,10 @@ class UserListResource(Resource):
                 email, password,
                 first_name=first_name,
                 last_name=last_name,
+                job_title=job_title,
                 phone=phone,
                 company_id=company_id,
+                is_company_admin=make_company_admin,
                 profile_picture=profile_picture,
                 business_card=business_card,
             )
@@ -192,6 +195,8 @@ class UserMeResource(Resource):
                     update_data['last_name'] = ln
             if 'phone' in data:
                 update_data['phone'] = data.get('phone')
+            if 'job_title' in data:
+                update_data['job_title'] = data.get('job_title')
             uploaded_file = (request.files.get('profile_picture_file')
                              or request.files.get('profile_picture'))
             if uploaded_file and uploaded_file.filename:
@@ -209,7 +214,18 @@ class UserMeResource(Resource):
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
-        user = service.update(get_jwt_identity(), **update_data)
+        # Changement de mot de passe self-service (la confirmation est faite
+        # côté client). On valide la longueur via le modèle de domaine.
+        new_password = data.get('password')
+        if new_password:
+            try:
+                DomainUser(email=current_user.get('email'), password=new_password)
+            except Exception as exc:
+                return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+            service.facade.reset_password(get_jwt_identity(), new_password)
+
+        user = service.update(get_jwt_identity(), **update_data) if update_data \
+            else service.get_by_id(get_jwt_identity())
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         _cleanup_replaced_upload(previous_profile_picture, update_data.get('profile_picture'))
@@ -458,6 +474,93 @@ class UserRoleResource(Resource):
                     ERROR_CODES['FORBIDDEN'],
                     'cannot demote the last active super admin', 403)
         user = service.update(user_id, is_super_admin=make_super)
+        if not user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'user': user}
+
+
+def _is_company_admin_of(user, company_id):
+    """Return ``True`` if *user* administers the company ``company_id``.
+
+    A user administers a company when they carry the ``is_company_admin``
+    flag for that company, or (legacy) when they are its ``admin_id`` /
+    ``admin_email``.
+    """
+    if not user or not company_id:
+        return False
+    if user.get('is_company_admin') and user.get('company_id') == company_id:
+        return True
+    company = company_service.facade.get(company_id)
+    if not company:
+        return False
+    if company.get('admin_id') and company['admin_id'] == user.get('id'):
+        return True
+    email = (user.get('email') or '').lower().strip()
+    admin_email = (company.get('admin_email') or '').lower().strip()
+    return bool(email) and email == admin_email
+
+
+class UserCompanyAdminResource(Resource):
+    """Promote or demote a company co-administrator.
+
+    Allowed for a super admin (any company) or for a company admin acting on
+    a member of their own company. The target keeps its ``company_id``; only
+    the ``is_company_admin`` flag changes.
+    """
+
+    @jwt_required()
+    def patch(self, user_id):
+        """Set a user's ``is_company_admin`` flag.
+
+        Expected JSON body:
+            is_company_admin (bool): Target company-admin role.
+
+        Args:
+            user_id (str): User UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{user}`` and 200, 400, 403, or 404.
+        """
+        current = service.get_by_id(get_jwt_identity())
+        if not current:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        target = service.get_by_id(user_id)
+        if not target:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        data = request.get_json(silent=True) or {}
+        if 'is_company_admin' not in data:
+            return error_response(
+                ERROR_CODES['BAD_REQUEST'], 'is_company_admin is required', 400)
+
+        is_super_admin = bool(current.get('is_super_admin'))
+        company_id = target.get('company_id')
+        same_company = bool(company_id) and current.get('company_id') == company_id
+        if not is_super_admin and not (
+                same_company and _is_company_admin_of(current, company_id)):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to change this user role', 403)
+        if not is_super_admin and not company_id:
+            return error_response(
+                ERROR_CODES['BAD_REQUEST'],
+                'user has no company', 400)
+
+        make_admin = bool(data.get('is_company_admin'))
+        # Une entreprise doit toujours garder au moins un responsable : on
+        # refuse de rétrograder le dernier responsable encore en place.
+        if not make_admin and company_id:
+            admins = [
+                u for u in service.list_users(limit=1000)
+                if u.get('company_id') == company_id
+                and _is_company_admin_of(u, company_id)
+                and u.get('id') != user_id
+            ]
+            if not admins:
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    'une entreprise doit garder au moins un responsable', 409)
+
+        user = service.update(user_id, is_company_admin=make_admin)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'user': user}
