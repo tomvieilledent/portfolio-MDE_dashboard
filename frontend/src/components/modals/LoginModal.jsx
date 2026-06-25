@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { X, Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
-import RegisterModal from './RegisterModal'
 import ForgotPasswordModal from './ForgotPasswordModal'
 import { useAuth } from '../../context/AuthContext'
 
@@ -10,7 +9,6 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
-  const [showRegister, setShowRegister] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -29,10 +27,6 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (showRegister) {
-    return <RegisterModal onClose={onClose} onBackToLogin={() => setShowRegister(false)} />
   }
 
   if (showForgot) {
@@ -125,17 +119,6 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
             {submitting ? 'Connexion…' : 'Se connecter'}
           </button>
-
-          <div className="text-center pt-1">
-            <p className="text-sm text-gray-500 mb-2">Nouveau sur la plateforme ?</p>
-            <button
-              type="button"
-              onClick={() => setShowRegister(true)}
-              className="w-full border-2 border-primary-light text-primary-light hover:bg-primary-light hover:text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
-            >
-              Créer un compte
-            </button>
-          </div>
         </form>
       </div>
     </div>

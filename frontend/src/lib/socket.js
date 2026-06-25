@@ -5,7 +5,9 @@
 import { io } from 'socket.io-client'
 import { getToken } from './api'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// En dev, on se connecte à l'origine courante (Vite relaie /socket.io vers
+// le backend). VITE_SOCKET_URL permet de forcer une URL absolue si besoin.
+const BASE = import.meta.env.VITE_SOCKET_URL || undefined
 
 let socket = null
 

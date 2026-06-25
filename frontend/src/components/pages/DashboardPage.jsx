@@ -1,16 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, Pencil, Trash2 } from 'lucide-react'
 import EventFormModal from '../modals/EventFormModal'
-
-const INITIAL_EVENTS = [
-  { id: 1, date: '2026-06-15', title: 'Réunion équipe MDE', time: '09:00', color: 'bg-purple-500', creator: 'Alice Martin' },
-  { id: 2, date: '2026-06-15', title: 'Point formations Q3', time: '14:30', color: 'bg-orange-400', creator: 'Marc Dupuis' },
-  { id: 3, date: '2026-06-23', title: 'Atelier digital', time: '10:00', color: 'bg-blue-500', creator: 'Sara Benali' },
-  { id: 4, date: '2026-06-25', title: 'Formation Marketing', time: '09:00', color: 'bg-orange-400', creator: 'Alice Martin' },
-  { id: 5, date: '2026-06-28', title: 'Bilan mensuel', time: '11:00', color: 'bg-green-500', creator: 'Marc Dupuis' },
-  { id: 6, date: '2026-07-02', title: 'Accueil nouvelles entreprises', time: '09:30', color: 'bg-purple-500', creator: 'Sara Benali' },
-  { id: 7, date: '2026-07-05', title: 'Gestion Financière PME', time: '14:00', color: 'bg-blue-500', creator: 'Alice Martin' },
-]
+import { api } from '../../lib/api'
+import { useAuth, displayName } from '../../context/AuthContext'
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -25,14 +17,28 @@ function formatDateLabel(dateStr) {
 }
 
 export default function DashboardPage() {
+  const { user, isAdmin } = useAuth()
   const today = new Date()
   const todayKey = toKey(today)
 
-  const [events, setEvents] = useState(INITIAL_EVENTS)
+  const [events, setEvents] = useState([])
+  const [error, setError] = useState('')
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(todayKey)
   const [createModal, setCreateModal] = useState(null) // null | string (date key)
   const [editModal, setEditModal] = useState(null)    // null | event object
+
+  // Les événements sont partagés : tout le monde les voit, tout le monde peut
+  // en créer ; seul le créateur (ou un super admin) peut modifier/supprimer.
+  useEffect(() => {
+    let cancelled = false
+    api.getEvents()
+      .then((res) => { if (!cancelled) setEvents(res?.events || (Array.isArray(res) ? res : [])) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+    return () => { cancelled = true }
+  }, [])
+
+  const canEdit = (ev) => isAdmin || (user && ev.created_by === user.id)
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
@@ -64,16 +70,39 @@ export default function DashboardPage() {
     setCreateModal(key)
   }
 
-  const handleSaveEvent = (ev) => {
-    setEvents((prev) => {
-      const exists = prev.find((e) => e.id === ev.id)
-      return exists ? prev.map((e) => (e.id === ev.id ? ev : e)) : [...prev, ev]
-    })
-    setSelectedDate(ev.date)
+  const handleSaveEvent = async (ev) => {
+    const payload = {
+      title: ev.title,
+      date: ev.date,
+      time: ev.time,
+      color: ev.color,
+      description: ev.description || '',
+      creator: ev.creator || displayName(user),
+    }
+    try {
+      if (ev.id && events.some((e) => e.id === ev.id)) {
+        const res = await api.updateEvent(ev.id, payload)
+        const saved = res?.event || res
+        setEvents((prev) => prev.map((e) => (e.id === ev.id ? saved : e)))
+      } else {
+        const res = await api.createEvent(payload)
+        const saved = res?.event || res
+        setEvents((prev) => [...prev, saved])
+      }
+      setSelectedDate(ev.date)
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
   }
 
-  const handleDeleteEvent = (id) => {
-    setEvents((prev) => prev.filter((e) => e.id !== id))
+  const handleDeleteEvent = async (id) => {
+    try {
+      await api.deleteEvent(id)
+      setEvents((prev) => prev.filter((e) => e.id !== id))
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (
@@ -82,6 +111,7 @@ export default function DashboardPage() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Accueil</h2>
           <p className="text-sm text-gray-500 mt-1">Votre agenda et prochains événements</p>
+          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -177,22 +207,24 @@ export default function DashboardPage() {
                           <p className="text-xs text-gray-400 mt-0.5">{ev.description}</p>
                         )}
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button
-                          onClick={() => setEditModal(ev)}
-                          title="Modifier"
-                          className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          title="Supprimer"
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                      {canEdit(ev) && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <button
+                            onClick={() => setEditModal(ev)}
+                            title="Modifier"
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            title="Supprimer"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

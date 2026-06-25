@@ -36,7 +36,11 @@ from backend.api.resources.message import (
     PresenceResource,
     UnreadCountResource,
 )
-from backend.api.resources.news import NewsListResource, NewsResource, NewsSyncResource
+from backend.api.resources.event import EventListResource, EventResource
+from backend.api.resources.news import (
+    NewsListResource, NewsResource, NewsSyncResource,
+    SavedNewsListResource, SavedNewsResource,
+)
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.training import (
     CurrentUserSavedTrainingsResource,
@@ -210,12 +214,17 @@ def create_app():
                      '/notifications/<string:notification_id>')
 
     api.add_resource(NewsListResource, '/news')
+    api.add_resource(SavedNewsListResource, '/news/saved')
+    api.add_resource(SavedNewsResource, '/news/saved/<string:saved_id>')
     api.add_resource(NewsResource, '/news/<string:news_id>')
     api.add_resource(NewsSyncResource, '/news/sync')
 
     api.add_resource(FormationUserListResource, '/formation-users')
     api.add_resource(FormationUserResource,
                      '/formation-users/<string:relation_id>')
+
+    api.add_resource(EventListResource, '/events')
+    api.add_resource(EventResource, '/events/<string:event_id>')
 
     @app.route('/status')
     def home():
@@ -233,7 +242,7 @@ def create_app():
         """Serve the Swagger UI page for interactive API testing."""
         return SWAGGER_UI_HTML
 
-    # Start hourly news sync scheduler (skip in test mode and in the reloader
+    # Start daily news sync scheduler (skip in test mode and in the reloader
     # parent process so the job only runs once per server instance).
     if not app.testing and os.environ.get('WERKZEUG_RUN_MAIN', 'true') == 'true':
         try:
@@ -242,7 +251,7 @@ def create_app():
             from backend.services.news_sync import sync_all
 
             scheduler = BackgroundScheduler(daemon=True)
-            scheduler.add_job(sync_all, 'interval', hours=1,
+            scheduler.add_job(sync_all, 'interval', days=1,
                                id='news_sync', replace_existing=True,
                                next_run_time=datetime.now(timezone.utc))
             scheduler.start()

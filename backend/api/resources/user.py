@@ -11,10 +11,29 @@ from backend.api.jwt_helpers import jwt_required
 from backend.api.uploads import save_image_upload
 from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
 from backend.models.user import User as DomainUser
-from backend.persistence.services import UserService
+from backend.persistence.services import CompanyService, UserService
 
 
 service = UserService()
+company_service = CompanyService()
+
+
+def _administered_company(user):
+    """Return the company *user* administers, or ``None``.
+
+    A user administers a company when its ``admin_id`` matches their id or,
+    as a fallback, its ``admin_email`` matches their email (case-insensitive).
+    """
+    if not user:
+        return None
+    email = (user.get('email') or '').lower().strip()
+    for company in company_service.facade.list(limit=1000):
+        if company.get('admin_id') and company['admin_id'] == user.get('id'):
+            return company
+        admin_email = (company.get('admin_email') or '').lower().strip()
+        if admin_email and admin_email == email:
+            return company
+    return None
 
 
 def _extract_profile_picture(payload):
@@ -55,37 +74,78 @@ class UserListResource(Resource):
 
     @jwt_required()
     def post(self):
-        """Create a new user.
+        """Create a new user. Restricted to super admins and company admins.
+
+        A super admin can create a user in any company and, when
+        ``is_company_admin`` is set, promote them to that company's admin. A
+        company admin can only create users inside their own company.
 
         Expected JSON body:
             email (str): Valid email address.
             password (str): Password (min 8 chars).
             first_name (str | None): Optional first name.
+            last_name (str | None): Optional last name.
+            phone (str | None): Optional phone number.
+            company_id (str | None): Target company (super admin only;
+                forced to their own company for a company admin).
+            is_company_admin (bool): When set by a super admin, the new user
+                becomes the admin of ``company_id``.
 
         Returns:
-            tuple[dict, int]: ``{user}`` and 201.
+            tuple[dict, int]: ``{user}`` and 201, or 400/403/409.
         """
+        current = service.get_by_id(get_jwt_identity())
+        is_super_admin = bool(current and current.get('is_super_admin'))
+        admin_company = None if is_super_admin else _administered_company(current)
+        if not is_super_admin and not admin_company:
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins or company admins can create users', 403)
+
         data = _request_payload()
         email = data.get('email')
         password = data.get('password')
         first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        phone = data.get('phone')
         profile_picture = _extract_profile_picture(data)
         business_card = _extract_business_card(data)
         if not email or not password:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'email and password required', 400)
+
+        # Determine the target company: a company admin is locked to their own.
+        if is_super_admin:
+            company_id = data.get('company_id')
+            make_company_admin = bool(data.get('is_company_admin'))
+        else:
+            company_id = admin_company['id']
+            make_company_admin = False
+
         try:
             DomainUser(email=email, password=password, first_name=first_name)
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        if make_company_admin and not company_id:
+            return error_response(
+                ERROR_CODES['BAD_REQUEST'],
+                'company_id is required to set a company admin', 400)
         try:
             user = service.register(
                 email, password,
                 first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                company_id=company_id,
                 profile_picture=profile_picture,
                 business_card=business_card,
             )
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create user', 409, str(exc))
+
+        # Promote the freshly created user to company admin when requested.
+        if make_company_admin:
+            company_service.facade.update(
+                company_id, admin_id=user['id'], admin_email=user['email'])
         return {'user': user}, 201
 
 
@@ -316,6 +376,16 @@ class UserDeactivateResource(Resource):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
                 'not allowed to deactivate this user', 403)
+        # A company admin cannot be deactivated while still administering an
+        # active company — a replacement must be assigned first
+        # (PATCH /companies/<id> {admin_email}).
+        for company in company_service.facade.list(limit=1000):
+            if (company.get('admin_id') == user_id
+                    and company.get('is_active')):
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    'reassign the company admin before deactivating this user',
+                    409)
         if not service.deactivate(user_id, by='api'):
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'msg': 'deactivated'}

@@ -1,15 +1,17 @@
 """News endpoints — list, create, sync, retrieve, delete."""
 
 from flask import request
+from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.models.news import News as DomainNews
-from backend.persistence.services import NewsService
+from backend.persistence.services import NewsService, SavedNewsService
 
 
 news_service = NewsService()
+saved_news_service = SavedNewsService()
 
 # Valid category values (mirrors news_sync.SOURCES categories)
 VALID_CATEGORIES = {'actualités', 'réglementation', 'vie-entreprises', 'opportunités', 'territoire'}
@@ -101,6 +103,73 @@ class NewsResource(Resource):
         if not news_service.facade.delete(news_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'news item not found', 404)
         return {'msg': 'news item deleted'}
+
+
+class SavedNewsListResource(Resource):
+    """List or create the current user's saved articles (bookmarks)."""
+
+    @jwt_required()
+    def get(self):
+        """Return the current user's saved articles, newest first.
+
+        Returns:
+            tuple[dict, int]: ``{items: [...]}`` and 200.
+        """
+        items = saved_news_service.facade.list_for_user(get_jwt_identity())
+        return {'items': items}
+
+    @jwt_required()
+    def post(self):
+        """Bookmark an article for the current user.
+
+        Expected JSON body (either reference an existing article or pass a
+        full snapshot):
+            news_id (str | None): Id of the article to bookmark.
+            title (str): Required when no resolvable ``news_id`` is given.
+            source, summary, url, category, published_at: Optional snapshot.
+
+        Returns:
+            tuple[dict, int]: ``{saved}`` and 201.
+        """
+        data = request.get_json(silent=True) or {}
+        news_id = data.get('news_id')
+        title = data.get('title')
+        if not news_id and not title:
+            return error_response(ERROR_CODES['BAD_REQUEST'],
+                                  'news_id or title is required', 400)
+        saved = saved_news_service.facade.save(
+            get_jwt_identity(),
+            news_id=news_id,
+            title=title,
+            source=data.get('source'),
+            summary=data.get('summary'),
+            url=data.get('url'),
+            published_at=data.get('published_at'),
+            category=data.get('category'),
+        )
+        if saved is None:
+            return error_response(ERROR_CODES['NOT_FOUND'],
+                                  'article not found', 404)
+        return {'saved': saved}, 201
+
+
+class SavedNewsResource(Resource):
+    """Delete one of the current user's saved articles."""
+
+    @jwt_required()
+    def delete(self, saved_id):
+        """Remove a saved article owned by the current user.
+
+        Args:
+            saved_id (str): Saved-article UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{msg}`` and 200, or 404.
+        """
+        if not saved_news_service.facade.delete(saved_id, get_jwt_identity()):
+            return error_response(ERROR_CODES['NOT_FOUND'],
+                                  'saved article not found', 404)
+        return {'msg': 'saved article removed'}
 
 
 class NewsSyncResource(Resource):

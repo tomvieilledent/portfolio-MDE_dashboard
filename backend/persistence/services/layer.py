@@ -18,7 +18,9 @@ from backend.persistence.services.facades import (
     ConversationParticipantFacade,
     NotificationFacade,
     NewsFacade,
+    SavedNewsFacade,
     FormationUserFacade,
+    EventFacade,
 )
 
 
@@ -122,6 +124,13 @@ class NewsService:
         self.facade = NewsFacade()
 
 
+class SavedNewsService:
+    """Service facade for per-user saved-article (bookmark) operations."""
+
+    def __init__(self):
+        self.facade = SavedNewsFacade()
+
+
 class TrainingSessionService:
     """Service facade for training session operations."""
 
@@ -134,3 +143,10 @@ class FormationUserService:
 
     def __init__(self):
         self.facade = FormationUserFacade()
+
+
+class EventService:
+    """Service facade for agenda event operations."""
+
+    def __init__(self):
+        self.facade = EventFacade()

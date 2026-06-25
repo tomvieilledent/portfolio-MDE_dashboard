@@ -9,4 +9,6 @@ from .conversation_facade_sql import ConversationFacade
 from .conversation_participant_facade_sql import ConversationParticipantFacade
 from .notification_facade_sql import NotificationFacade
 from .news_facade_sql import NewsFacade
+from .saved_news_facade_sql import SavedNewsFacade
 from .formation_user_facade_sql import FormationUserFacade
+from .event_facade_sql import EventFacade

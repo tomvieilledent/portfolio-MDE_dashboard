@@ -189,7 +189,7 @@ export default function LandingPage({ onLoginSuccess }) {
           <div className="w-px h-12 bg-white/30" />
           <div>
             <p className="text-white font-bold text-xl leading-tight">Maison de l'Économie</p>
-            <p className="text-white/60 text-xs mt-0.5">Pépinière d'entreprises · Rodez Agglomération</p>
+            <p className="text-white/60 text-xs mt-0.5">Rodez Agglomération</p>
           </div>
         </div>
 

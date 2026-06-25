@@ -28,15 +28,17 @@ export default function GererEquipe() {
   const [error, setError] = useState('')
   const [modal, setModal] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  const loadTeam = () =>
     Promise.all([api.getUsers(), api.getCompanies().catch(() => ({ companies: [] }))])
       .then(([{ users }, { companies }]) => {
-        if (cancelled) return
         const mine = (companies || []).find((c) => c.id === myCompanyId)
         setCompanyName(mine?.name || '')
         setTeam((users || []).filter((u) => u.company_id === myCompanyId).map(mapMember))
       })
+
+  useEffect(() => {
+    let cancelled = false
+    loadTeam()
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -45,11 +47,8 @@ export default function GererEquipe() {
   const actifs    = team.filter((m) => m.status === 'Actif')
   const inactifs  = team.filter((m) => m.status !== 'Actif')
 
-  const handleNewMember = () => {
-    // Création réelle bloquée tant que la feature email d'activation n'est pas
-    // tranchée ; on recharge simplement la liste après fermeture du modal.
-    setModal(false)
-  }
+  // Création réelle : on recharge l'équipe après ajout d'un salarié.
+  const handleNewMember = () => { loadTeam().catch((err) => setError(err.message)) }
 
   return (
     <>
@@ -134,6 +133,7 @@ export default function GererEquipe() {
       {modal && (
         <CreateAccountModal
           forRole="salarie"
+          companyId={myCompanyId}
           onClose={() => setModal(false)}
           onSuccess={handleNewMember}
         />

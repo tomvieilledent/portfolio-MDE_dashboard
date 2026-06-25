@@ -4,7 +4,7 @@ This module defines the tables and columns used by Alembic migrations and
 by the persistence layer.
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, UniqueConstraint
 from .db import Base
 import uuid
 from datetime import datetime, timezone
@@ -133,6 +133,53 @@ class News(Base):
     published_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
+
+
+class SavedNews(Base):
+    """Per-user bookmark of a news article.
+
+    A self-contained snapshot of the article (title/url/summary/…) so it stays
+    visible to the user even after the rolling-month purge removes the original
+    row from ``news``. ``news_id`` keeps a soft link to the source article when
+    it still exists, and prevents duplicate bookmarks per user.
+    """
+
+    __tablename__ = 'saved_news'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'news_id', name='uq_saved_news_user_article'),
+    )
+    id = Column(String(36), primary_key=True,
+                default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), nullable=False)
+    news_id = Column(String(36))
+    title = Column(String(500), nullable=False)
+    source = Column(String(200))
+    summary = Column(String(2000))
+    url = Column(String(512))
+    category = Column(String(100))
+    published_at = Column(DateTime(timezone=True))
+    saved_at = Column(DateTime(timezone=True),
+                      default=lambda: datetime.now(timezone.utc))
+
+
+class Event(Base):
+    __tablename__ = 'events'
+    id = Column(String(36), primary_key=True,
+                default=lambda: str(uuid.uuid4()))
+    title = Column(String(200), nullable=False)
+    # date/time stored as plain strings ('YYYY-MM-DD' / 'HH:MM') to map
+    # directly to the agenda UI without timezone parsing.
+    date = Column(String(10), nullable=False)
+    time = Column(String(5))
+    color = Column(String(50))
+    description = Column(String(2000))
+    creator = Column(String(120))
+    created_by = Column(String(36))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
 
 class TrainingSession(Base):

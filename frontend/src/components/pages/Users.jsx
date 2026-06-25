@@ -200,6 +200,7 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, onUploadCard
 
 export default function Users({ onContact, role, profile }) {
   const [users, setUsers] = useState([])
+  const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -207,17 +208,21 @@ export default function Users({ onContact, role, profile }) {
   const [businessCards, setBusinessCards] = useState({})
   const [createModal, setCreateModal] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    // Utilisateurs + entreprises (pour résoudre le nom d'entreprise par id).
+  // Utilisateurs + entreprises (pour résoudre le nom d'entreprise par id et
+  // alimenter le sélecteur d'entreprise à la création d'un admin).
+  const loadData = () =>
     Promise.all([api.getUsers(), api.getCompanies().catch(() => ({ companies: [] }))])
       .then(([usersRes, compRes]) => {
-        if (cancelled) return
         const list = usersRes?.users || (Array.isArray(usersRes) ? usersRes : [])
-        const companies = compRes?.companies || []
-        const companyById = Object.fromEntries(companies.map((c) => [c.id, c.name]))
+        const comps = compRes?.companies || []
+        const companyById = Object.fromEntries(comps.map((c) => [c.id, c.name]))
+        setCompanies(comps)
         setUsers(list.map((u) => mapUser(u, companyById)))
       })
+
+  useEffect(() => {
+    let cancelled = false
+    loadData()
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -243,17 +248,8 @@ export default function Users({ onContact, role, profile }) {
     return null
   }
 
-  const handleNewAccount = (data) => {
-    setUsers((prev) => [...prev, {
-      id: Date.now(),
-      name: data.name,
-      role: data.role,
-      company: data.company,
-      email: data.email,
-      phone: '—',
-      photo: `https://randomuser.me/api/portraits/lego/${(prev.length % 8) + 1}.jpg`,
-    }])
-  }
+  // Création réelle : on recharge le répertoire après ajout d'un admin.
+  const handleNewAccount = () => { loadData().catch((err) => setError(err.message)) }
 
   const filtered = users.filter(
     (u) =>
@@ -314,6 +310,7 @@ export default function Users({ onContact, role, profile }) {
       {createModal && (
         <CreateAccountModal
           forRole="patron"
+          companies={companies}
           onClose={() => setCreateModal(false)}
           onSuccess={handleNewAccount}
         />

@@ -10,5 +10,7 @@ from .layer import (
     ConversationParticipantService,
     NotificationService,
     NewsService,
+    SavedNewsService,
     FormationUserService,
+    EventService,
 )

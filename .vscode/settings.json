@@ -3,5 +3,20 @@
   "python.analysis.extraPaths": [
     "./backend/.venv/lib/python3.12/site-packages"
   ],
-  "python.analysis.typeCheckingMode": "basic"
+  "python.analysis.typeCheckingMode": "basic",
+
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "process",
+  "remote.restoreForwardedPorts": true,
+  "remote.portsAttributes": {
+    "3000": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "openBrowser",
+      "requireLocalPort": true
+    },
+    "8000": {
+      "label": "Backend (Flask API)",
+      "onAutoForward": "silent"
+    }
+  }
 }

@@ -1,7 +1,10 @@
 // Client API centralisé : ajoute le token JWT, parse le JSON, normalise les erreurs.
 // Toutes les pages importent `api` plutôt que de réécrire `fetch` partout.
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Par défaut on passe par le proxy Vite (/api → backend :8000, voir vite.config.js)
+// pour n'exposer QUE le port 3000 au navigateur (port forwarding, CORS).
+// VITE_API_URL permet de forcer une URL absolue si besoin.
+const BASE = import.meta.env.VITE_API_URL || '/api'
 
 const TOKEN_KEY = 'access_token'
 const REFRESH_KEY = 'refresh_token'
@@ -130,9 +133,28 @@ export const api = {
   expressInterest: (id) => request(`/trainings/${id}/interest`, { method: 'POST' }),
   removeInterest: (id) => request(`/trainings/${id}/interest`, { method: 'DELETE' }),
 
+  // --- Training sessions (programmation) ---
+  getSessions: () => request('/training-sessions'),
+  createSession: (trainingId, payload) =>
+    request(`/trainings/${trainingId}/sessions`, { method: 'POST', body: payload }),
+  updateSession: (id, payload) =>
+    request(`/training-sessions/${id}`, { method: 'PATCH', body: payload }),
+  deleteSession: (id) => request(`/training-sessions/${id}`, { method: 'DELETE' }),
+  enrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'POST' }),
+  unenrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'DELETE' }),
+
+  // --- Events (agenda) ---
+  getEvents: () => request('/events'),
+  createEvent: (payload) => request('/events', { method: 'POST', body: payload }),
+  updateEvent: (id, payload) => request(`/events/${id}`, { method: 'PATCH', body: payload }),
+  deleteEvent: (id) => request(`/events/${id}`, { method: 'DELETE' }),
+
   // --- News ---
   getNews: () => request('/news'),
   syncNews: () => request('/news/sync', { method: 'POST' }),
+  getSavedNews: () => request('/news/saved'),
+  saveNews: (payload) => request('/news/saved', { method: 'POST', body: payload }),
+  unsaveNews: (savedId) => request(`/news/saved/${savedId}`, { method: 'DELETE' }),
 
   // --- Chat ---
   getConversations: () => request('/conversations'),

@@ -185,18 +185,161 @@ function DeleteUserModal({ user, onClose, onConfirm }) {
   )
 }
 
+// ── Modal : réassigner l'admin d'entreprise avant désactivation ──────────────
+function ReassignAdminModal({ target, onClose, onConfirm }) {
+  const [members, setMembers] = useState([])
+  const [selected, setSelected] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    api.getUsers(`?company_id=${target.companyId || target.adminCompanyId}`)
+      .then((res) => {
+        if (cancelled) return
+        const list = (res?.users || [])
+          .filter((u) => u.is_active && u.id !== target.id)
+          .map((u) => ({ id: u.id, email: u.email, name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email }))
+        setMembers(list)
+        setSelected(list[0]?.email || '')
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [target])
+
+  const confirm = async () => {
+    setError('')
+    setSubmitting(true)
+    try { await onConfirm(selected) }
+    catch (err) { setError(err.message || 'Échec de la réassignation'); setSubmitting(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-amber-500 px-5 py-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Shield size={18} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Réassigner l'administration</h3>
+            <p className="text-xs text-white/80">Avant de désactiver {target.name}</p>
+          </div>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">{target.name}</span> administre une entreprise.
+            Nommez un autre membre administrateur avant de le désactiver.
+          </p>
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">{error}</div>
+          )}
+          {loading ? (
+            <p className="text-sm text-gray-400">Chargement des membres…</p>
+          ) : members.length === 0 ? (
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Aucun autre membre actif dans cette entreprise. Ajoutez d'abord un membre.
+            </p>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nouvel administrateur</label>
+              <select value={selected} onChange={(e) => setSelected(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+                {members.map((m) => <option key={m.id} value={m.email}>{m.name} — {m.email}</option>)}
+              </select>
+            </div>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose} disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60">
+              Annuler
+            </button>
+            <button onClick={confirm} disabled={!selected || submitting || members.length === 0}
+              className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} Réassigner & désactiver
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal : suppression définitive d'une entreprise ──────────────────────────
+function DeleteCompanyModal({ company, onClose, onConfirm }) {
+  const [checked, setChecked] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const confirm = async () => {
+    setError('')
+    setSubmitting(true)
+    try { await onConfirm() }
+    catch (err) { setError(err.message || 'Échec de la suppression'); setSubmitting(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-red-500 px-5 py-4 flex items-center gap-3">
+          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Trash2 size={18} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Supprimer l'entreprise</h3>
+            <p className="text-xs text-white/80">Cette action est irréversible</p>
+          </div>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">{error}</div>
+          )}
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              <span className="font-semibold">{company.name}</span> sera supprimée définitivement.
+              Les comptes liés ne sont pas supprimés mais perdent leur rattachement.
+            </p>
+          </div>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-red-500 flex-shrink-0" />
+            <span className="text-sm text-gray-700 leading-snug">
+              Je confirme la suppression <span className="font-semibold text-red-600">définitive</span> de cette entreprise
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <button onClick={onClose} disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60">Annuler</button>
+            <button onClick={confirm} disabled={!checked || submitting}
+              className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Supprimer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Mapping backend → UI ─────────────────────────────────────────────────────
-function mapUser(u, adminUserIds, companyById) {
+function mapUser(u, adminCompanyByUserId, companyById) {
   const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+  const adminCompany = adminCompanyByUserId[u.id] || null
   return {
     id: u.id,
     name,
     email: u.email,
+    companyId: u.company_id || null,
     company: companyById[u.company_id] || '',
     photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
     isSuperAdmin: !!u.is_super_admin,
-    isAdmin: adminUserIds.has(u.id),
+    isAdmin: !!adminCompany,
+    // Entreprise que l'utilisateur administre (pour la réassignation).
+    adminCompanyId: adminCompany?.id || null,
     deactivated: !u.is_active,
   }
 }
@@ -216,17 +359,22 @@ export default function GestionPage() {
 
   const [deleteModal, setDeleteModal] = useState(null)
   const [roleModal,   setRoleModal]   = useState(null)
+  const [reassignModal, setReassignModal] = useState(null)
+  const [deleteCompanyModal, setDeleteCompanyModal] = useState(null)
+
+  const loadData = () =>
+    Promise.all([api.getUsers(), api.getCompanies()])
+      .then(([{ users: rawUsers }, { companies: rawCompanies }]) => {
+        const adminCompanyByUserId = Object.fromEntries(
+          (rawCompanies || []).filter((c) => c.admin_id).map((c) => [c.admin_id, c]))
+        const companyById = Object.fromEntries((rawCompanies || []).map((c) => [c.id, c.name]))
+        setUsers((rawUsers || []).map((u) => mapUser(u, adminCompanyByUserId, companyById)))
+        setCompanies((rawCompanies || []).map(mapCompany))
+      })
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.getUsers(), api.getCompanies()])
-      .then(([{ users: rawUsers }, { companies: rawCompanies }]) => {
-        if (cancelled) return
-        const adminUserIds = new Set((rawCompanies || []).map((c) => c.admin_id).filter(Boolean))
-        const companyById = Object.fromEntries((rawCompanies || []).map((c) => [c.id, c.name]))
-        setUsers((rawUsers || []).map((u) => mapUser(u, adminUserIds, companyById)))
-        setCompanies((rawCompanies || []).map(mapCompany))
-      })
+    loadData()
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -238,10 +386,25 @@ export default function GestionPage() {
     setUsers((prev) => prev.map((u) => u.id === id ? { ...u, ...changes } : u))
 
   const handleDeactivate = async (user) => {
+    // Un admin d'entreprise ne peut être désactivé qu'après réassignation de
+    // l'administration de son entreprise à un autre membre.
+    if (user.isAdmin && user.adminCompanyId) {
+      setReassignModal(user)
+      return
+    }
     setBusyId(user.id)
     try { await api.deactivateUser(user.id); patchUser(user.id, { deactivated: true }) }
     catch (err) { setError(err.message) }
     finally { setBusyId(null) }
+  }
+
+  // Réassigne l'admin de l'entreprise puis désactive l'ancien admin.
+  const handleReassignConfirm = async (newAdminEmail) => {
+    const target = reassignModal
+    await api.updateCompany(target.adminCompanyId, { admin_email: newAdminEmail })
+    await api.deactivateUser(target.id)
+    setReassignModal(null)
+    await loadData()
   }
 
   const handleReactivate = async (user) => {
@@ -273,6 +436,13 @@ export default function GestionPage() {
       setCompanies((prev) => prev.map((c) => c.id === company.id ? { ...c, deactivated: !c.deactivated } : c))
     } catch (err) { setError(err.message) }
     finally { setBusyId(null) }
+  }
+
+  const handleDeleteCompanyConfirm = async () => {
+    const company = deleteCompanyModal
+    await api.deleteCompany(company.id)
+    setCompanies((prev) => prev.filter((c) => c.id !== company.id))
+    setDeleteCompanyModal(null)
   }
 
   const activeUsers      = users.filter((u) => !u.deactivated)
@@ -404,15 +574,21 @@ export default function GestionPage() {
                     </div>
                     <p className="text-xs text-gray-400">{company.sector}</p>
                   </div>
-                  <button onClick={() => handleToggleCompany(company)} disabled={busy}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors flex-shrink-0 disabled:opacity-50 ${
-                      company.deactivated
-                        ? 'border-green-200 text-green-600 hover:bg-green-50'
-                        : 'border-amber-200 text-amber-600 hover:bg-amber-50'
-                    }`}>
-                    {busy ? <Loader2 size={13} className="animate-spin" />
-                      : company.deactivated ? <><UserCheck size={13} /> Réactiver</> : <><UserX size={13} /> Désactiver</>}
-                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => handleToggleCompany(company)} disabled={busy}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+                        company.deactivated
+                          ? 'border-green-200 text-green-600 hover:bg-green-50'
+                          : 'border-amber-200 text-amber-600 hover:bg-amber-50'
+                      }`}>
+                      {busy ? <Loader2 size={13} className="animate-spin" />
+                        : company.deactivated ? <><UserCheck size={13} /> Réactiver</> : <><UserX size={13} /> Désactiver</>}
+                    </button>
+                    <button onClick={() => setDeleteCompanyModal(company)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
+                      <Trash2 size={13} /> Supprimer
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -434,6 +610,22 @@ export default function GestionPage() {
           isLastSuperAdmin={roleModal.isSuperAdmin && activeSuperAdmins.length <= 1}
           onClose={() => setRoleModal(null)}
           onConfirm={handleRoleConfirm}
+        />
+      )}
+
+      {reassignModal && (
+        <ReassignAdminModal
+          target={reassignModal}
+          onClose={() => setReassignModal(null)}
+          onConfirm={handleReassignConfirm}
+        />
+      )}
+
+      {deleteCompanyModal && (
+        <DeleteCompanyModal
+          company={deleteCompanyModal}
+          onClose={() => setDeleteCompanyModal(null)}
+          onConfirm={handleDeleteCompanyConfirm}
         />
       )}
     </>

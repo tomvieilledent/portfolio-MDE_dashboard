@@ -1,24 +1,49 @@
 import React, { useState } from 'react'
-import { X, UserPlus, Mail, User, Building2, Shield } from 'lucide-react'
+import { X, UserPlus, Mail, User, Building2, Lock, Loader2, Save } from 'lucide-react'
+import { api } from '../../lib/api'
 
-const COMPANIES = ['Tech Innovators', 'Digital Solutions', 'Green Energy Co.', 'Creative Studio']
-
-export default function CreateAccountModal({ forRole, onClose, onSuccess }) {
-  // forRole: 'patron' (admin creates patron) | 'salarie' (patron creates employee)
+// Création directe d'un compte (pas d'email d'activation pour l'instant).
+//  - forRole="patron"  : un super admin crée l'admin d'une entreprise
+//    (sélection de l'entreprise + is_company_admin).
+//  - forRole="salarie" : un admin d'entreprise crée un salarié de SON
+//    entreprise (company_id imposé, pas de sélection).
+export default function CreateAccountModal({ forRole, companies = [], companyId = null, onClose, onSuccess }) {
   const isCreatingPatron = forRole === 'patron'
+  const activeCompanies = companies.filter((c) => c.is_active !== false)
 
-  const [form, setForm] = useState({ name: '', email: '', company: COMPANIES[0], role: isCreatingPatron ? 'Dirigeant' : 'Employé' })
-  const [sent, setSent] = useState(false)
+  const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    company_id: isCreatingPatron ? (activeCompanies[0]?.id || '') : (companyId || ''),
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSent(true)
-    setTimeout(() => {
-      onSuccess?.({ ...form, status: 'En attente', id: Date.now() })
+    setError('')
+    if (isCreatingPatron && !form.company_id) { setError('Choisissez une entreprise'); return }
+    setSubmitting(true)
+    try {
+      const payload = {
+        email: form.email.trim(),
+        password: form.password,
+        first_name: form.first_name.trim() || null,
+        last_name: form.last_name.trim() || null,
+        company_id: form.company_id || null,
+      }
+      if (isCreatingPatron) payload.is_company_admin = true
+      const res = await api.createUser(payload)
+      onSuccess?.(res?.user || res)
       onClose()
-    }, 2000)
+    } catch (err) {
+      setError(err?.message || 'Échec de la création du compte')
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -33,10 +58,10 @@ export default function CreateAccountModal({ forRole, onClose, onSuccess }) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">
-                {isCreatingPatron ? 'Créer un compte Patron' : 'Créer un compte Salarié'}
+                {isCreatingPatron ? "Créer un admin d'entreprise" : 'Créer un compte salarié'}
               </h2>
               <p className="text-sm text-white/80">
-                {isCreatingPatron ? 'Un email d\'activation sera envoyé' : 'Le salarié recevra un lien d\'activation'}
+                {isCreatingPatron ? "Devient l'administrateur de l'entreprise" : 'Compte actif immédiatement'}
               </p>
             </div>
           </div>
@@ -45,76 +70,77 @@ export default function CreateAccountModal({ forRole, onClose, onSuccess }) {
           </button>
         </div>
 
-        {sent ? (
-          /* État "email envoyé" */
-          <div className="px-6 py-10 flex flex-col items-center text-center gap-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <Mail size={28} className="text-green-500" />
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                <User size={13} className="text-gray-400" /> Prénom
+              </label>
+              <input type="text" placeholder="Prénom" value={form.first_name} onChange={set('first_name')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
             </div>
             <div>
-              <p className="text-base font-bold text-gray-900">Email d'activation envoyé !</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Un lien a été envoyé à <span className="font-medium text-gray-700">{form.email}</span>.<br />
-                Le compte sera actif après validation.
-              </p>
+              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                <User size={13} className="text-gray-400" /> Nom
+              </label>
+              <input type="text" placeholder="Nom" value={form.last_name} onChange={set('last_name')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
             </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
-            {/* Nom */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <User size={13} className="text-gray-400" /> Nom complet *
-              </label>
-              <input required type="text" placeholder="Prénom Nom"
-                value={form.name} onChange={set('name')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
 
-            {/* Email */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <Mail size={13} className="text-gray-400" /> Adresse email *
-              </label>
-              <input required type="email" placeholder="prenom.nom@entreprise.fr"
-                value={form.email} onChange={set('email')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+              <Mail size={13} className="text-gray-400" /> Adresse email *
+            </label>
+            <input required type="email" placeholder="prenom.nom@entreprise.fr"
+              value={form.email} onChange={set('email')}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+          </div>
 
-            {/* Entreprise */}
+          <div>
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+              <Lock size={13} className="text-gray-400" /> Mot de passe *
+            </label>
+            <input required type="password" minLength={8} placeholder="8 caractères minimum"
+              value={form.password} onChange={set('password')}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+          </div>
+
+          {/* Entreprise : sélection (patron) ou imposée (salarié) */}
+          {isCreatingPatron && (
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
                 <Building2 size={13} className="text-gray-400" /> Entreprise *
               </label>
-              <select value={form.company} onChange={set('company')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white">
-                {COMPANIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              {activeCompanies.length === 0 ? (
+                <p className="text-sm text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                  Aucune entreprise. Créez d'abord une entreprise.
+                </p>
+              ) : (
+                <select value={form.company_id} onChange={set('company_id')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white">
+                  {activeCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
             </div>
+          )}
 
-            {/* Rôle/Poste */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <Shield size={13} className="text-gray-400" /> {isCreatingPatron ? 'Rôle' : 'Poste'}
-              </label>
-              <input type="text"
-                placeholder={isCreatingPatron ? 'Ex : Dirigeant, Co-fondateur…' : 'Ex : Développeur, Commercial…'}
-                value={form.role} onChange={set('role')}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
-            </div>
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
 
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose}
-                className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
-                Annuler
-              </button>
-              <button type="submit"
-                className={`flex-1 text-white font-medium py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 ${isCreatingPatron ? 'bg-primary-light hover:bg-primary' : 'bg-purple-500 hover:bg-purple-600'}`}>
-                <Mail size={15} /> Envoyer l'invitation
-              </button>
-            </div>
-          </form>
-        )}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
+              Annuler
+            </button>
+            <button type="submit" disabled={submitting || (isCreatingPatron && activeCompanies.length === 0)}
+              className={`flex-1 text-white font-medium py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${isCreatingPatron ? 'bg-primary-light hover:bg-primary' : 'bg-purple-500 hover:bg-purple-600'}`}>
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Créer le compte
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

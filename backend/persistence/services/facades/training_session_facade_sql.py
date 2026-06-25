@@ -33,13 +33,15 @@ class TrainingSessionFacade:
             db.add(session)
             db.flush()
             db.refresh(session)
-            return self._to_dict(session)
+            return self._to_dict(session, enrolled=0)
 
     def get(self, session_id):
         with session_scope() as db:
             s: Any = db.query(ORMTrainingSession).filter(
                 ORMTrainingSession.id == session_id).first()
-            return self._to_dict(s) if s else None
+            if not s:
+                return None
+            return self._to_dict(s, enrolled=self._enrolled_count(db, s.id))
 
     def list(self, training_id=None, status=None, limit=100):
         with session_scope() as db:
@@ -49,7 +51,15 @@ class TrainingSessionFacade:
             if status:
                 q = q.filter(ORMTrainingSession.status == status)
             rows = q.order_by(ORMTrainingSession.start_date.asc()).limit(limit).all()
-            return [self._to_dict(r) for r in rows]
+            return [self._to_dict(r, enrolled=self._enrolled_count(db, r.id))
+                    for r in rows]
+
+    @staticmethod
+    def _enrolled_count(db, session_id):
+        return db.query(ORMFormationUser).filter(
+            ORMFormationUser.session_id == session_id,
+            ORMFormationUser.type == 'enrolled',
+        ).count()
 
     def update(self, session_id, **kwargs):
         with session_scope() as db:
@@ -65,7 +75,7 @@ class TrainingSessionFacade:
             db.add(s)
             db.flush()
             db.refresh(s)
-            return self._to_dict(s)
+            return self._to_dict(s, enrolled=self._enrolled_count(db, s.id))
 
     def complete(self, session_id):
         """Mark session as completed and bulk-complete all enrolled users."""
@@ -84,7 +94,7 @@ class TrainingSessionFacade:
             db.add(s)
             db.flush()
             db.refresh(s)
-            return self._to_dict(s)
+            return self._to_dict(s, enrolled=self._enrolled_count(db, s.id))
 
     def count_enrolled(self, session_id):
         with session_scope() as db:
@@ -93,13 +103,14 @@ class TrainingSessionFacade:
                 ORMFormationUser.type == 'enrolled',
             ).count()
 
-    def _to_dict(self, s):
+    def _to_dict(self, s, enrolled=0):
         return {
             'id': s.id,
             'training_id': s.training_id,
             'start_date': isoformat(s.start_date),
             'end_date': isoformat(s.end_date),
             'max_participants': s.max_participants,
+            'enrolled': enrolled,
             'location': s.location,
             'link': s.link,
             'status': s.status,

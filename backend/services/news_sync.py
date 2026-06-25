@@ -1,4 +1,4 @@
-"""Hourly sync of French economic news — réglementation et vie des entreprises.
+"""Daily sync of French economic news — réglementation et vie des entreprises.
 
 Sources actives (RSS presse spécialisée) :
     réglementation  — Figaro Entreprises, BFM Entreprises, Le Monde Éco, Challenges, Capital
