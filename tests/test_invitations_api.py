@@ -67,6 +67,21 @@ def test_reinviting_does_not_duplicate(seeded_context):
     assert res.get_json()['invitations'] == []
 
 
+def test_session_is_a_valid_target_type(seeded_context):
+    ctx = seeded_context
+    # Invitations now fire when programming a session, so 'session' targets are
+    # accepted just like events.
+    res = ctx['client'].post(
+        '/invitations',
+        json={'target_type': 'session', 'target_id': 'sess-123',
+              'target_title': 'Marketing Digital',
+              'invitee_ids': [ctx['member_user']['id']]},
+        headers=ctx['admin_headers'],
+    )
+    assert res.status_code == 201, res.get_json()
+    assert res.get_json()['invitations'][0]['target_type'] == 'session'
+
+
 def test_bad_target_type_is_rejected(seeded_context):
     ctx = seeded_context
     res = ctx['client'].post(

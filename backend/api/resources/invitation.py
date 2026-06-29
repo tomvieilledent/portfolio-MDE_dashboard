@@ -13,7 +13,7 @@ from backend.persistence.services import InvitationService, UserService
 invitation_service = InvitationService()
 user_service = UserService()
 
-TARGET_TYPES = ('event', 'training')
+TARGET_TYPES = ('event', 'training', 'session')
 RSVP_STATUSES = ('accepted', 'declined')
 
 
@@ -39,7 +39,7 @@ class InvitationListResource(Resource):
         target_id = data.get('target_id')
         if target_type not in TARGET_TYPES:
             return error_response(ERROR_CODES['BAD_REQUEST'],
-                                  'target_type must be event or training', 400)
+                                  'target_type must be event, training or session', 400)
         if not target_id:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'target_id is required', 400)
 

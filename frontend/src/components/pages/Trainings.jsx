@@ -583,7 +583,6 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     fd.append('type', data.type || 'formation')
     ;(data.documentFiles || []).forEach((f) => fd.append('document_file', f))
 
-    let saved
     if (data.id) {
       let res = await api.updateTraining(data.id, fd)
       let updated = res?.training || res
@@ -591,21 +590,12 @@ export default function Trainings({ isAdmin = false, profile = null }) {
         res = await api.removeTrainingDocument(data.id, path)
         updated = res?.training || updated
       }
-      saved = updated
       setTrainings((prev) => prev.map((t) => (t.id === data.id
         ? { ...mapTraining(updated), url: data.url } : t)))
     } else {
       const res = await api.createTraining(fd)
-      saved = res?.training || res
-      setTrainings((prev) => [...prev, { ...mapTraining(saved), url: data.url }])
-    }
-
-    // Invitations internes (RSVP) si des destinataires ont été choisis.
-    if (saved?.id && (data.inviteAll || (data.inviteeIds && data.inviteeIds.length))) {
-      await api.createInvitations({
-        target_type: 'training', target_id: saved.id, target_title: saved.title,
-        invitee_ids: data.inviteeIds || [], all: !!data.inviteAll,
-      }).catch(() => {})
+      const created = res?.training || res
+      setTrainings((prev) => [...prev, { ...mapTraining(created), url: data.url }])
     }
   }
 
@@ -617,8 +607,19 @@ export default function Trainings({ isAdmin = false, profile = null }) {
       ? { ...t, documents: updated?.documents || [] } : t)))
   }
 
-  const handleProgramSession = async (trainingId, payload) => {
-    await api.createSession(trainingId, payload)
+  // Programmation d'une session : c'est ici (où l'on fixe la date) que l'on
+  // envoie les invitations internes (RSVP), pointant sur la session créée.
+  const handleProgramSession = async (trainingId, payload, invite) => {
+    const res = await api.createSession(trainingId, payload)
+    const created = res?.session || res
+    if (created?.id && invite && (invite.inviteAll || (invite.inviteeIds && invite.inviteeIds.length))) {
+      const training = trainings.find((t) => t.id === trainingId)
+      await api.createInvitations({
+        target_type: 'session', target_id: created.id,
+        target_title: training?.title || 'Session',
+        invitee_ids: invite.inviteeIds || [], all: !!invite.inviteAll,
+      }).catch(() => {})
+    }
     await loadSessions()
   }
 
@@ -701,11 +702,11 @@ export default function Trainings({ isAdmin = false, profile = null }) {
               <div className="flex items-center gap-2">
                 <button onClick={() => setSessionModal(true)}
                   className="flex items-center gap-2 border border-purple-300 text-purple-600 hover:bg-purple-50 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm">
-                  <CalendarClock size={16} /> Programmer une formation
+                  <CalendarClock size={16} /> Programmer une formation / un atelier
                 </button>
                 <button onClick={() => setFormModal({ mode: 'create' })}
                   className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm">
-                  <Plus size={16} /> Créer une formation
+                  <Plus size={16} /> Créer une formation / un atelier
                 </button>
               </div>
             )}
@@ -843,8 +844,6 @@ export default function Trainings({ isAdmin = false, profile = null }) {
         <TrainingFormModal
           training={formModal.mode === 'edit' ? formModal.training : null}
           categories={Array.from(new Set(trainings.map((t) => t.category).filter(Boolean)))}
-          users={allUsers}
-          currentUserId={profile?.id}
           onClose={() => setFormModal(null)}
           onSave={handleSave}
         />
@@ -857,6 +856,8 @@ export default function Trainings({ isAdmin = false, profile = null }) {
       {sessionModal && (
         <SessionFormModal
           trainings={trainings}
+          users={allUsers}
+          currentUserId={profile?.id}
           onClose={() => setSessionModal(false)}
           onSave={handleProgramSession}
         />
