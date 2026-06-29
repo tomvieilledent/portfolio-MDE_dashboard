@@ -5,6 +5,7 @@ from typing import Any
 from flask import request
 from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
+from sqlalchemy.exc import IntegrityError
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
@@ -142,6 +143,10 @@ class UserListResource(Resource):
                 profile_picture=profile_picture,
                 business_card=business_card,
             )
+        except IntegrityError:
+            return error_response(
+                ERROR_CODES['CONFLICT'],
+                'a user with this email already exists', 409)
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create user', 409, str(exc))
 

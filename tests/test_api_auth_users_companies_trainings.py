@@ -591,6 +591,40 @@ def test_company_create_is_super_admin_only_with_location_and_count(seeded_conte
     assert no_scheme.get_json()['company']['website_link'] == 'https://www.delta.fr'
 
 
+def test_company_admin_can_create_employee(seeded_context):
+    """A company admin may create employees in their own company. A duplicate
+    email returns a clear conflict message (not the generic create failure)."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_email = seeded_context['company_admin_user']['email']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_email = seeded_context['member_user']['email']
+
+    # Super admin makes the company_admin user the admin of a company.
+    company = client.post('/companies', headers=admin_headers, json={
+        'name': 'Patron Co', 'admin_email': company_admin_email,
+    }).get_json()['company']
+
+    # The company admin creates an employee -> attached to their company.
+    created = client.post('/users', headers=company_admin_headers, json={
+        'email': 'employee@patron.co', 'password': 'password123',
+        'first_name': 'Emp', 'last_name': 'Loyee',
+    })
+    assert created.status_code == 201, created.get_json()
+    new_user = created.get_json()['user']
+    assert new_user['company_id'] == company['id']
+    assert new_user['is_company_admin'] is False
+
+    # Re-using an existing email yields a clear, specific 409.
+    dup = client.post('/users', headers=company_admin_headers, json={
+        'email': member_email, 'password': 'password123', 'first_name': 'Dup',
+    })
+    assert dup.status_code == 409
+    body = dup.get_json()['error']
+    assert body['code'] == ERROR_CODES['CONFLICT']
+    assert body['message'] == 'a user with this email already exists'
+
+
 def test_user_reactivate_permissions(seeded_context):
     """Only super admins may reactivate a deactivated user."""
     client = seeded_context['client']
