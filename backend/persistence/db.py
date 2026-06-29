@@ -40,32 +40,15 @@ except Exception:
 try:
     # import here to avoid circular import when models import Base
     from backend.persistence import models as _models
-    # If the sqlite file exists but was created with an older schema (missing
-    # recently added columns), attempt a best-effort migration by recreating
-    # the schema. We check a representative table for the new column.
+    # Create any missing tables. This is purely *additive* and never drops
+    # existing tables, so user data is preserved across restarts. Schema drift
+    # on existing tables is handled by the additive ALTER TABLE blocks below
+    # (and by Alembic for real migrations) — never by a destructive recreate.
     try:
-        if engine.url.drivername == 'sqlite' and engine.url.database:
-            with engine.connect() as conn:
-                try:
-                    res = conn.execute(
-                        "PRAGMA table_info('conversation_participants')")
-                    cols = [row[1] for row in res]
-                    if 'uploaded_at' not in cols:
-                        _models.Base.metadata.drop_all(bind=engine)
-                        _models.Base.metadata.create_all(bind=engine)
-                    else:
-                        _models.Base.metadata.create_all(bind=engine)
-                except Exception:
-                    # If PRAGMA fails, fall back to create_all
-                    _models.Base.metadata.create_all(bind=engine)
-        else:
-            _models.Base.metadata.create_all(bind=engine)
+        _models.Base.metadata.create_all(bind=engine)
     except Exception:
         # best-effort, do not fail import
-        try:
-            _models.Base.metadata.create_all(bind=engine)
-        except Exception:
-            pass
+        pass
 except Exception:
     pass
 
