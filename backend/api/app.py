@@ -45,6 +45,7 @@ from backend.api.resources.notification import NotificationListResource, Notific
 from backend.api.resources.training import (
     CurrentUserSavedTrainingsResource,
     CurrentUserTrainingsResource,
+    TrainingDocumentResource,
     TrainingEnrollmentsResource,
     TrainingInterestResource,
     TrainingListResource,
@@ -171,6 +172,8 @@ def create_app():
 
     api.add_resource(TrainingListResource, '/trainings')
     api.add_resource(TrainingResource, '/trainings/<string:training_id>')
+    api.add_resource(TrainingDocumentResource,
+                     '/trainings/<string:training_id>/documents')
     api.add_resource(TrainingInterestResource,
                      '/trainings/<string:training_id>/interest')
     api.add_resource(TrainingSavedResource,

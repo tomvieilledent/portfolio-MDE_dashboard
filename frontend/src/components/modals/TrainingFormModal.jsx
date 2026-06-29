@@ -1,39 +1,59 @@
 import React, { useState } from 'react'
-import { X, GraduationCap, Save, FileText, Tag, Link, Loader2 } from 'lucide-react'
+import { X, GraduationCap, Save, FileText, Tag, Link, Loader2, Paperclip, Upload, Trash2 } from 'lucide-react'
 
-const CATEGORIES = ['Marketing', 'Finance', 'Management', 'Digital']
+// Nom lisible d'une pièce jointe à partir de son chemin stocké
+// (/uploads/trainings/documents/<uuid>__<nom-original>).
+export function docName(path) {
+  const base = (path || '').split('/').pop() || ''
+  const parts = base.split('__')
+  return parts.length > 1 ? parts.slice(1).join('__') : base
+}
 
-export default function TrainingFormModal({ training, onClose, onSave }) {
+export default function TrainingFormModal({ training, onClose, onSave, categories = [] }) {
   const isEdit = !!training
   const [form, setForm] = useState({
     title: training?.title || '',
-    category: training?.category || 'Marketing',
+    category: training?.category || '',
+    type: training?.type || 'formation',
     description: training?.description || '',
     url: training?.url || '',
   })
+  // Pièces jointes : existantes (chemins) marquées pour suppression + nouveaux fichiers.
+  const existingDocs = training?.documents || []
+  const [removedDocs, setRemovedDocs] = useState([])
+  const [docFiles, setDocFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const onPickFiles = (e) => {
+    const picked = Array.from(e.target.files || [])
+    if (picked.length) setDocFiles((prev) => [...prev, ...picked])
+    e.target.value = ''
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      // La date et la jauge ne se définissent plus ici : elles relèvent de la
-      // programmation d'une session (réservée au super admin).
       // Lien sans protocole → on préfixe https:// automatiquement.
       const url = form.url.trim()
         ? (/^https?:\/\//i.test(form.url.trim()) ? form.url.trim() : `https://${form.url.trim()}`)
         : ''
-      await onSave({ ...training, ...form, url, id: training?.id })
+      await onSave({
+        ...training, ...form, url, id: training?.id,
+        documentFiles: docFiles, removedDocs,
+      })
       onClose()
     } catch (err) {
       setError(err?.message || "Échec de l'enregistrement")
       setSubmitting(false)
     }
   }
+
+  const visibleExisting = existingDocs.filter((d) => !removedDocs.includes(d))
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
@@ -49,10 +69,10 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">
-                {isEdit ? 'Modifier la formation' : 'Créer une formation'}
+                {isEdit ? 'Modifier' : 'Créer'} {form.type === 'atelier' ? 'un atelier' : 'une formation'}
               </h2>
               <p className="text-sm text-white/80">
-                {isEdit ? training.title : 'Nouvelle formation dans le catalogue'}
+                {isEdit ? training.title : 'Nouvelle entrée dans le catalogue'}
               </p>
             </div>
           </div>
@@ -77,49 +97,57 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
             />
           </div>
 
+          {/* Type : formation ou atelier */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[['formation', 'Formation'], ['atelier', 'Atelier']].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, type: value }))}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                    form.type === value
+                      ? 'bg-purple-500 border-purple-500 text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Lien */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <span className="flex items-center gap-1"><Link size={13} /> Lien de la formation</span>
+              <span className="flex items-center gap-1"><Link size={13} /> Lien</span>
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="www.exemple.com/formation"
-                value={form.url}
-                onChange={set('url')}
-                className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-              {form.url && (
-                <a
-                  href={form.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600 transition-colors"
-                  title="Tester le lien"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Link size={15} />
-                </a>
-              )}
-            </div>
-            {form.url && (
-              <p className="mt-1 text-xs text-gray-400 truncate">{form.url}</p>
-            )}
+            <input
+              type="text"
+              placeholder="www.exemple.com/formation"
+              value={form.url}
+              onChange={set('url')}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
           </div>
 
-          {/* Catégorie */}
+          {/* Catégorie — saisie libre avec suggestions */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <span className="flex items-center gap-1"><Tag size={13} /> Catégorie *</span>
+              <span className="flex items-center gap-1"><Tag size={13} /> Catégorie</span>
             </label>
-            <select
+            <input
+              type="text"
+              list="training-categories"
+              placeholder="Ex : Marketing, Cybersécurité…"
               value={form.category}
               onChange={set('category')}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
-            >
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <datalist id="training-categories">
+              {categories.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </div>
 
           {/* Description */}
@@ -127,11 +155,47 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
             <textarea
               rows={3}
-              placeholder="Décrivez le contenu et les objectifs de la formation…"
+              placeholder="Décrivez le contenu et les objectifs…"
               value={form.description}
               onChange={set('description')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
             />
+          </div>
+
+          {/* Pièces jointes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <span className="flex items-center gap-1"><Paperclip size={13} /> Pièces jointes</span>
+            </label>
+            <div className="space-y-1.5">
+              {visibleExisting.map((path) => (
+                <div key={path} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                  <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                  <span className="flex-1 text-sm text-gray-700 truncate">{docName(path)}</span>
+                  <button type="button" onClick={() => setRemovedDocs((prev) => [...prev, path])}
+                    className="text-gray-400 hover:text-red-500" title="Retirer">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              {docFiles.map((file, i) => (
+                <div key={`${file.name}-${i}`} className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
+                  <FileText size={14} className="text-purple-400 flex-shrink-0" />
+                  <span className="flex-1 text-sm text-gray-700 truncate">{file.name}</span>
+                  <button type="button" onClick={() => setDocFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-gray-400 hover:text-red-500" title="Retirer">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <label className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-purple-500 hover:text-purple-600 cursor-pointer">
+              <Upload size={15} /> Ajouter un document
+              <input type="file" multiple className="hidden"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.odp,.ods,.txt,.csv,.jpg,.jpeg,.png,.webp"
+                onChange={onPickFiles} />
+            </label>
+            <p className="text-xs text-gray-400 mt-1">Plaquettes, programmes… PDF, Office, images.</p>
           </div>
 
           <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
@@ -158,7 +222,7 @@ export default function TrainingFormModal({ training, onClose, onSave }) {
               className="flex-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              {isEdit ? 'Enregistrer' : 'Créer la formation'}
+              {isEdit ? 'Enregistrer' : 'Créer'}
             </button>
           </div>
         </form>

@@ -9,6 +9,12 @@ from werkzeug.utils import secure_filename
 
 UPLOAD_ROOT = Path(__file__).resolve().parents[1] / 'uploads'
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+# Documents that can be attached to a training (brochures, programmes…).
+ALLOWED_DOCUMENT_EXTENSIONS = {
+    '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx',
+    '.odt', '.odp', '.ods', '.txt', '.csv',
+    '.jpg', '.jpeg', '.png', '.webp',
+}
 
 
 def ensure_upload_dirs():
@@ -18,12 +24,17 @@ def ensure_upload_dirs():
         'users/business_cards',
         'companies',
         'trainings',
+        'trainings/documents',
     ):
         (UPLOAD_ROOT / folder_name).mkdir(parents=True, exist_ok=True)
 
 
 def _is_allowed_image(filename):
     return Path(filename).suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+
+
+def _is_allowed_document(filename):
+    return Path(filename).suffix.lower() in ALLOWED_DOCUMENT_EXTENSIONS
 
 
 def save_image_upload(file_storage: FileStorage, category: str) -> str | None:
@@ -53,6 +64,43 @@ def save_image_upload(file_storage: FileStorage, category: str) -> str | None:
 
     suffix = Path(original_name).suffix.lower()
     public_name = f"{uuid4().hex}{suffix}"
+    relative_path = Path(category) / public_name
+    destination = UPLOAD_ROOT / relative_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    file_storage.save(destination)
+
+    return f"/uploads/{relative_path.as_posix()}"
+
+
+def save_document_upload(file_storage: FileStorage, category: str) -> str | None:
+    """Save an uploaded document to disk and return its public relative URL.
+
+    Mirrors :func:`save_image_upload` but allows document types (PDF, Office,
+    text…) in addition to images. The original (sanitised) filename is kept
+    after a ``__`` separator so download links stay human-readable while a UUID
+    prefix guarantees uniqueness.
+
+    Args:
+        file_storage (FileStorage): File object from ``request.files``.
+        category (str): Destination sub-folder, e.g. ``trainings/documents``.
+
+    Returns:
+        str | None: Public URL path, or ``None`` when no file was provided.
+
+    Raises:
+        ValueError: If the filename is invalid or the extension is not allowed.
+    """
+    if not file_storage or not file_storage.filename:
+        return None
+
+    ensure_upload_dirs()
+    original_name = secure_filename(file_storage.filename)
+    if not original_name:
+        raise ValueError('invalid filename')
+    if not _is_allowed_document(original_name):
+        raise ValueError('unsupported document type')
+
+    public_name = f"{uuid4().hex}__{original_name}"
     relative_path = Path(category) / public_name
     destination = UPLOAD_ROOT / relative_path
     destination.parent.mkdir(parents=True, exist_ok=True)

@@ -6,7 +6,8 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
-from backend.api.uploads import save_image_upload
+from backend.api.uploads import (
+    delete_uploaded_file, save_document_upload, save_image_upload)
 from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
 from backend.models.training import Training as DomainTraining
 from backend.persistence.services import FormationUserService, TrainingService, UserService
@@ -23,6 +24,21 @@ def _extract_training_picture(payload):
     if uploaded_file and uploaded_file.filename:
         return save_image_upload(uploaded_file, 'trainings')
     return payload.get('picture')
+
+
+def _extract_uploaded_documents():
+    """Save any uploaded attachments and return their public paths.
+
+    Reads every file sent under ``document_file`` (multiple allowed) and stores
+    them in ``trainings/documents``. Returns an empty list when none provided.
+    """
+    saved = []
+    for file_storage in request.files.getlist('document_file'):
+        if file_storage and file_storage.filename:
+            path = save_document_upload(file_storage, 'trainings/documents')
+            if path:
+                saved.append(path)
+    return saved
 
 
 class TrainingListResource(Resource):
@@ -45,11 +61,14 @@ class TrainingListResource(Resource):
     def post(self):
         """Create a training. Restricted to super admins.
 
-        Expected JSON body:
+        Expected body (JSON or multipart):
             title (str): Training title (required).
             description (str | None): Optional description.
             picture (str | None): Optional picture path/URL.
             company_id (str | None): Optional owning company UUID.
+            category (str | None): Optional free-text category.
+            type (str | None): ``'formation'`` (default) or ``'atelier'``.
+            document_file (file | None): One or more attachments (multipart).
 
         Returns:
             tuple[dict, int]: ``{training}`` and 201, or 403.
@@ -67,16 +86,22 @@ class TrainingListResource(Resource):
         if not title:
             return error_response(ERROR_CODES['BAD_REQUEST'], 'title is required', 400)
         try:
-            DomainTraining(title=title, description=data.get('description'),
-                           picture=picture, company_id=data.get('company_id'))
+            domain = DomainTraining(
+                title=title, description=data.get('description'),
+                picture=picture, company_id=data.get('company_id'),
+                category=data.get('category'), type=data.get('type'))
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        documents = _extract_uploaded_documents()
         try:
             training = training_service.facade.create(
                 title,
                 company_id=data.get('company_id'),
                 description=data.get('description'),
                 picture=picture,
+                category=domain.category,
+                type=domain.type,
+                documents=documents,
             )
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create training', 409, str(exc))
@@ -125,6 +150,8 @@ class TrainingResource(Resource):
                 description=current.get('description'),
                 picture=current.get('picture'),
                 company_id=current.get('company_id'),
+                category=current.get('category'),
+                type=current.get('type'),
             )
             for k, v in data.items():
                 if hasattr(domain, k):
@@ -138,6 +165,15 @@ class TrainingResource(Resource):
             for field in ('title', 'description', 'company_id', 'is_active'):
                 if field in data:
                     update_data[field] = data.get(field)
+            # Normalised category/type come from the validated domain object.
+            if 'category' in data:
+                update_data['category'] = domain.category
+            if 'type' in data:
+                update_data['type'] = domain.type
+            # Newly uploaded attachments are appended to the existing list.
+            new_documents = _extract_uploaded_documents()
+            if new_documents:
+                update_data['documents'] = (current.get('documents') or []) + new_documents
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
@@ -160,6 +196,43 @@ class TrainingResource(Resource):
         if not training_service.facade.deactivate(training_id, by=get_jwt_identity()):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
         return {'msg': 'training deactivated'}
+
+
+class TrainingDocumentResource(Resource):
+    """Remove a single attachment from a training (super admin only)."""
+
+    @jwt_required()
+    def delete(self, training_id):
+        """Detach a document and delete its file.
+
+        Args:
+            training_id (str): Training UUID path parameter.
+
+        Expected JSON body:
+            path (str): Public path of the attachment to remove.
+
+        Returns:
+            tuple[dict, int]: ``{training}`` and 200, or 400/403/404.
+        """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not current_user or not current_user.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can manage training documents', 403)
+        data = request.get_json(silent=True) or {}
+        path = data.get('path')
+        if not path:
+            return error_response(ERROR_CODES['BAD_REQUEST'], 'path is required', 400)
+        current = training_service.facade.get(training_id)
+        if not current:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
+        documents = current.get('documents') or []
+        if path not in documents:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'document not found', 404)
+        remaining = [d for d in documents if d != path]
+        training = training_service.facade.update(training_id, documents=remaining)
+        delete_uploaded_file(path)
+        return {'training': training}
 
 
 class TrainingInterestResource(Resource):

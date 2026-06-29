@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link, X, BookOpen, Zap, Star, CalendarClock, MapPin } from 'lucide-react'
+import { Search, Clock, Calendar, GraduationCap, Users, Plus, Edit2, Bookmark, BookmarkPlus, Timer, ExternalLink, Link, X, BookOpen, Zap, Star, CalendarClock, MapPin, Paperclip, FileText, Trash2 } from 'lucide-react'
 import TrainingModal from '../modals/TrainingModal'
-import TrainingFormModal from '../modals/TrainingFormModal'
+import TrainingFormModal, { docName } from '../modals/TrainingFormModal'
 import SessionFormModal from '../modals/SessionFormModal'
-import { api } from '../../lib/api'
-
-const FILTERS = ['Tout', 'Marketing', 'Finance', 'Management', 'Digital']
+import { api, mediaUrl } from '../../lib/api'
 
 const frenchMonths = {
   Janvier: 0, Février: 1, Mars: 2, Avril: 3, Mai: 4, Juin: 5,
@@ -21,7 +19,9 @@ function mapTraining(t) {
     id: t.id,
     title: t.title,
     description: t.description || '',
-    category: '',
+    category: t.category || '',
+    type: t.type || 'formation',
+    documents: t.documents || [],
     duration: '',
     endDate: '',
     enrolled: 0,
@@ -235,7 +235,8 @@ function StarButton({ interested, count, onClick, disabled }) {
 }
 
 // ── Catalogue card ────────────────────────────────────────────────────────────
-function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink, interested, interestCount, onToggleInterest, canInteract }) {
+function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink, interested, interestCount, onToggleInterest, canInteract, onRemoveDoc }) {
+  const documents = training.documents || []
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow flex flex-col">
       <div className="flex items-start justify-between mb-3">
@@ -263,9 +264,11 @@ function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink,
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
-            {training.category}
-          </span>
+          {training.category && (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
+              {training.category}
+            </span>
+          )}
           <button onClick={onToggleSave} title={saved ? 'Retirer des favoris' : 'Sauvegarder'}
             className="p-1.5 rounded-lg transition-colors hover:bg-gray-100">
             {saved ? <BookmarkPlus size={18} className="text-amber-500" /> : <Bookmark size={18} className="text-gray-300 hover:text-amber-400" />}
@@ -274,6 +277,29 @@ function CatalogueCard({ training, isAdmin, saved, onToggleSave, onEdit, onLink,
       </div>
 
       <p className="text-sm text-gray-600 mb-4">{training.description}</p>
+
+      {documents.length > 0 && (
+        <div className="mb-4 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+            <Paperclip size={13} /> Documents
+          </p>
+          {documents.map((path) => (
+            <div key={path} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5">
+              <FileText size={14} className="text-gray-400 flex-shrink-0" />
+              <a href={mediaUrl(path)} target="_blank" rel="noopener noreferrer"
+                className="flex-1 text-sm text-gray-700 hover:text-purple-600 hover:underline truncate"
+                onClick={(e) => e.stopPropagation()}>
+                {docName(path)}
+              </a>
+              {isAdmin && onRemoveDoc && (
+                <button onClick={() => onRemoveDoc(path)} className="text-gray-400 hover:text-red-500" title="Supprimer">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100">
         <StarButton
@@ -333,9 +359,11 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
-            {training.category}
-          </span>
+          {training.category && (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[training.category] || 'bg-gray-100 text-gray-700'}`}>
+              {training.category}
+            </span>
+          )}
           <button onClick={onToggleSave} title={saved ? 'Retirer des favoris' : 'Sauvegarder'}
             className="p-1.5 rounded-lg transition-colors hover:bg-gray-100">
             {saved ? <BookmarkPlus size={18} className="text-amber-500" /> : <Bookmark size={18} className="text-gray-300 hover:text-amber-400" />}
@@ -539,20 +567,38 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     })
   }
 
-  // Persiste réellement la formation (le backend ne stocke que title +
-  // description ; catégorie/lien restent des enrichissements côté UI).
+  // Persiste la formation/atelier (titre, description, catégorie libre, type)
+  // et ses pièces jointes via multipart. Le lien reste un enrichissement UI.
   const handleSave = async (data) => {
-    const payload = { title: data.title, description: data.description }
+    const fd = new FormData()
+    fd.append('title', data.title || '')
+    fd.append('description', data.description || '')
+    fd.append('category', data.category || '')
+    fd.append('type', data.type || 'formation')
+    ;(data.documentFiles || []).forEach((f) => fd.append('document_file', f))
+
     if (data.id) {
-      const res = await api.updateTraining(data.id, payload)
-      const updated = res?.training || res
+      let res = await api.updateTraining(data.id, fd)
+      let updated = res?.training || res
+      for (const path of (data.removedDocs || [])) {
+        res = await api.removeTrainingDocument(data.id, path)
+        updated = res?.training || updated
+      }
       setTrainings((prev) => prev.map((t) => (t.id === data.id
-        ? { ...mapTraining(updated), category: data.category, url: data.url } : t)))
+        ? { ...mapTraining(updated), url: data.url } : t)))
     } else {
-      const res = await api.createTraining(payload)
+      const res = await api.createTraining(fd)
       const created = res?.training || res
-      setTrainings((prev) => [...prev, { ...mapTraining(created), category: data.category, url: data.url }])
+      setTrainings((prev) => [...prev, { ...mapTraining(created), url: data.url }])
     }
+  }
+
+  // Suppression d'une pièce jointe depuis une carte (admin).
+  const handleRemoveDoc = async (trainingId, path) => {
+    const res = await api.removeTrainingDocument(trainingId, path)
+    const updated = res?.training || res
+    setTrainings((prev) => prev.map((t) => (t.id === trainingId
+      ? { ...t, documents: updated?.documents || [] } : t)))
   }
 
   const handleProgramSession = async (trainingId, payload) => {
@@ -587,11 +633,14 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     setTrainings((prev) => prev.map((t) => (t.id === data.id ? data : t)))
   }
 
+  // Filtres dérivés des catégories réellement saisies (libres).
+  const filters = ['Tout', ...Array.from(new Set(trainings.map((t) => t.category).filter(Boolean)))]
+
   const baseFiltered = trainings.filter((t) => {
     const matchesFilter = activeFilter === 'Tout' || t.category === activeFilter
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.category || '').toLowerCase().includes(searchQuery.toLowerCase())
     return matchesFilter && matchesSearch
   })
 
@@ -604,6 +653,9 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     .filter((s) => (trainingTitleById[s.training_id] || '').toLowerCase().includes(searchQuery.toLowerCase()))
 
   const displayed = subTab === 'catalogue' ? baseFiltered : savedTrainings
+  // Deux sections : Formations vs Ateliers.
+  const displayedFormations = displayed.filter((t) => (t.type || 'formation') !== 'atelier')
+  const displayedAteliers = displayed.filter((t) => (t.type || 'formation') === 'atelier')
 
   const cardProps = (training) => ({
     training,
@@ -616,6 +668,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     canInteract: !!profile && !isAdmin,
     onEdit: () => setFormModal({ mode: 'edit', training }),
     onLink: () => setLinkModal(training),
+    onRemoveDoc: (path) => handleRemoveDoc(training.id, path),
   })
 
   return (
@@ -625,8 +678,8 @@ export default function Trainings({ isAdmin = false, profile = null }) {
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Formations</h2>
-              <p className="text-sm text-gray-500 mt-1">Formations professionnelles pour entrepreneurs</p>
+              <h2 className="text-2xl font-bold text-gray-900">Formations / Ateliers</h2>
+              <p className="text-sm text-gray-500 mt-1">Formations et ateliers pour entrepreneurs</p>
             </div>
             {isAdmin && (
               <div className="flex items-center gap-2">
@@ -677,7 +730,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
           </div>
 
           <div className="flex gap-2 mb-6 flex-wrap">
-            {FILTERS.map((f) => (
+            {filters.map((f) => (
               <button key={f} onClick={() => setActiveFilter(f)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   activeFilter === f ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-500'
@@ -715,19 +768,47 @@ export default function Trainings({ isAdmin = false, profile = null }) {
             )
           )}
 
-          {/* Catalogue / Sauvegardées : fiches formation */}
+          {/* Catalogue / Sauvegardées : deux sections (Formations / Ateliers) */}
           {!loading && subTab !== 'actives' && (
             displayed.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {displayed.map((training) => (
-                  <CatalogueCard key={training.id} {...cardProps(training)} />
-                ))}
+              <div className="space-y-8">
+                <section>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <GraduationCap size={18} className="text-purple-500" /> Formations
+                    <span className="text-sm font-normal text-gray-400">({displayedFormations.length})</span>
+                  </h3>
+                  {displayedFormations.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {displayedFormations.map((training) => (
+                        <CatalogueCard key={training.id} {...cardProps(training)} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Aucune formation.</p>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Zap size={18} className="text-amber-500" /> Ateliers
+                    <span className="text-sm font-normal text-gray-400">({displayedAteliers.length})</span>
+                  </h3>
+                  {displayedAteliers.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {displayedAteliers.map((training) => (
+                        <CatalogueCard key={training.id} {...cardProps(training)} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Aucun atelier.</p>
+                  )}
+                </section>
               </div>
             ) : (
               <div className="text-center py-12">
                 <p className="text-gray-400">
-                  {subTab === 'saved' ? "Vous n'avez pas encore sauvegardé de formation"
-                    : 'Aucune formation ne correspond à votre recherche'}
+                  {subTab === 'saved' ? "Vous n'avez pas encore sauvegardé d'élément"
+                    : 'Aucun élément ne correspond à votre recherche'}
                 </p>
               </div>
             )
@@ -745,6 +826,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
       {formModal && (
         <TrainingFormModal
           training={formModal.mode === 'edit' ? formModal.training : null}
+          categories={Array.from(new Set(trainings.map((t) => t.category).filter(Boolean)))}
           onClose={() => setFormModal(null)}
           onSave={handleSave}
         />

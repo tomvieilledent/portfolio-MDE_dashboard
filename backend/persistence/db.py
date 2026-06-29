@@ -101,6 +101,25 @@ except Exception:
 
 try:
     with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('trainings')"))
+        training_cols = [row[1] for row in res]
+        if 'category' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN category VARCHAR(100)"))
+            conn.commit()
+        if 'type' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN type VARCHAR(20) DEFAULT 'formation'"))
+            conn.commit()
+        if 'documents' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN documents VARCHAR(2000)"))
+            conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
         res = conn.execute(text("PRAGMA table_info('conversations')"))
         conversation_cols = [row[1] for row in res]
         if 'title' not in conversation_cols:

@@ -132,6 +132,8 @@ export const api = {
   getTrainings: () => request('/trainings'),
   createTraining: (payload) => request('/trainings', { method: 'POST', body: payload }),
   updateTraining: (id, payload) => request(`/trainings/${id}`, { method: 'PATCH', body: payload }),
+  removeTrainingDocument: (id, path) =>
+    request(`/trainings/${id}/documents`, { method: 'DELETE', body: { path } }),
   expressInterest: (id) => request(`/trainings/${id}/interest`, { method: 'POST' }),
   removeInterest: (id) => request(`/trainings/${id}/interest`, { method: 'DELETE' }),
 

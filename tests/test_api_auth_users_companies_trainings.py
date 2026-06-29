@@ -405,6 +405,63 @@ def test_training_permissions_and_crud(seeded_context):
         db.close()
 
 
+def test_training_category_type_and_documents(seeded_context):
+    """Free-text category, formation/atelier type, and document attachments."""
+    from io import BytesIO
+    from pathlib import Path
+    from backend.api.uploads import UPLOAD_ROOT
+
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    # Free-text category + explicit atelier type persist.
+    created = client.post('/trainings', headers=admin_headers, json={
+        'title': 'Atelier Cybersécurité', 'category': 'Cybersécurité', 'type': 'atelier',
+    })
+    assert created.status_code == 201
+    training = created.get_json()['training']
+    assert training['category'] == 'Cybersécurité'
+    assert training['type'] == 'atelier'
+    assert training['documents'] == []
+
+    # Type defaults to 'formation' when omitted.
+    default_type = client.post('/trainings', headers=admin_headers, json={
+        'title': 'Formation Marketing', 'category': 'Marketing',
+    }).get_json()['training']
+    assert default_type['type'] == 'formation'
+
+    # Invalid type is rejected.
+    bad = client.post('/trainings', headers=admin_headers, json={
+        'title': 'X', 'type': 'webinaire'})
+    assert_error(bad, 400, ERROR_CODES['VALIDATION_ERROR'])
+
+    # Multipart create with an attached document.
+    with_doc = client.post('/trainings', headers=admin_headers, data={
+        'title': 'Atelier avec plaquette', 'category': 'Design', 'type': 'atelier',
+        'document_file': (BytesIO(b'%PDF-1.4 fake brochure'), 'plaquette.pdf'),
+    }, content_type='multipart/form-data')
+    assert with_doc.status_code == 201
+    doc_training = with_doc.get_json()['training']
+    assert len(doc_training['documents']) == 1
+    doc_path = doc_training['documents'][0]
+    assert doc_path.startswith('/uploads/trainings/documents/')
+    assert doc_path.endswith('__plaquette.pdf')
+    on_disk = UPLOAD_ROOT / Path(doc_path.lstrip('/')).relative_to('uploads')
+    assert on_disk.exists()
+
+    # Removing the document detaches it and deletes the file.
+    removed = client.delete(f"/trainings/{doc_training['id']}/documents",
+                            headers=admin_headers, json={'path': doc_path})
+    assert removed.status_code == 200
+    assert removed.get_json()['training']['documents'] == []
+    assert not on_disk.exists()
+
+    # A non-super-admin cannot remove documents.
+    forbidden = client.delete(f"/trainings/{doc_training['id']}/documents",
+                              headers=seeded_context['member_headers'], json={'path': doc_path})
+    assert_error(forbidden, 403, ERROR_CODES['FORBIDDEN'])
+
+
 @pytest.mark.parametrize(
     'payload',
     [

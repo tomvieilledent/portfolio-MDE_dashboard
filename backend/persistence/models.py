@@ -64,6 +64,11 @@ class Training(Base):
     company_id = Column(String(36))
     description = Column(String(2000))
     picture = Column(String(512))
+    # Free-text category (no fixed list) and kind: 'formation' or 'atelier'.
+    category = Column(String(100))
+    type = Column(String(20), default='formation')
+    # Attachments (e.g. scanned brochures) stored as a CSV of upload paths.
+    documents = Column(String(2000))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
