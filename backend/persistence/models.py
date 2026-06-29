@@ -93,6 +93,12 @@ class Conversation(Base):
     __tablename__ = 'conversations'
     id = Column(String(36), primary_key=True,
                 default=lambda: str(uuid.uuid4()))
+    # Optional group name. A conversation with a title is a named group chat;
+    # untitled conversations are treated as ad-hoc rooms.
+    title = Column(String(200))
+    # UUID of the user who created the group. Only the creator may rename it
+    # or add/remove members; other participants may only leave.
+    creator_id = Column(String(36))
     # participant_ids stored as a comma-separated string for simplicity
     participant_ids = Column(String(1000))
     is_active = Column(Boolean, default=True)

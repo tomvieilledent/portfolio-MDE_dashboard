@@ -160,7 +160,16 @@ export const api = {
 
   // --- Chat ---
   getConversations: () => request('/conversations'),
+  createConversation: (payload) => request('/conversations', { method: 'POST', body: payload }),
+  getConversation: (id) => request(`/conversations/${id}`),
+  renameConversation: (id, title) => request(`/conversations/${id}`, { method: 'PATCH', body: { title } }),
+  addParticipant: (id, participantId) =>
+    request(`/conversations/${id}`, { method: 'PATCH', body: { participant_id: participantId, action: 'add' } }),
+  removeParticipant: (id, participantId) =>
+    request(`/conversations/${id}`, { method: 'PATCH', body: { participant_id: participantId, action: 'remove' } }),
+  leaveConversation: (id) => request(`/conversations/${id}`, { method: 'DELETE' }),
   getConversationMessages: (id) => request(`/conversations/${id}/messages`),
+  markConversationRead: (id) => request(`/conversations/${id}/read`, { method: 'POST' }),
   getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
   markDirectRead: (otherUserId) => request(`/messages/direct/${otherUserId}`, { method: 'POST' }),
   getUnreadCount: () => request('/messages/unread'),

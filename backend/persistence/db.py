@@ -98,3 +98,18 @@ try:
             conn.commit()
 except Exception:
     pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('conversations')"))
+        conversation_cols = [row[1] for row in res]
+        if 'title' not in conversation_cols:
+            conn.execute(text(
+                "ALTER TABLE conversations ADD COLUMN title VARCHAR(200)"))
+            conn.commit()
+        if 'creator_id' not in conversation_cols:
+            conn.execute(text(
+                "ALTER TABLE conversations ADD COLUMN creator_id VARCHAR(36)"))
+            conn.commit()
+except Exception:
+    pass

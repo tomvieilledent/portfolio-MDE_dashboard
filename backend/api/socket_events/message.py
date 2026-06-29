@@ -30,6 +30,74 @@ def user_room(user_id):
     return f"user:{user_id}"
 
 
+def join_user_sockets(user_id, conversation_id):
+    """Add all of an *already-connected* user's sockets to a conversation room.
+
+    Called from the REST layer when a conversation is created or a participant
+    is added, so a user who is online but has never opened the chat panel still
+    starts receiving group messages (and notifications) immediately — without
+    waiting for them to emit ``join_conversation``. ``handle_connect`` only
+    auto-joins the rooms that exist at connection time, so newly created groups
+    need this catch-up.
+    """
+    if not user_id or not conversation_id:
+        return
+    room = conversation_room(conversation_id)
+    for sid, uid in list(connected_users.items()):
+        if uid == user_id:
+            socketio.server.enter_room(sid, room, namespace='/')
+
+
+def leave_user_sockets(user_id, conversation_id):
+    """Remove a connected user's sockets from a conversation room.
+
+    Mirror of :func:`join_user_sockets`, called when a participant is removed
+    (or leaves) so they immediately stop receiving the group's messages.
+    """
+    if not user_id or not conversation_id:
+        return
+    room = conversation_room(conversation_id)
+    for sid, uid in list(connected_users.items()):
+        if uid == user_id:
+            socketio.server.leave_room(sid, room, namespace='/')
+
+
+def notify_conversation_added(user_id, conversation):
+    """Tell a user (on all their devices) that a group was added for them.
+
+    Lets an open chat panel insert the new group into its list live, instead of
+    only seeing it after a manual refresh. Delivered on the personal room, which
+    is always joined at connect, so it reaches the user even before they are in
+    the conversation room itself.
+    """
+    if not user_id or not conversation:
+        return
+    socketio.emit('conversation_added', {'conversation': conversation},
+                  to=user_room(user_id))
+
+
+def notify_conversation_removed(user_id, conversation_id):
+    """Tell a user that a group was removed for them (they left / were removed).
+
+    Lets an open chat panel drop the group from its list live.
+    """
+    if not user_id or not conversation_id:
+        return
+    socketio.emit('conversation_removed', {'conversation_id': conversation_id},
+                  to=user_room(user_id))
+
+
+def notify_conversation_updated(conversation):
+    """Broadcast a group metadata change (e.g. a rename) to its room.
+
+    Members with the chat panel open update the displayed group name live.
+    """
+    if not conversation:
+        return
+    socketio.emit('conversation_updated', {'conversation': conversation},
+                  to=conversation_room(conversation['id']))
+
+
 def notify_message_deleted(message):
     """Broadcast a ``message_deleted`` event for a (soft-)deleted message.
 
@@ -70,6 +138,14 @@ def handle_connect(auth):
     connected_users[sid] = user_id
     # Join a personal room so direct messages reach all of the user's devices.
     join_room(user_room(user_id))
+    # Auto-join every group conversation the user belongs to, so group
+    # messages reach them in real time (badges, toasts) even before they
+    # open the chat panel — mirroring the always-on DM personal room.
+    try:
+        for conv in conversation_facade.list_by_participant(user_id):
+            join_room(conversation_room(conv['id']))
+    except Exception as exc:
+        print('Failed to auto-join conversation rooms:', exc)
     # Announce presence only on the first connection for this user.
     if mark_online(user_id):
         socketio.emit('presence', {'user_id': user_id, 'online': True})

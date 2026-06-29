@@ -101,8 +101,10 @@ export default function DashboardContainer() {
     if (!socket) return
     const onNew = ({ message }) => {
       if (!message || message.author_id === myId) return
-      // Message qui m'est adressé (DM) — on ne notifie que panneau fermé.
-      if (message.recipient_id !== myId) return
+      // DM qui m'est adressé OU message de groupe (room rejointe à la
+      // connexion). On ne notifie que lorsque le panneau est fermé.
+      const forMe = message.conversation_id ? true : message.recipient_id === myId
+      if (!forMe) return
       if (!messagingOpenRef.current) {
         setUnreadCount((n) => n + 1)
         setMsgToast(message.content ? `📨 ${message.content}` : '📨 Nouveau message reçu')
