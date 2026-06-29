@@ -9,7 +9,7 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.uploads import save_image_upload
-from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
+from backend.api.resources._helpers import _can, _cleanup_replaced_upload, _request_payload
 from backend.models.company import Company as DomainCompany
 from backend.persistence.services import CompanyService, UserService
 
@@ -57,10 +57,10 @@ class CompanyListResource(Resource):
             tuple[dict, int]: ``{company}`` and 201.
         """
         current = user_service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_companies'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can create companies', 403)
+                'not allowed to create companies', 403)
         data = _request_payload()
         name = data.get('name')
         admin_email = data.get('admin_email')
@@ -199,10 +199,10 @@ class CompanyResource(Resource):
             tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
         current = user_service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_companies'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can delete companies', 403)
+                'not allowed to delete companies', 403)
         if not company_service.facade.delete(company_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
         return {'msg': 'company deleted'}
@@ -216,7 +216,7 @@ def _can_manage_company(user, company):
     """
     if not user or not company:
         return False
-    if user.get('is_super_admin'):
+    if _can(user, 'manage_companies'):
         return True
     # Co-responsable : porte le flag is_company_admin pour cette entreprise.
     if user.get('is_company_admin') and user.get('company_id') == company.get('id'):

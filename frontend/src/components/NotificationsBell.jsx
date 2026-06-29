@@ -65,6 +65,12 @@ export default function NotificationsBell() {
       if (updated) {
         setItems((prev) => prev.map((i) => i.id === id ? updated : i))
         setPending((n) => Math.max(0, n - 1))
+        // Répondre à une invitation de session (in)scrit l'utilisateur côté
+        // backend : on prévient les vues montées (Formations) pour qu'elles
+        // ré-hydratent leurs inscriptions sans attendre un remontage.
+        if (updated.target_type === 'session') {
+          window.dispatchEvent(new CustomEvent('enrollments:changed'))
+        }
       }
     } catch { /* ignore */ }
     finally { setBusyId(null) }

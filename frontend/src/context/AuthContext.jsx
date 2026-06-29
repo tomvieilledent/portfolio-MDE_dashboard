@@ -133,6 +133,10 @@ export function AuthProvider({ children }) {
   }
 
   const role = roleOf(user, companyAdminId)
+  // Droits du staff : un super admin les possède tous implicitement, un membre
+  // « staff » porte un sous-ensemble explicite dans user.permissions.
+  const permissions = user?.permissions || []
+  const can = (perm) => !!user && (!!user.is_super_admin || permissions.includes(perm))
   const value = {
     user,
     loading,
@@ -140,6 +144,9 @@ export function AuthProvider({ children }) {
     role,
     isAdmin: role === 'admin',
     isPatron: role === 'patron',
+    isStaff: !!user?.is_staff,
+    permissions,
+    can,
     companyAdminId,
     login,
     register,

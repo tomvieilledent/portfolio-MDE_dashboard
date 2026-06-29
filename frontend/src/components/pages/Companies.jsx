@@ -20,9 +20,11 @@ function mapCompany(c) {
   }
 }
 
-export default function Companies() {
+export default function Companies({ isAdmin = false }) {
   const { user, role } = useAuth()
-  const isSuperAdmin = role === 'admin'
+  // « isAdmin » porte la capacité de gestion plateforme : super admin OU membre
+  // du staff disposant du droit `manage_companies` (passé par Dashboard).
+  const isSuperAdmin = isAdmin || role === 'admin'
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -155,9 +157,9 @@ export default function Companies() {
           {isSuperAdmin && (
             <button
               onClick={() => setModal({ mode: 'add', kind: wantTrainer ? 'trainer' : 'company' })}
-              className="btn-primary flex items-center gap-2"
+              className="flex items-center gap-2 btn-primary text-sm"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               {wantTrainer ? 'Ajouter un formateur' : 'Ajouter une entreprise'}
             </button>
           )}

@@ -6,6 +6,7 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.resources._helpers import _can
 from backend.models.event import Event as DomainEvent
 from backend.persistence.services import EventService, UserService
 
@@ -17,11 +18,12 @@ user_service = UserService()
 def _can_edit(event, current_user):
     """Return ``True`` if *current_user* may edit/delete *event*.
 
-    Allowed for the event creator or any super admin.
+    Allowed for the event creator, any super admin, or staff holding the
+    ``manage_trainings`` right (which covers the agenda).
     """
     if not current_user:
         return False
-    if current_user.get('is_super_admin'):
+    if _can(current_user, 'manage_trainings'):
         return True
     return event.get('created_by') == current_user.get('id')
 

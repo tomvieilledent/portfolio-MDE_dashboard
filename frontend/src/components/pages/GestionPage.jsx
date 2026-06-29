@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2, Home, Save, CheckCircle } from 'lucide-react'
+import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2, Home, Save, CheckCircle, UserPlus, KeyRound } from 'lucide-react'
 import { api, mediaUrl } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
+import StaffAccountModal, { PERMISSION_META, ALL_PERMISSIONS } from '../modals/StaffAccountModal'
 
 // ── Rôle plateforme dérivé du backend ────────────────────────────────────────
 // superAdmin = is_super_admin ; admin = administrateur d'une entreprise
@@ -9,6 +11,7 @@ import { api, mediaUrl } from '../../lib/api'
 // entreprise via son email d'administrateur).
 const getPlatformRole = (user) => {
   if (user.isSuperAdmin) return 'superAdmin'
+  if (user.isStaff)      return 'staff'
   if (user.isAdmin)      return 'admin'
   return 'user'
 }
@@ -16,6 +19,7 @@ const getPlatformRole = (user) => {
 const ROLE_META = {
   user:       { label: 'Utilisateur',  color: 'bg-gray-100 text-gray-600',              icon: <Users size={9} /> },
   admin:      { label: "Admin d'entreprise", color: 'bg-primary-light/10 text-primary-light', icon: <Shield size={9} /> },
+  staff:      { label: 'Staff',        color: 'bg-indigo-100 text-indigo-600',          icon: <Shield size={9} /> },
   superAdmin: { label: 'Super Admin',  color: 'bg-purple-100 text-purple-600',          icon: <ShieldCheck size={9} /> },
 }
 
@@ -110,6 +114,102 @@ function RoleModal({ target, isLastSuperAdmin, onClose, onConfirm }) {
             <button onClick={confirm} disabled={!canConfirm || submitting}
               className="flex-1 bg-primary-light hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />} Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal : gérer les droits « staff » d'un compte ───────────────────────────
+function PermissionsModal({ target, onClose, onConfirm }) {
+  const [isStaff, setIsStaff] = useState(target.isStaff)
+  const [perms, setPerms] = useState(() => new Set(target.permissions || []))
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const togglePerm = (key) => setPerms((prev) => {
+    const next = new Set(prev)
+    next.has(key) ? next.delete(key) : next.add(key)
+    return next
+  })
+
+  const canConfirm = !isStaff || perms.size > 0
+
+  const confirm = async () => {
+    setError('')
+    setSubmitting(true)
+    try {
+      await onConfirm(isStaff, isStaff ? Array.from(perms) : [])
+    } catch (err) {
+      setError(err.message || 'Échec de la modification des droits')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-indigo-500 px-5 py-4 flex items-center justify-between sticky top-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <KeyRound size={18} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Droits du staff</h3>
+              <p className="text-xs text-white/80">{target.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={18} /></button>
+        </div>
+
+        <div className="px-5 py-5 space-y-3">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">{error}</div>
+          )}
+
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 cursor-pointer hover:bg-gray-50">
+            <input type="checkbox" checked={isStaff} onChange={(e) => setIsStaff(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-indigo-500 flex-shrink-0" />
+            <div>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-600">
+                <Shield size={9} /> Membre du staff
+              </span>
+              <p className="text-xs text-gray-500 mt-1">Active un accès d'administration ciblé selon les droits ci-dessous.</p>
+            </div>
+          </label>
+
+          {isStaff && (
+            <div className="space-y-2">
+              {ALL_PERMISSIONS.map((key) => {
+                const meta = PERMISSION_META[key]
+                const Icon = meta.icon
+                const checked = perms.has(key)
+                return (
+                  <label key={key}
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checked ? 'border-indigo-300 bg-indigo-50/60' : 'border-gray-100 hover:bg-gray-50'}`}>
+                    <input type="checkbox" checked={checked} onChange={() => togglePerm(key)}
+                      className="mt-0.5 w-4 h-4 accent-indigo-500 flex-shrink-0" />
+                    <Icon size={16} className="text-indigo-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{meta.label}</p>
+                      <p className="text-xs text-gray-500">{meta.desc}</p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose} disabled={submitting}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60">
+              Annuler
+            </button>
+            <button onClick={confirm} disabled={!canConfirm || submitting}
+              className="flex-1 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />} Enregistrer
             </button>
           </div>
         </div>
@@ -337,6 +437,8 @@ function mapUser(u, adminCompanyByUserId, companyById) {
     photo: mediaUrl(u.profile_picture)
       || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
     isSuperAdmin: !!u.is_super_admin,
+    isStaff: !!u.is_staff,
+    permissions: u.permissions || [],
     isAdmin: !!adminCompany,
     // Entreprise que l'utilisateur administre (pour la réassignation).
     adminCompanyId: adminCompany?.id || null,
@@ -443,7 +545,17 @@ function LandingEditor() {
 }
 
 export default function GestionPage() {
-  const [subTab,    setSubTab]    = useState('users')
+  const { user: currentUser, can } = useAuth()
+  const isSuperAdmin = !!currentUser?.is_super_admin
+  // Sous-onglets visibles selon les droits (un super admin voit tout).
+  const visibleTabs = {
+    users:     can('manage_users'),
+    companies: can('manage_companies'),
+    landing:   can('manage_news'),
+  }
+  const firstVisible = ['users', 'companies', 'landing'].find((t) => visibleTabs[t]) || 'users'
+
+  const [subTab,    setSubTab]    = useState(firstVisible)
   const [users,     setUsers]     = useState([])
   const [companies, setCompanies] = useState([])
   const [loading,   setLoading]   = useState(true)
@@ -452,6 +564,8 @@ export default function GestionPage() {
 
   const [deleteModal, setDeleteModal] = useState(null)
   const [roleModal,   setRoleModal]   = useState(null)
+  const [permsModal,  setPermsModal]  = useState(null)
+  const [createModal, setCreateModal] = useState(false)
   const [reassignModal, setReassignModal] = useState(null)
   const [deleteCompanyModal, setDeleteCompanyModal] = useState(null)
 
@@ -521,6 +635,18 @@ export default function GestionPage() {
     setRoleModal(null)
   }
 
+  const handlePermsConfirm = async (isStaff, permissions) => {
+    const target = permsModal
+    const { user } = await api.setUserPermissions(target.id, { is_staff: isStaff, permissions })
+    patchUser(target.id, { isStaff: !!user.is_staff, permissions: user.permissions || [] })
+    setPermsModal(null)
+  }
+
+  const handleCreateSuccess = async () => {
+    setCreateModal(false)
+    await loadData()
+  }
+
   const handleToggleCompany = async (company) => {
     setBusyId(company.id)
     try {
@@ -544,9 +670,17 @@ export default function GestionPage() {
   return (
     <>
       <div>
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Gestion</h2>
-          <p className="text-sm text-gray-500 mt-1">Administration des comptes et des entreprises</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Gestion</h2>
+            <p className="text-sm text-gray-500 mt-1">Administration des comptes et des entreprises</p>
+          </div>
+          {isSuperAdmin && (
+            <button onClick={() => setCreateModal(true)}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors flex-shrink-0">
+              <UserPlus size={16} /> Nouveau compte
+            </button>
+          )}
         </div>
 
         {loading && <p className="text-gray-400 py-8 text-center">Chargement…</p>}
@@ -554,24 +688,30 @@ export default function GestionPage() {
 
         {/* Sub-tabs */}
         <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-          <button onClick={() => setSubTab('users')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'users' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <Users size={15} /> Utilisateurs
-            <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'users' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
-              {users.length}
-            </span>
-          </button>
-          <button onClick={() => setSubTab('companies')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'companies' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <Building2 size={15} /> Entreprises
-            <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'companies' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
-              {companies.length}
-            </span>
-          </button>
-          <button onClick={() => setSubTab('landing')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'landing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <Home size={15} /> Page d'accueil
-          </button>
+          {visibleTabs.users && (
+            <button onClick={() => setSubTab('users')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'users' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Users size={15} /> Utilisateurs
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'users' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
+                {users.length}
+              </span>
+            </button>
+          )}
+          {visibleTabs.companies && (
+            <button onClick={() => setSubTab('companies')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'companies' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Building2 size={15} /> Entreprises
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'companies' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
+                {companies.length}
+              </span>
+            </button>
+          )}
+          {visibleTabs.landing && (
+            <button onClick={() => setSubTab('landing')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'landing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Home size={15} /> Page d'accueil
+            </button>
+          )}
         </div>
 
         {/* ── Page d'accueil ── */}
@@ -594,24 +734,43 @@ export default function GestionPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-gray-900">{user.name}</p>
                           <RoleBadge user={user} />
+                          {user.isStaff && user.permissions.map((p) => PERMISSION_META[p] && (
+                            <span key={p} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-500">
+                              {PERMISSION_META[p].label}
+                            </span>
+                          ))}
                         </div>
                         <p className="text-xs text-gray-400 truncate">{user.company || '—'}</p>
                       </div>
                       <p className="text-xs text-gray-400 hidden md:block shrink-0">{user.email}</p>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => setRoleModal(user)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-light/40 text-primary-light hover:bg-primary-light/5 text-xs font-medium transition-colors">
-                          <Shield size={13} /> Rôle
-                        </button>
-                        <button onClick={() => handleDeactivate(user)} disabled={busy}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 text-xs font-medium transition-colors disabled:opacity-50">
-                          {busy ? <Loader2 size={13} className="animate-spin" /> : <UserX size={13} />} Désactiver
-                        </button>
-                        <button onClick={() => setDeleteModal(user)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
-                          <Trash2 size={13} /> Supprimer
-                        </button>
+                        {isSuperAdmin && (
+                          <button onClick={() => setRoleModal(user)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-light/40 text-primary-light hover:bg-primary-light/5 text-xs font-medium transition-colors">
+                            <Shield size={13} /> Rôle
+                          </button>
+                        )}
+                        {isSuperAdmin && !user.isSuperAdmin && (
+                          <button onClick={() => setPermsModal(user)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-xs font-medium transition-colors">
+                            <KeyRound size={13} /> Droits
+                          </button>
+                        )}
+                        {/* Un compte Super Admin ne peut être désactivé/supprimé
+                            que par un autre Super Admin. */}
+                        {(!user.isSuperAdmin || isSuperAdmin) && (
+                          <button onClick={() => handleDeactivate(user)} disabled={busy}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 text-xs font-medium transition-colors disabled:opacity-50">
+                            {busy ? <Loader2 size={13} className="animate-spin" /> : <UserX size={13} />} Désactiver
+                          </button>
+                        )}
+                        {(!user.isSuperAdmin || isSuperAdmin) && (
+                          <button onClick={() => setDeleteModal(user)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
+                            <Trash2 size={13} /> Supprimer
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
@@ -640,10 +799,12 @@ export default function GestionPage() {
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 text-xs font-medium transition-colors disabled:opacity-50">
                             {busy ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />} Réactiver
                           </button>
-                          <button onClick={() => setDeleteModal(user)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
-                            <Trash2 size={13} /> Supprimer
-                          </button>
+                          {(!user.isSuperAdmin || isSuperAdmin) && (
+                            <button onClick={() => setDeleteModal(user)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
+                              <Trash2 size={13} /> Supprimer
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
@@ -726,6 +887,21 @@ export default function GestionPage() {
           company={deleteCompanyModal}
           onClose={() => setDeleteCompanyModal(null)}
           onConfirm={handleDeleteCompanyConfirm}
+        />
+      )}
+
+      {permsModal && (
+        <PermissionsModal
+          target={permsModal}
+          onClose={() => setPermsModal(null)}
+          onConfirm={handlePermsConfirm}
+        />
+      )}
+
+      {createModal && (
+        <StaffAccountModal
+          onClose={() => setCreateModal(false)}
+          onSuccess={handleCreateSuccess}
         />
       )}
     </>

@@ -8,6 +8,7 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.resources._helpers import _can
 from backend.models.training_session import TrainingSession as DomainSession
 from backend.persistence.services import (
     FormationUserService,
@@ -104,10 +105,10 @@ class TrainingSessionsByTrainingResource(Resource):
             tuple[dict, int]: ``{session}`` and 201, or 403/404.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can create sessions', 403)
+                'not allowed to create sessions', 403)
         if not training_service.facade.get(training_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
 
@@ -175,10 +176,10 @@ class TrainingSessionResource(Resource):
             tuple[dict, int]: ``{session}`` and 200, or 403/404.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can update sessions', 403)
+                'not allowed to update sessions', 403)
 
         if not session_service.facade.get(session_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'session not found', 404)
@@ -223,10 +224,10 @@ class TrainingSessionResource(Resource):
             tuple[dict, int]: ``{msg}`` and 200, or 403/404.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can delete sessions', 403)
+                'not allowed to delete sessions', 403)
         result = session_service.facade.update(session_id, status='cancelled')
         if not result:
             return error_response(ERROR_CODES['NOT_FOUND'], 'session not found', 404)
@@ -301,7 +302,7 @@ class TrainingCompletionsResource(Resource):
         current_user = user_service.get_by_id(get_jwt_identity())
         if not current_user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
-        if current_user.get('is_super_admin'):
+        if _can(current_user, 'manage_trainings'):
             completions = formation_service.facade.list_completions()
         else:
             completions = formation_service.facade.list_completions(
@@ -323,10 +324,10 @@ class TrainingInterestedResource(Resource):
             tuple[dict, int]: ``{interested}`` and 200, or 403/404.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can view interest', 403)
+                'not allowed to view interest', 403)
         if not training_service.facade.get(training_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
         return {'interested': formation_service.facade.list_interested(

@@ -8,7 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import User as ORMUser
-from ._common_sql import isoformat
+from ._common_sql import isoformat, to_csv, from_csv
 
 
 class UserFacade:
@@ -51,6 +51,8 @@ class UserFacade:
                 business_card=kwargs.get('business_card'),
                 is_super_admin=kwargs.get('is_super_admin', False),
                 is_company_admin=kwargs.get('is_company_admin', False),
+                is_staff=kwargs.get('is_staff', False),
+                permissions=to_csv(kwargs.get('permissions')),
                 company_id=kwargs.get('company_id'),
                 is_active=kwargs.get('is_active', True),
                 created_at=datetime.now(timezone.utc),
@@ -186,6 +188,10 @@ class UserFacade:
                 u.is_super_admin = bool(kwargs.get('is_super_admin'))
             if 'is_company_admin' in kwargs:
                 u.is_company_admin = bool(kwargs.get('is_company_admin'))
+            if 'is_staff' in kwargs:
+                u.is_staff = bool(kwargs.get('is_staff'))
+            if 'permissions' in kwargs:
+                u.permissions = to_csv(kwargs.get('permissions'))
             if 'is_active' in kwargs:
                 u.is_active = bool(kwargs.get('is_active'))
             u.updated_at = datetime.now(timezone.utc)
@@ -251,6 +257,8 @@ class UserFacade:
             'business_card': u.business_card,
             'is_super_admin': u.is_super_admin,
             'is_company_admin': getattr(u, 'is_company_admin', False),
+            'is_staff': getattr(u, 'is_staff', False),
+            'permissions': from_csv(getattr(u, 'permissions', None)),
             'is_active': u.is_active,
             'company_id': getattr(u, 'company_id', None),
             'created_at': isoformat(u.created_at),

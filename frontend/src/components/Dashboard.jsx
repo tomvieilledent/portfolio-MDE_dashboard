@@ -30,9 +30,15 @@ const ADMIN_TABS = [...COMMON_TABS, { id: 'gestion', label: 'Gestion' }]
 const PATRON_TABS = [...COMMON_TABS, { id: 'monentreprise', label: 'Mon entreprise' }]
 const SALARIE_TABS = COMMON_TABS
 
-function getTabsForRole(role) {
+// Droits de gestion ouvrant l'onglet « Gestion » à un membre du staff.
+const STAFF_PERMS = ['manage_companies', 'manage_users', 'manage_trainings', 'manage_news']
+
+function getTabsForRole(role, can = () => false) {
   if (role === 'admin')  return ADMIN_TABS
   if (role === 'patron') return PATRON_TABS
+  // Un membre du staff disposant d'au moins un droit de gestion accède aussi
+  // à l'onglet « Gestion » (les sous-onglets y sont filtrés par droit).
+  if (STAFF_PERMS.some((p) => can(p))) return ADMIN_TABS
   return SALARIE_TABS
 }
 
@@ -58,7 +64,7 @@ function profileFromUser(user, role) {
 }
 
 export default function DashboardContainer() {
-  const { user, role, isAuthenticated, loading, logout, updateProfile } = useAuth()
+  const { user, role, can, isAuthenticated, loading, logout, updateProfile } = useAuth()
   const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
@@ -149,10 +155,10 @@ export default function DashboardContainer() {
   const renderPage = () => {
     switch (activeTab) {
       case 'dashboard':     return <DashboardPage />
-      case 'companies':     return <Companies isAdmin={role === 'admin'} />
+      case 'companies':     return <Companies isAdmin={role === 'admin' || can('manage_companies')} />
       case 'monentreprise': return <MonEntreprise />
-      case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
-      case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
+      case 'users':         return <Users onContact={handleContact} role={role} canManage={role === 'admin' || can('manage_users')} profile={profile} />
+      case 'trainings':     return <Trainings isAdmin={role === 'admin' || can('manage_trainings')} profile={profile} />
       case 'news':          return <News />
       case 'gestion':       return <GestionPage />
       case 'mononglet':     return <MonOnglet />
@@ -187,7 +193,7 @@ export default function DashboardContainer() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
       />
-      <TabNavigation tabs={getTabsForRole(role)} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabNavigation tabs={getTabsForRole(role, can)} activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-8">
         {renderPage()}
       </main>

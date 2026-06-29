@@ -122,6 +122,8 @@ export const api = {
   reactivateUser: (id) => request(`/users/${id}/reactivate`, { method: 'PATCH' }),
   setUserRole: (id, is_super_admin) =>
     request(`/users/${id}/role`, { method: 'PATCH', body: { is_super_admin } }),
+  setUserPermissions: (id, { is_staff, permissions }) =>
+    request(`/users/${id}/permissions`, { method: 'PATCH', body: { is_staff, permissions } }),
   setUserCompanyRole: (id, is_company_admin) =>
     request(`/users/${id}/company-admin`, { method: 'PATCH', body: { is_company_admin } }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
@@ -146,6 +148,11 @@ export const api = {
   deleteSession: (id) => request(`/training-sessions/${id}`, { method: 'DELETE' }),
   enrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'POST' }),
   unenrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'DELETE' }),
+  // Mes inscriptions (type: 'enrolled' | 'interested' | 'completed').
+  getMyTrainings: (type) => request(`/me/trainings${type ? `?type=${type}` : ''}`),
+  // Inscrits à une formation (admin / staff manage_trainings).
+  getTrainingEnrollments: (trainingId, type) =>
+    request(`/trainings/${trainingId}/enrollments${type ? `?type=${type}` : ''}`),
 
   // --- Events (agenda) ---
   getEvents: () => request('/events'),

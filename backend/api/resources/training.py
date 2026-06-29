@@ -8,7 +8,7 @@ from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.uploads import (
     delete_uploaded_file, save_document_upload, save_image_upload)
-from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
+from backend.api.resources._helpers import _can, _cleanup_replaced_upload, _request_payload
 from backend.models.training import Training as DomainTraining
 from backend.persistence.services import FormationUserService, TrainingService, UserService
 
@@ -76,10 +76,10 @@ class TrainingListResource(Resource):
         current_user = user_service.get_by_id(get_jwt_identity())
         if not current_user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
-        if not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can create trainings', 403)
+                'not allowed to create trainings', 403)
         data = _request_payload()
         picture = _extract_training_picture(data)
         title = data.get('title')
@@ -215,10 +215,10 @@ class TrainingDocumentResource(Resource):
             tuple[dict, int]: ``{training}`` and 200, or 400/403/404.
         """
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_trainings'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can manage training documents', 403)
+                'not allowed to manage training documents', 403)
         data = request.get_json(silent=True) or {}
         path = data.get('path')
         if not path:
@@ -345,6 +345,11 @@ class TrainingEnrollmentsResource(Resource):
         Returns:
             tuple[dict, int]: ``{enrollments}`` and 200, or 404.
         """
+        current_user = user_service.get_by_id(get_jwt_identity())
+        if not _can(current_user, 'manage_trainings'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to view enrollments', 403)
         training = training_service.facade.get(training_id)
         if not training:
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)

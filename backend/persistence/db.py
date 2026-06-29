@@ -91,6 +91,21 @@ except Exception:
 
 try:
     with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('users')"))
+        user_cols = [row[1] for row in res]
+        if 'is_staff' not in user_cols:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN is_staff BOOLEAN DEFAULT 0"))
+            conn.commit()
+        if 'permissions' not in user_cols:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN permissions VARCHAR(512)"))
+            conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
         res = conn.execute(text("PRAGMA table_info('companies')"))
         company_cols = [row[1] for row in res]
         if 'location' not in company_cols:

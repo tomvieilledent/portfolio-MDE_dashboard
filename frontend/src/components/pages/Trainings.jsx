@@ -142,6 +142,71 @@ function LinkModal({ training, onClose, onSave }) {
   )
 }
 
+// ── Modal : inscrits à une session (admin) ───────────────────────────────────
+function ParticipantsModal({ session, title, users = [], onClose }) {
+  const [enrollments, setEnrollments] = useState(null)
+  const [error, setError] = useState('')
+  const usersById = Object.fromEntries(users.map((u) => [u.id, u]))
+  const nameOf = (u) => u
+    ? ([u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || 'Utilisateur')
+    : 'Utilisateur inconnu'
+
+  useEffect(() => {
+    let cancelled = false
+    api.getTrainingEnrollments(session.training_id, 'enrolled')
+      .then((res) => {
+        if (cancelled) return
+        const list = (res?.enrollments || []).filter((e) => e.session_id === session.id)
+        setEnrollments(list)
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+    return () => { cancelled = true }
+  }, [session.id, session.training_id])
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-purple-500 px-5 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <Users size={16} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-white/70">Inscrits</p>
+              <h3 className="text-sm font-bold text-white leading-tight">{title}</h3>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors"><X size={18} /></button>
+        </div>
+        <div className="px-5 py-5">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          {enrollments === null && !error && <p className="text-sm text-gray-400 text-center py-4">Chargement…</p>}
+          {enrollments && enrollments.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">Aucun inscrit pour le moment</p>
+          )}
+          {enrollments && enrollments.length > 0 && (
+            <ul className="space-y-2">
+              {enrollments.map((e) => {
+                const u = usersById[e.user_id]
+                const name = nameOf(u)
+                return (
+                  <li key={e.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                    <UserAvatar user={{ name, photo: mediaUrl(u?.profile_picture) || null }} size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                      {u?.email && <p className="text-xs text-gray-400 truncate">{u.email}</p>}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function UserAvatar({ user, size = 'md' }) {
   const dim = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm'
   const initials = user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -420,7 +485,7 @@ function ActiveCard({ training, isAdmin, saved, onToggleSave, onEnroll, onEdit, 
 }
 
 // ── Carte d'une session programmée (Formations actives) ──────────────────────
-function SessionCard({ session, title, isAdmin, enrolled, onEnroll, onUnenroll, onCancel, canEnroll }) {
+function SessionCard({ session, title, isAdmin, enrolled, onEnroll, onUnenroll, onCancel, onShowParticipants, canEnroll }) {
   const count = session.enrolled ?? 0
   const cap = session.max_participants || 0
   const pct = cap ? Math.min(100, Math.round((count / cap) * 100)) : 0
@@ -480,12 +545,20 @@ function SessionCard({ session, title, isAdmin, enrolled, onEnroll, onUnenroll, 
 
       <div className="mt-auto flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
         {isAdmin ? (
-          !ended && (
-            <button onClick={onCancel}
-              className="text-sm px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium">
-              Annuler la session
-            </button>
-          )
+          <>
+            {onShowParticipants && (
+              <button onClick={onShowParticipants}
+                className="text-sm px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl transition-colors font-medium flex items-center gap-1.5">
+                <Users size={15} /> Inscrits ({count})
+              </button>
+            )}
+            {!ended && (
+              <button onClick={onCancel}
+                className="text-sm px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium">
+                Annuler la session
+              </button>
+            )}
+          </>
         ) : enrolled ? (
           <button onClick={onUnenroll} disabled={ended}
             className="text-sm px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 rounded-xl transition-colors font-medium">
@@ -520,11 +593,23 @@ export default function Trainings({ isAdmin = false, profile = null }) {
   const [interestedSet, setInterestedSet] = useState(new Set())
   const [enrolledSessions, setEnrolledSessions] = useState(new Set())
   const [allUsers, setAllUsers] = useState([])
+  const [participantsModal, setParticipantsModal] = useState(null)
+  // Vue globale admin « Inscrits » : map sessionId → liste d'inscriptions.
+  const [enrollmentsBySession, setEnrollmentsBySession] = useState({})
 
   const loadSessions = () =>
     api.getSessions()
       .then((res) => setSessions(res?.sessions || (Array.isArray(res) ? res : [])))
       .catch(() => { /* sessions optionnelles : on n'écrase pas l'erreur principale */ })
+
+  // Hydrate l'ensemble des sessions où l'utilisateur est inscrit (source de
+  // vérité backend) — corrige le bouton « Se désinscrire » et empêche la
+  // double-inscription après acceptation d'une invitation.
+  const loadMyEnrollments = () =>
+    api.getMyTrainings('enrolled')
+      .then((res) => setEnrolledSessions(
+        new Set((res?.enrollments || []).map((e) => e.session_id).filter(Boolean))))
+      .catch(() => { /* anonyme / non connecté : pas d'inscriptions */ })
 
   useEffect(() => {
     let cancelled = false
@@ -532,18 +617,60 @@ export default function Trainings({ isAdmin = false, profile = null }) {
       api.getTrainings(),
       api.getSessions().catch(() => ({ sessions: [] })),
       api.getUsers().catch(() => ({ users: [] })),
+      api.getMyTrainings('enrolled').catch(() => ({ enrollments: [] })),
     ])
-      .then(([tRes, sRes, uRes]) => {
+      .then(([tRes, sRes, uRes, eRes]) => {
         if (cancelled) return
         const list = tRes?.trainings || tRes?.items || (Array.isArray(tRes) ? tRes : [])
         setTrainings(list.map(mapTraining))
         setSessions(sRes?.sessions || (Array.isArray(sRes) ? sRes : []))
         setAllUsers(uRes?.users || (Array.isArray(uRes) ? uRes : []))
+        setEnrolledSessions(
+          new Set((eRes?.enrollments || []).map((e) => e.session_id).filter(Boolean)))
       })
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
+
+  // Ré-hydratation en direct quand l'utilisateur (dé)valide une invitation de
+  // session depuis la cloche de notifications (composant non monté ici).
+  useEffect(() => {
+    const onChange = () => { loadMyEnrollments(); loadSessions() }
+    window.addEventListener('enrollments:changed', onChange)
+    return () => window.removeEventListener('enrollments:changed', onChange)
+  }, [])
+
+  // Filet de sécurité : ré-hydrate les inscriptions à chaque entrée sur les
+  // onglets concernés, pour qu'une acceptation depuis la cloche soit reflétée
+  // même si l'événement live a été manqué (et sans remonter le composant).
+  useEffect(() => {
+    if (subTab === 'inscriptions' || subTab === 'actives') {
+      loadMyEnrollments()
+      loadSessions()
+    }
+  }, [subTab])
+
+  // Vue globale admin : charge les inscrits de toutes les sessions (une requête
+  // par formation, agrégée par session). Rechargée quand les sessions changent.
+  useEffect(() => {
+    if (!isAdmin || subTab !== 'participants') return
+    let cancelled = false
+    const trainingIds = Array.from(new Set(sessions.map((s) => s.training_id)))
+    Promise.all(trainingIds.map((tid) =>
+      api.getTrainingEnrollments(tid, 'enrolled')
+        .then((r) => r?.enrollments || []).catch(() => [])
+    )).then((lists) => {
+      if (cancelled) return
+      const map = {}
+      lists.flat().forEach((e) => {
+        if (!e.session_id) return
+        ;(map[e.session_id] = map[e.session_id] || []).push(e)
+      })
+      setEnrollmentsBySession(map)
+    })
+    return () => { cancelled = true }
+  }, [isAdmin, subTab, sessions])
 
   const toggleSave = (id) => setSaved((prev) => {
     const next = new Set(prev)
@@ -665,8 +792,19 @@ export default function Trainings({ isAdmin = false, profile = null }) {
 
   // Sessions programmées (source backend) = formations « actives ».
   const trainingTitleById = Object.fromEntries(trainings.map((t) => [t.id, t.title]))
+  const trainingTypeById = Object.fromEntries(trainings.map((t) => [t.id, t.type || 'formation']))
   const activeSessions = sessions
     .filter((s) => s.status !== 'cancelled' && s.status !== 'completed')
+    .filter((s) => (trainingTitleById[s.training_id] || '').toLowerCase().includes(searchQuery.toLowerCase()))
+  // Séparation Formations / Ateliers actifs (le type est porté par la formation).
+  const activeFormations = activeSessions.filter((s) => trainingTypeById[s.training_id] !== 'atelier')
+  const activeAteliers = activeSessions.filter((s) => trainingTypeById[s.training_id] === 'atelier')
+
+  // Mes inscriptions : sessions où je suis inscrit (tous statuts), filtrées par
+  // la recherche. Source = enrolledSessions (hydraté au montage + à chaque
+  // (dés)inscription / acceptation d'invitation).
+  const mySessions = sessions
+    .filter((s) => enrolledSessions.has(s.id))
     .filter((s) => (trainingTitleById[s.training_id] || '').toLowerCase().includes(searchQuery.toLowerCase()))
 
   const displayed = subTab === 'catalogue' ? baseFiltered : savedTrainings
@@ -727,6 +865,22 @@ export default function Trainings({ isAdmin = false, profile = null }) {
                 </span>
               )}
             </button>
+            <button onClick={() => setSubTab('inscriptions')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'inscriptions' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <CalendarClock size={15} />
+              Mes inscriptions
+              {mySessions.length > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'inscriptions' ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
+                  {mySessions.length}
+                </span>
+              )}
+            </button>
+            {isAdmin && (
+              <button onClick={() => setSubTab('participants')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'participants' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                <Users size={15} /> Inscrits
+              </button>
+            )}
             <button onClick={() => setSubTab('saved')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'saved' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
               <Star size={15} />
@@ -760,33 +914,137 @@ export default function Trainings({ isAdmin = false, profile = null }) {
           {loading && <p className="text-gray-400 py-8 text-center">Chargement des formations…</p>}
           {error && <p className="text-red-500 py-8 text-center">{error}</p>}
 
-          {/* Onglet « Formations actives » : sessions programmées (backend) */}
-          {!loading && subTab === 'actives' && (
-            activeSessions.length > 0 ? (
+          {/* Onglet « Formations actives » : sessions programmées (backend),
+              séparées en Formations actives et Ateliers actifs. */}
+          {!loading && subTab === 'actives' && (() => {
+            const renderSessionCard = (session) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                title={trainingTitleById[session.training_id] || 'Formation'}
+                isAdmin={isAdmin}
+                enrolled={enrolledSessions.has(session.id)}
+                canEnroll={!!profile}
+                onEnroll={() => enrollSession(session.id)}
+                onUnenroll={() => unenrollSession(session.id)}
+                onCancel={() => cancelSession(session.id)}
+                onShowParticipants={() => setParticipantsModal(session)}
+              />
+            )
+            return activeSessions.length > 0 ? (
+              <div className="space-y-8">
+                <section>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <GraduationCap size={18} className="text-purple-500" /> Formations actives
+                    <span className="text-sm font-normal text-gray-400">({activeFormations.length})</span>
+                  </h3>
+                  {activeFormations.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {activeFormations.map(renderSessionCard)}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Aucune formation active.</p>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Zap size={18} className="text-amber-500" /> Ateliers actifs
+                    <span className="text-sm font-normal text-gray-400">({activeAteliers.length})</span>
+                  </h3>
+                  {activeAteliers.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {activeAteliers.map(renderSessionCard)}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Aucun atelier actif.</p>
+                  )}
+                </section>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-400">Aucune formation ou atelier programmé pour le moment</p>
+              </div>
+            )
+          })()}
+
+          {/* Onglet « Mes inscriptions » : sessions où l'utilisateur est inscrit */}
+          {!loading && subTab === 'inscriptions' && (
+            mySessions.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {activeSessions.map((session) => (
+                {mySessions.map((session) => (
                   <SessionCard
                     key={session.id}
                     session={session}
                     title={trainingTitleById[session.training_id] || 'Formation'}
-                    isAdmin={isAdmin}
-                    enrolled={enrolledSessions.has(session.id)}
+                    isAdmin={false}
+                    enrolled
                     canEnroll={!!profile}
                     onEnroll={() => enrollSession(session.id)}
                     onUnenroll={() => unenrollSession(session.id)}
-                    onCancel={() => cancelSession(session.id)}
                   />
                 ))}
               </div>
             ) : (
               <div className="text-center py-12">
-                <p className="text-gray-400">Aucune formation programmée pour le moment</p>
+                <p className="text-gray-400">Vous n'êtes inscrit(e) à aucune formation ou atelier</p>
               </div>
             )
           )}
 
+          {/* Onglet admin « Inscrits » : vision globale des inscrits par session */}
+          {!loading && isAdmin && subTab === 'participants' && (() => {
+            const usersById = Object.fromEntries(allUsers.map((u) => [u.id, u]))
+            const sessionsWithEnroll = sessions
+              .filter((s) => (enrollmentsBySession[s.id] || []).length > 0)
+              .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+            const total = Object.values(enrollmentsBySession).reduce((n, arr) => n + arr.length, 0)
+            return sessionsWithEnroll.length > 0 ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">{total} inscription{total > 1 ? 's' : ''} au total</p>
+                {sessionsWithEnroll.map((session) => {
+                  const list = enrollmentsBySession[session.id] || []
+                  return (
+                    <div key={session.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                      <div className="flex items-center justify-between mb-3 gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarClock size={16} className="text-purple-500 flex-shrink-0" />
+                          <span className={`font-bold truncate ${session.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{trainingTitleById[session.training_id] || 'Formation'}</span>
+                          {session.status === 'cancelled' && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600 flex-shrink-0">Annulée</span>
+                          )}
+                          {session.status === 'completed' && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 flex-shrink-0">Terminée</span>
+                          )}
+                          <span className="text-xs text-gray-400 whitespace-nowrap">· {formatDateTime(session.start_date)}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500 flex-shrink-0">{list.length}/{session.max_participants || 0}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {list.map((e) => {
+                          const u = usersById[e.user_id]
+                          const name = u ? ([u.first_name, u.last_name].filter(Boolean).join(' ') || u.email) : 'Utilisateur'
+                          return (
+                            <div key={e.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-full pl-1 pr-3 py-1">
+                              <UserAvatar user={{ name, photo: mediaUrl(u?.profile_picture) || null }} size="sm" />
+                              <span className="text-xs text-gray-700">{name}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-400">Aucun inscrit pour le moment</p>
+              </div>
+            )
+          })()}
+
           {/* Catalogue / Sauvegardées : deux sections (Formations / Ateliers) */}
-          {!loading && subTab !== 'actives' && (
+          {!loading && subTab !== 'actives' && subTab !== 'inscriptions' && subTab !== 'participants' && (
             displayed.length > 0 ? (
               <div className="space-y-8">
                 <section>
@@ -860,6 +1118,15 @@ export default function Trainings({ isAdmin = false, profile = null }) {
           currentUserId={profile?.id}
           onClose={() => setSessionModal(false)}
           onSave={handleProgramSession}
+        />
+      )}
+
+      {participantsModal && (
+        <ParticipantsModal
+          session={participantsModal}
+          title={trainingTitleById[participantsModal.training_id] || 'Formation'}
+          users={allUsers}
+          onClose={() => setParticipantsModal(null)}
         />
       )}
     </>

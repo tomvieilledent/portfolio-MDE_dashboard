@@ -5,6 +5,49 @@ from .base import BaseModel
 from email_validator import validate_email, EmailNotValidError
 
 
+# Granular platform rights assignable to a "Staff" account. A super admin
+# implicitly holds all of them; a staff member holds an explicit subset.
+#   - manage_companies : create/update/deactivate/delete hosted companies & trainers
+#   - manage_users     : create/deactivate/reactivate/delete user accounts
+#   - manage_trainings : manage trainings, ateliers, sessions and agenda events
+#   - manage_news      : publish economic-watch news and edit the landing page
+STAFF_PERMISSIONS = (
+    'manage_companies',
+    'manage_users',
+    'manage_trainings',
+    'manage_news',
+)
+
+
+def validate_permissions(values):
+    """Validate and normalise a list of staff permission keys.
+
+    Args:
+        values: An iterable of permission keys, or ``None``.
+
+    Returns:
+        list[str]: De-duplicated, ordered list of valid permission keys.
+
+    Raises:
+        TypeError: If *values* is not an iterable of strings.
+        ValueError: If any value is not a known permission key.
+    """
+    if values is None:
+        return []
+    if isinstance(values, str) or not hasattr(values, '__iter__'):
+        raise TypeError("Permissions must be a list of permission keys.")
+    cleaned = []
+    for value in values:
+        if not isinstance(value, str):
+            raise TypeError("Each permission must be a string.")
+        key = value.strip()
+        if key not in STAFF_PERMISSIONS:
+            raise ValueError(f"Unknown permission: {value!r}")
+        if key not in cleaned:
+            cleaned.append(key)
+    return cleaned
+
+
 class User(BaseModel):
     """User model with property-based validation.
 

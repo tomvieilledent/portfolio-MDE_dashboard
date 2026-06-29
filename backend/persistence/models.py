@@ -24,6 +24,10 @@ class User(Base):
     business_card = Column(String(256))
     is_super_admin = Column(Boolean, default=False)
     is_company_admin = Column(Boolean, default=False)
+    # Platform staff: a non-super-admin account holding a configurable subset
+    # of admin rights, stored as a CSV of permission keys in ``permissions``.
+    is_staff = Column(Boolean, default=False)
+    permissions = Column(String(512))
     company_id = Column(String(36))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),

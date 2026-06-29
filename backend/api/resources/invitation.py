@@ -7,11 +7,18 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.socket_events.message import notify_invitation
-from backend.persistence.services import InvitationService, UserService
+from backend.persistence.services import (
+    FormationUserService,
+    InvitationService,
+    TrainingSessionService,
+    UserService,
+)
 
 
 invitation_service = InvitationService()
 user_service = UserService()
+session_service = TrainingSessionService()
+formation_service = FormationUserService()
 
 TARGET_TYPES = ('event', 'training', 'session')
 RSVP_STATUSES = ('accepted', 'declined')
@@ -131,4 +138,18 @@ class InvitationResource(Resource):
             invitation_id, get_jwt_identity(), status)
         if not invitation:
             return error_response(ERROR_CODES['NOT_FOUND'], 'invitation not found', 404)
+
+        # Accepting a session invitation enrolls the invitee in that session
+        # (so the counter increments and they can no longer self-enroll);
+        # declining removes any enrollment created by a previous acceptance.
+        if invitation['target_type'] == 'session':
+            sess = session_service.facade.get(invitation['target_id'])
+            if sess:
+                if status == 'accepted':
+                    # Ignore "already enrolled"/"session full" — the RSVP stands.
+                    formation_service.facade.enroll(
+                        invitation['invitee_id'], sess['training_id'], sess['id'])
+                elif status == 'declined':
+                    formation_service.facade.unenroll(
+                        invitation['invitee_id'], sess['training_id'])
         return {'invitation': invitation}

@@ -59,11 +59,11 @@ export default function EventFormModal({ date, event, onClose, onSave, users = [
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-primary-light px-6 py-5 flex items-start justify-between">
+        <div className="bg-primary-light px-6 py-5 flex items-start justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
               {isEdit ? <Pencil size={18} className="text-white" /> : <CalendarDays size={20} className="text-white" />}

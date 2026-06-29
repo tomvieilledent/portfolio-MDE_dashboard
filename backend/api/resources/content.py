@@ -7,6 +7,7 @@ from flask_restful import Resource
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
+from backend.api.resources._helpers import _can
 from backend.persistence.services import SiteContentService, UserService
 
 
@@ -96,10 +97,10 @@ class ContentResource(Resource):
         if key not in DEFAULTS:
             return error_response(ERROR_CODES['NOT_FOUND'], 'unknown content key', 404)
         current_user = user_service.get_by_id(get_jwt_identity())
-        if not current_user or not current_user.get('is_super_admin'):
+        if not _can(current_user, 'manage_news'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can edit site content', 403)
+                'not allowed to edit site content', 403)
         data = request.get_json(silent=True) or {}
         content = data.get('content')
         if not isinstance(content, dict):
