@@ -14,4 +14,5 @@ from .layer import (
     FormationUserService,
     EventService,
     SiteContentService,
+    InvitationService,
 )

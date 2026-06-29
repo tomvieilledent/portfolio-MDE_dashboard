@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { X, CalendarDays, Clock, Tag, AlignLeft, Pencil, User } from 'lucide-react'
+import InviteePicker from '../InviteePicker'
+import InvitationResponses from '../InvitationResponses'
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
@@ -16,7 +18,7 @@ function formatHeader(dateStr) {
   return `${parseInt(d)} ${MONTHS[parseInt(m) - 1]} ${y}`
 }
 
-export default function EventFormModal({ date, event, onClose, onSave }) {
+export default function EventFormModal({ date, event, onClose, onSave, users = [], currentUserId = null }) {
   const isEdit = !!event
   const now = new Date()
   const defaultTime = `${String(now.getHours()).padStart(2, '0')}:00`
@@ -30,6 +32,8 @@ export default function EventFormModal({ date, event, onClose, onSave }) {
     creator:     event?.creator     || '',
   })
   const [errors, setErrors] = useState({})
+  const [inviteAll, setInviteAll] = useState(false)
+  const [invitees, setInvitees] = useState([])
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
@@ -45,7 +49,10 @@ export default function EventFormModal({ date, event, onClose, onSave }) {
     e.preventDefault()
     const e2 = validate()
     if (Object.keys(e2).length) { setErrors(e2); return }
-    onSave({ ...(event || {}), ...form, title: form.title.trim(), id: event?.id ?? Date.now() })
+    onSave({
+      ...(event || {}), ...form, title: form.title.trim(), id: event?.id ?? Date.now(),
+      inviteAll, inviteeIds: invitees,
+    })
     onClose()
   }
 
@@ -167,6 +174,18 @@ export default function EventFormModal({ date, event, onClose, onSave }) {
               ))}
             </div>
           </div>
+
+          {/* Invitations */}
+          {users.length > 0 && (
+            <InviteePicker
+              users={users} excludeId={currentUserId}
+              selected={invitees} onChange={setInvitees}
+              all={inviteAll} onToggleAll={setInviteAll}
+            />
+          )}
+          {isEdit && (
+            <InvitationResponses targetType="event" targetId={event.id} users={users} />
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">

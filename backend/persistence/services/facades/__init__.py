@@ -13,3 +13,4 @@ from .saved_news_facade_sql import SavedNewsFacade
 from .formation_user_facade_sql import FormationUserFacade
 from .event_facade_sql import EventFacade
 from .site_content_facade_sql import SiteContentFacade
+from .invitation_facade_sql import InvitationFacade

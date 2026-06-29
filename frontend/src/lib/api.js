@@ -179,6 +179,14 @@ export const api = {
   // --- Site content (editable landing page) ---
   getLandingContent: () => request('/content/landing'),
   updateLandingContent: (content) => request('/content/landing', { method: 'PUT', body: { content } }),
+
+  // --- Invitations (RSVP for events & trainings) ---
+  createInvitations: (payload) => request('/invitations', { method: 'POST', body: payload }),
+  getMyInvitations: () => request('/me/invitations'),
+  markInvitationsRead: () => request('/me/invitations', { method: 'POST' }),
+  respondInvitation: (id, status) => request(`/invitations/${id}`, { method: 'PATCH', body: { status } }),
+  getTargetInvitations: (targetType, targetId) =>
+    request(`/invitations?target_type=${targetType}&target_id=${targetId}`),
 }
 
 export default api

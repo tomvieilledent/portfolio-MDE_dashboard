@@ -519,6 +519,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
   const [interests, setInterests] = useState({})
   const [interestedSet, setInterestedSet] = useState(new Set())
   const [enrolledSessions, setEnrolledSessions] = useState(new Set())
+  const [allUsers, setAllUsers] = useState([])
 
   const loadSessions = () =>
     api.getSessions()
@@ -527,12 +528,17 @@ export default function Trainings({ isAdmin = false, profile = null }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.getTrainings(), api.getSessions().catch(() => ({ sessions: [] }))])
-      .then(([tRes, sRes]) => {
+    Promise.all([
+      api.getTrainings(),
+      api.getSessions().catch(() => ({ sessions: [] })),
+      api.getUsers().catch(() => ({ users: [] })),
+    ])
+      .then(([tRes, sRes, uRes]) => {
         if (cancelled) return
         const list = tRes?.trainings || tRes?.items || (Array.isArray(tRes) ? tRes : [])
         setTrainings(list.map(mapTraining))
         setSessions(sRes?.sessions || (Array.isArray(sRes) ? sRes : []))
+        setAllUsers(uRes?.users || (Array.isArray(uRes) ? uRes : []))
       })
       .catch((err) => { if (!cancelled) setError(err.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -577,6 +583,7 @@ export default function Trainings({ isAdmin = false, profile = null }) {
     fd.append('type', data.type || 'formation')
     ;(data.documentFiles || []).forEach((f) => fd.append('document_file', f))
 
+    let saved
     if (data.id) {
       let res = await api.updateTraining(data.id, fd)
       let updated = res?.training || res
@@ -584,12 +591,21 @@ export default function Trainings({ isAdmin = false, profile = null }) {
         res = await api.removeTrainingDocument(data.id, path)
         updated = res?.training || updated
       }
+      saved = updated
       setTrainings((prev) => prev.map((t) => (t.id === data.id
         ? { ...mapTraining(updated), url: data.url } : t)))
     } else {
       const res = await api.createTraining(fd)
-      const created = res?.training || res
-      setTrainings((prev) => [...prev, { ...mapTraining(created), url: data.url }])
+      saved = res?.training || res
+      setTrainings((prev) => [...prev, { ...mapTraining(saved), url: data.url }])
+    }
+
+    // Invitations internes (RSVP) si des destinataires ont été choisis.
+    if (saved?.id && (data.inviteAll || (data.inviteeIds && data.inviteeIds.length))) {
+      await api.createInvitations({
+        target_type: 'training', target_id: saved.id, target_title: saved.title,
+        invitee_ids: data.inviteeIds || [], all: !!data.inviteAll,
+      }).catch(() => {})
     }
   }
 
@@ -827,6 +843,8 @@ export default function Trainings({ isAdmin = false, profile = null }) {
         <TrainingFormModal
           training={formModal.mode === 'edit' ? formModal.training : null}
           categories={Array.from(new Set(trainings.map((t) => t.category).filter(Boolean)))}
+          users={allUsers}
+          currentUserId={profile?.id}
           onClose={() => setFormModal(null)}
           onSave={handleSave}
         />

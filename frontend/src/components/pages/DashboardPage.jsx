@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [events, setEvents] = useState([])
   const [sessions, setSessions] = useState([])
   const [trainingTitles, setTrainingTitles] = useState({})
+  const [users, setUsers] = useState([])
   const [error, setError] = useState('')
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(todayKey)
@@ -38,13 +39,15 @@ export default function DashboardPage() {
       api.getEvents(),
       api.getSessions().catch(() => ({ sessions: [] })),
       api.getTrainings().catch(() => ({ trainings: [] })),
+      api.getUsers().catch(() => ({ users: [] })),
     ])
-      .then(([evRes, sRes, tRes]) => {
+      .then(([evRes, sRes, tRes, uRes]) => {
         if (cancelled) return
         setEvents(evRes?.events || (Array.isArray(evRes) ? evRes : []))
         setSessions(sRes?.sessions || (Array.isArray(sRes) ? sRes : []))
         const tList = tRes?.trainings || tRes?.items || (Array.isArray(tRes) ? tRes : [])
         setTrainingTitles(Object.fromEntries(tList.map((t) => [t.id, t.title])))
+        setUsers(uRes?.users || (Array.isArray(uRes) ? uRes : []))
       })
       .catch((err) => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true }
@@ -113,14 +116,22 @@ export default function DashboardPage() {
       creator: ev.creator || displayName(user),
     }
     try {
+      let saved
       if (ev.id && events.some((e) => e.id === ev.id)) {
         const res = await api.updateEvent(ev.id, payload)
-        const saved = res?.event || res
+        saved = res?.event || res
         setEvents((prev) => prev.map((e) => (e.id === ev.id ? saved : e)))
       } else {
         const res = await api.createEvent(payload)
-        const saved = res?.event || res
+        saved = res?.event || res
         setEvents((prev) => [...prev, saved])
+      }
+      // Envoi des invitations (sélection ou « tout le monde »).
+      if (saved?.id && (ev.inviteAll || (ev.inviteeIds && ev.inviteeIds.length))) {
+        await api.createInvitations({
+          target_type: 'event', target_id: saved.id, target_title: saved.title,
+          invitee_ids: ev.inviteeIds || [], all: !!ev.inviteAll,
+        }).catch(() => { /* l'événement est créé, l'invitation est best-effort */ })
       }
       setSelectedDate(ev.date)
     } catch (err) {
@@ -293,6 +304,8 @@ export default function DashboardPage() {
       {createModal && (
         <EventFormModal
           date={createModal}
+          users={users}
+          currentUserId={user?.id}
           onClose={() => setCreateModal(null)}
           onSave={handleSaveEvent}
         />
@@ -302,6 +315,8 @@ export default function DashboardPage() {
         <EventFormModal
           event={editModal}
           date={editModal.date}
+          users={users}
+          currentUserId={user?.id}
           onClose={() => setEditModal(null)}
           onSave={(ev) => { handleSaveEvent(ev); setEditModal(null) }}
         />

@@ -22,6 +22,7 @@ from backend.persistence.services.facades import (
     FormationUserFacade,
     EventFacade,
     SiteContentFacade,
+    InvitationFacade,
 )
 
 
@@ -158,3 +159,10 @@ class SiteContentService:
 
     def __init__(self):
         self.facade = SiteContentFacade()
+
+
+class InvitationService:
+    """Service facade for event/training invitations (RSVP)."""
+
+    def __init__(self):
+        self.facade = InvitationFacade()

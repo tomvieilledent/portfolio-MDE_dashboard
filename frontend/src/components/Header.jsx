@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Moon, Sun, LogOut, LogIn } from 'lucide-react'
+import NotificationsBell from './NotificationsBell'
 import LoginModal from './modals/LoginModal'
 import ProfileModal from './modals/ProfileModal'
 
@@ -93,6 +94,9 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
                 </>
               )}
             </button>
+
+            {/* Notifications (invitations) */}
+            {isLoggedIn && <NotificationsBell />}
 
             {isLoggedIn && profile ? (
               <>

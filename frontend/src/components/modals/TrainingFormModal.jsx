@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { X, GraduationCap, Save, FileText, Tag, Link, Loader2, Paperclip, Upload, Trash2 } from 'lucide-react'
+import InviteePicker from '../InviteePicker'
+import InvitationResponses from '../InvitationResponses'
 
 // Nom lisible d'une pièce jointe à partir de son chemin stocké
 // (/uploads/trainings/documents/<uuid>__<nom-original>).
@@ -9,7 +11,7 @@ export function docName(path) {
   return parts.length > 1 ? parts.slice(1).join('__') : base
 }
 
-export default function TrainingFormModal({ training, onClose, onSave, categories = [] }) {
+export default function TrainingFormModal({ training, onClose, onSave, categories = [], users = [], currentUserId = null }) {
   const isEdit = !!training
   const [form, setForm] = useState({
     title: training?.title || '',
@@ -22,6 +24,8 @@ export default function TrainingFormModal({ training, onClose, onSave, categorie
   const existingDocs = training?.documents || []
   const [removedDocs, setRemovedDocs] = useState([])
   const [docFiles, setDocFiles] = useState([])
+  const [inviteAll, setInviteAll] = useState(false)
+  const [invitees, setInvitees] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -45,6 +49,7 @@ export default function TrainingFormModal({ training, onClose, onSave, categorie
       await onSave({
         ...training, ...form, url, id: training?.id,
         documentFiles: docFiles, removedDocs,
+        inviteAll, inviteeIds: invitees,
       })
       onClose()
     } catch (err) {
@@ -197,6 +202,18 @@ export default function TrainingFormModal({ training, onClose, onSave, categorie
             </label>
             <p className="text-xs text-gray-400 mt-1">Plaquettes, programmes… PDF, Office, images.</p>
           </div>
+
+          {/* Invitations */}
+          {users.length > 0 && (
+            <InviteePicker
+              users={users} excludeId={currentUserId}
+              selected={invitees} onChange={setInvitees}
+              all={inviteAll} onToggleAll={setInviteAll}
+            />
+          )}
+          {isEdit && (
+            <InvitationResponses targetType="training" targetId={training.id} users={users} />
+          )}
 
           <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
             Les dates et la jauge d'inscrits se définissent lors de la

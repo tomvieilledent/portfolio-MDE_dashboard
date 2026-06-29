@@ -62,6 +62,18 @@ def leave_user_sockets(user_id, conversation_id):
             socketio.server.leave_room(sid, room, namespace='/')
 
 
+def notify_invitation(invitee_id, invitation):
+    """Push a new invitation to an invitee in real time (notification bell).
+
+    Delivered on the personal room (always joined at connect), so the bell
+    updates live without a refresh.
+    """
+    if not invitee_id or not invitation:
+        return
+    socketio.emit('invitation', {'invitation': invitation},
+                  to=user_room(invitee_id))
+
+
 def notify_conversation_added(user_id, conversation):
     """Tell a user (on all their devices) that a group was added for them.
 

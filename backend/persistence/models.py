@@ -227,6 +227,23 @@ class FormationUser(Base):
     completed_at = Column(DateTime(timezone=True))
 
 
+class Invitation(Base):
+    """An RSVP invitation to an event or a training, one row per invitee."""
+    __tablename__ = 'invitations'
+    id = Column(String(36), primary_key=True,
+                default=lambda: str(uuid.uuid4()))
+    target_type = Column(String(20), nullable=False)   # 'event' | 'training'
+    target_id = Column(String(36), nullable=False)
+    target_title = Column(String(300))                 # denormalised for display
+    inviter_id = Column(String(36), nullable=False)
+    invitee_id = Column(String(36), nullable=False)
+    status = Column(String(20), default='pending')     # pending|accepted|declined
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc))
+    responded_at = Column(DateTime(timezone=True))
+
+
 class SiteContent(Base):
     """Editable site content blocks, keyed by name (e.g. 'landing').
 
