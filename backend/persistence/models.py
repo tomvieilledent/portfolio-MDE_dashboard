@@ -225,3 +225,17 @@ class FormationUser(Base):
     enrolled_at = Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True))
+
+
+class SiteContent(Base):
+    """Editable site content blocks, keyed by name (e.g. 'landing').
+
+    `value` holds a JSON document so a whole structured block (slogan,
+    subtitle, cards…) can be stored and edited from the admin UI.
+    """
+    __tablename__ = 'site_content'
+    key = Column(String(100), primary_key=True)
+    value = Column(String(8000))
+    updated_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))

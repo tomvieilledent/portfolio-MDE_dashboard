@@ -175,6 +175,10 @@ export const api = {
   getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
   markDirectRead: (otherUserId) => request(`/messages/direct/${otherUserId}`, { method: 'POST' }),
   getUnreadCount: () => request('/messages/unread'),
+
+  // --- Site content (editable landing page) ---
+  getLandingContent: () => request('/content/landing'),
+  updateLandingContent: (content) => request('/content/landing', { method: 'PUT', body: { content } }),
 }
 
 export default api

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2 } from 'lucide-react'
+import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2, Home, Save, CheckCircle } from 'lucide-react'
 import { api, mediaUrl } from '../../lib/api'
 
 // ── Rôle plateforme dérivé du backend ────────────────────────────────────────
@@ -349,6 +349,99 @@ function mapCompany(c) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+// ── Éditeur de la page d'accueil (super-admin) ───────────────────────────────
+function Field({ label, value, onChange, textarea }) {
+  const cls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light'
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      {textarea ? (
+        <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} className={`${cls} resize-none`} />
+      ) : (
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
+      )}
+    </div>
+  )
+}
+
+function LandingEditor() {
+  const [content, setContent] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(false)
+  const [saved, setSaved]     = useState(false)
+  const [error, setError]     = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    api.getLandingContent()
+      .then((res) => { if (!cancelled) setContent(res?.content || null) })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const setField = (key, val) => setContent((prev) => ({ ...prev, [key]: val }))
+  const setSection = (i, key, val) => setContent((prev) => ({
+    ...prev,
+    sections: prev.sections.map((s, idx) => idx === i ? { ...s, [key]: val } : s),
+  }))
+
+  const save = async () => {
+    setSaving(true); setError(''); setSaved(false)
+    try {
+      const res = await api.updateLandingContent(content)
+      setContent(res?.content || content)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) { setError(err.message) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <p className="text-gray-400 py-8 text-center">Chargement…</p>
+  if (!content) return <p className="text-red-500 py-4">{error || 'Contenu indisponible'}</p>
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <p className="text-sm text-gray-500">
+        Ces textes s'affichent sur la page d'accueil publique (avant connexion).
+      </p>
+
+      <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-3 shadow-sm">
+        <h3 className="text-sm font-bold text-gray-900">Accroche principale</h3>
+        <Field label="Slogan" value={content.slogan || ''} onChange={(v) => setField('slogan', v)} />
+        <Field label="Sous-titre" value={content.subtitle || ''} onChange={(v) => setField('subtitle', v)} textarea />
+      </div>
+
+      {(content.sections || []).map((s, i) => (
+        <div key={i} className="bg-white border border-gray-100 rounded-xl p-5 space-y-3 shadow-sm">
+          <h3 className="text-sm font-bold text-gray-900">Carte {i + 1}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Titre" value={s.title || ''} onChange={(v) => setSection(i, 'title', v)} />
+            <Field label="Durée" value={s.duration || ''} onChange={(v) => setSection(i, 'duration', v)} />
+          </div>
+          <Field label="Description" value={s.description || ''} onChange={(v) => setSection(i, 'description', v)} textarea />
+          <Field label="Accroche (laisser vide pour masquer)" value={s.highlight || ''} onChange={(v) => setSection(i, 'highlight', v)} />
+        </div>
+      ))}
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <div className="flex items-center gap-3">
+        <button onClick={save} disabled={saving}
+          className="flex items-center gap-2 bg-primary-light hover:bg-primary disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          Enregistrer
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
+            <CheckCircle size={16} /> Enregistré
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function GestionPage() {
   const [subTab,    setSubTab]    = useState('users')
   const [users,     setUsers]     = useState([])
@@ -475,7 +568,14 @@ export default function GestionPage() {
               {companies.length}
             </span>
           </button>
+          <button onClick={() => setSubTab('landing')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'landing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            <Home size={15} /> Page d'accueil
+          </button>
         </div>
+
+        {/* ── Page d'accueil ── */}
+        {subTab === 'landing' && <LandingEditor />}
 
         {/* ── Utilisateurs ── */}
         {subTab === 'users' && (

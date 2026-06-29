@@ -21,6 +21,7 @@ from backend.persistence.services.facades import (
     SavedNewsFacade,
     FormationUserFacade,
     EventFacade,
+    SiteContentFacade,
 )
 
 
@@ -150,3 +151,10 @@ class EventService:
 
     def __init__(self):
         self.facade = EventFacade()
+
+
+class SiteContentService:
+    """Service facade for editable site content blocks."""
+
+    def __init__(self):
+        self.facade = SiteContentFacade()

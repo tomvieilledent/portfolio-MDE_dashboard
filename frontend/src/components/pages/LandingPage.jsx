@@ -1,39 +1,46 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { LogIn, Mail, Lightbulb, TrendingUp, Key, X, User, Phone, FileText, Send, CheckCircle } from 'lucide-react'
 import LoginModal from '../modals/LoginModal'
+import { api } from '../../lib/api'
 
-const SECTIONS = [
-  {
-    icon: Lightbulb,
-    title: 'Incubateur',
-    duration: 'Jusqu\'à 24 mois',
-    color: 'bg-white/10 border-white/30 text-white',
-    iconColor: 'text-primary-light',
-    description:
-      'Accueille et accompagne les porteurs de projets innovants du concept à la création. Suivi personnalisé, outils méthodologiques, formations, coaching, hébergement en open-space et écosystème entrepreneurial complet.',
-    highlight: 'De l\'idée à la création d\'entreprise, étape par étape',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Pépinière d\'entreprises',
-    duration: '48 mois',
-    color: 'bg-white/10 border-white/30 text-white',
-    iconColor: 'text-green-300',
-    description:
-      'Héberge les jeunes entreprises dans leurs deux premières années. Bureaux privatifs ou open-space, accompagnement quotidien, services mutualisés, accès formations et coachs, appui au recrutement.',
-    highlight: 'Un tremplin vers un territoire attractif et dynamique',
-  },
-  {
-    icon: Key,
-    title: 'Hôtel d\'entreprises',
-    duration: 'Jusqu\'à 12 mois',
-    color: 'bg-white/10 border-white/30 text-white',
-    iconColor: 'text-blue-300',
-    description:
-      'Réservé aux entreprises en fin de parcours pépinière ou à l\'accueil temporaire d\'entreprises exogènes. Bureaux fonctionnels et privatifs, services mutualisés, hébergement simple sans accompagnement.',
-    highlight: 'Location flexible — à la demi-journée, semaine ou mois',
-  },
+// Style des cartes (icône / couleurs) — par position. Le texte vient du contenu
+// éditable côté backend (ou du fallback ci-dessous).
+const SECTION_STYLES = [
+  { icon: Lightbulb,  iconColor: 'text-primary-light', color: 'bg-white/10 border-white/30 text-white' },
+  { icon: TrendingUp, iconColor: 'text-green-300',     color: 'bg-white/10 border-white/30 text-white' },
+  { icon: Key,        iconColor: 'text-blue-300',      color: 'bg-white/10 border-white/30 text-white' },
 ]
+
+// Contenu par défaut (fallback si l'API est injoignable). Doit rester aligné
+// sur DEFAULT_LANDING du backend (backend/api/resources/content.py).
+const DEFAULT_LANDING = {
+  slogan: 'De l\'idée à la création',
+  subtitle:
+    'La Maison de l\'Économie accompagne les entrepreneurs à chaque étape de leur développement, de l\'idée à l\'entreprise installée.',
+  sections: [
+    {
+      title: 'Incubateur',
+      duration: 'Jusqu\'à 24 mois',
+      description:
+        'Accueille et accompagne les porteurs de projets innovants du concept à la création. Suivi personnalisé, outils méthodologiques, formations, coaching, hébergement en open-space et écosystème entrepreneurial complet.',
+      highlight: 'De l\'idée à la création d\'entreprise, étape par étape',
+    },
+    {
+      title: 'Pépinière d\'entreprises',
+      duration: '48 mois',
+      description:
+        'Héberge les jeunes entreprises. Bureaux privatifs ou open-space, accompagnement quotidien, services mutualisés, accès formations et coachs, appui au recrutement.',
+      highlight: 'Un tremplin vers un territoire attractif et dynamique',
+    },
+    {
+      title: 'Hôtel d\'entreprises',
+      duration: 'Jusqu\'à 12 mois',
+      description:
+        'Réservé aux entreprises en fin de parcours pépinière ou à l\'accueil temporaire d\'entreprises exogènes. Bureaux fonctionnels et privatifs, services mutualisés, hébergement simple sans accompagnement.',
+      highlight: '',
+    },
+  ],
+}
 
 function ContactModal({ onClose }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
@@ -168,6 +175,20 @@ function ContactModal({ onClose }) {
 export default function LandingPage({ onLoginSuccess }) {
   const [loginOpen, setLoginOpen]   = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
+  const [content, setContent] = useState(DEFAULT_LANDING)
+
+  useEffect(() => {
+    let cancelled = false
+    api.getLandingContent()
+      .then((res) => { if (!cancelled && res?.content) setContent(res.content) })
+      .catch(() => { /* fallback sur DEFAULT_LANDING */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const sections = (content.sections || []).map((sec, i) => ({
+    ...(SECTION_STYLES[i] || SECTION_STYLES[SECTION_STYLES.length - 1]),
+    ...sec,
+  }))
 
   return (
     <>
@@ -199,32 +220,34 @@ export default function LandingPage({ onLoginSuccess }) {
           {/* Title */}
           <div className="text-center mb-10">
             <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg leading-tight">
-              Votre tremplin
-              <span className="block text-primary-light">vers la réussite</span>
+              {content.slogan}
             </h1>
-            <p className="text-white/70 mt-4 text-base max-w-xl mx-auto leading-relaxed">
-              La Maison de l'Économie accompagne les entrepreneurs à chaque étape de leur développement,
-              de l'idée à l'entreprise installée.
-            </p>
+            {content.subtitle && (
+              <p className="text-white/70 mt-4 text-base max-w-xl mx-auto leading-relaxed">
+                {content.subtitle}
+              </p>
+            )}
           </div>
 
-          {/* 3 cards */}
+          {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-5xl mb-4">
-            {SECTIONS.map((s) => {
+            {sections.map((s, i) => {
               const Icon = s.icon
               return (
-                <div key={s.title} className={`rounded-2xl border backdrop-blur-sm p-5 flex flex-col gap-3 ${s.color}`}>
+                <div key={i} className={`rounded-2xl border backdrop-blur-sm p-5 flex flex-col gap-3 ${s.color}`}>
                   <div className="flex items-center gap-2">
                     <Icon size={20} className={s.iconColor} />
                     <div>
                       <p className="font-bold text-white text-base leading-tight">{s.title}</p>
-                      <p className="text-white/50 text-xs">{s.duration}</p>
+                      {s.duration && <p className="text-white/50 text-xs">{s.duration}</p>}
                     </div>
                   </div>
                   <p className="text-white/80 text-sm leading-relaxed flex-1">{s.description}</p>
-                  <p className="text-xs font-semibold text-primary-light border-t border-white/10 pt-3">
-                    {s.highlight}
-                  </p>
+                  {s.highlight && (
+                    <p className="text-xs font-semibold text-primary-light border-t border-white/10 pt-3">
+                      {s.highlight}
+                    </p>
+                  )}
                 </div>
               )
             })}

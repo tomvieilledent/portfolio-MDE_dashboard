@@ -42,6 +42,7 @@ from backend.api.resources.news import (
     SavedNewsListResource, SavedNewsResource,
 )
 from backend.api.resources.notification import NotificationListResource, NotificationResource
+from backend.api.resources.content import ContentResource
 from backend.api.resources.training import (
     CurrentUserSavedTrainingsResource,
     CurrentUserTrainingsResource,
@@ -214,6 +215,7 @@ def create_app():
     api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')
     api.add_resource(MessageResource, '/messages/<string:message_id>')
 
+    api.add_resource(ContentResource, '/content/<string:key>')
     api.add_resource(NotificationListResource, '/notifications')
     api.add_resource(NotificationResource,
                      '/notifications/<string:notification_id>')
