@@ -22,7 +22,7 @@ const COMMON_TABS = [
   { id: 'dashboard',  label: 'Accueil' },
   { id: 'companies',  label: 'Entreprises' },
   { id: 'users',      label: 'Trombinoscope' },
-  { id: 'trainings',  label: 'Formations' },
+  { id: 'trainings',  label: 'Formations / Ateliers' },
   { id: 'news',       label: 'Veille économique' },
 ]
 
