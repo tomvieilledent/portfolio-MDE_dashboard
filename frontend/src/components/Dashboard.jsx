@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useAuth, displayName } from '../context/AuthContext'
 import { connectSocket } from '../lib/socket'
 import { api, mediaUrl } from '../lib/api'
@@ -122,6 +122,10 @@ export default function DashboardContainer() {
     return () => clearTimeout(t)
   }, [msgToast])
 
+  // Stable identity so Messagerie's socket effect doesn't re-subscribe (and
+  // briefly drop its listeners) on every Dashboard re-render.
+  const handleIncomingMessage = useCallback(() => setUnreadCount((n) => n + 1), [])
+
   const handleLogout = () => { logout() }
 
   // Sauvegarde du profil (persistée via PATCH /users/me) + désactivation de
@@ -191,7 +195,7 @@ export default function DashboardContainer() {
         <Messagerie
           onClose={handleCloseMessaging}
           initialContact={messagingContact}
-          onNewMessage={() => setUnreadCount((n) => n + 1)}
+          onNewMessage={handleIncomingMessage}
         />
       )}
 

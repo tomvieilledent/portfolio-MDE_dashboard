@@ -39,6 +39,11 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const [showCreate, setShowCreate] = useState(false)
   const [showManage, setShowManage] = useState(false)
   const scrollRef = useRef(null)
+  // Mirror `selected` in a ref so the socket handler can read the active
+  // conversation without putting side effects inside a setState updater
+  // (StrictMode invokes updaters twice, which would double-count notifications).
+  const selectedRef = useRef(selected)
+  useEffect(() => { selectedRef.current = selected }, [selected])
 
   const usersById = useMemo(() => {
     const map = {}
@@ -81,32 +86,27 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
 
     const onNew = ({ message }) => {
       if (!message) return
+      const sel = selectedRef.current
       if (message.conversation_id) {
         // Message de groupe
-        setSelected((sel) => {
-          const active = sel?.type === 'group' && sel.id === message.conversation_id
-          if (active) {
-            setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
-          } else if (message.author_id !== myId) {
-            setUnreadByConv((prev) => ({ ...prev, [message.conversation_id]: (prev[message.conversation_id] || 0) + 1 }))
-            onNewMessage?.()
-          }
-          return sel
-        })
+        const active = sel?.type === 'group' && sel.id === message.conversation_id
+        if (active) {
+          setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
+        } else if (message.author_id !== myId) {
+          setUnreadByConv((prev) => ({ ...prev, [message.conversation_id]: (prev[message.conversation_id] || 0) + 1 }))
+          onNewMessage?.()
+        }
         return
       }
       // Message direct (DM)
       const otherId = message.author_id === myId ? message.recipient_id : message.author_id
-      setSelected((sel) => {
-        const active = sel?.type === 'dm' && sel.id === otherId
-        if (active) {
-          setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
-        } else if (message.author_id !== myId) {
-          setUnreadByUser((prev) => ({ ...prev, [message.author_id]: (prev[message.author_id] || 0) + 1 }))
-          onNewMessage?.()
-        }
-        return sel
-      })
+      const active = sel?.type === 'dm' && sel.id === otherId
+      if (active) {
+        setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])
+      } else if (message.author_id !== myId) {
+        setUnreadByUser((prev) => ({ ...prev, [message.author_id]: (prev[message.author_id] || 0) + 1 }))
+        onNewMessage?.()
+      }
     }
     const onPresence = ({ user_id, online }) => {
       setOnlineIds((prev) => {
