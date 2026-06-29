@@ -3,16 +3,6 @@ import uuid
 import pytest
 
 from backend.models.conversation_participant import ConversationParticipant
-from backend.persistence.services.facades.conversation_participant_facade_sql import (
-    ConversationParticipantFacade,
-)
-
-# Ensure local DB schema matches current models for standalone test runs
-import importlib
-db_module = importlib.import_module('backend.persistence.db')
-models_module = importlib.import_module('backend.persistence.models')
-models_module.Base.metadata.drop_all(bind=db_module.engine)
-models_module.Base.metadata.create_all(bind=db_module.engine)
 
 
 def test_model_requires_ids():
@@ -29,7 +19,14 @@ def test_model_requires_ids():
         ConversationParticipant(conversation_id='c1', user_id='')
 
 
-def test_facade_crud_flow():
+def test_facade_crud_flow(app_bundle):
+    # Import inside the test so the facade binds to the isolated test DB that
+    # app_bundle sets up (re-importing backend.* against a tmp DATABASE_URL).
+    # Importing at module level would run against the real data.db instead.
+    from backend.persistence.services.facades.conversation_participant_facade_sql import (
+        ConversationParticipantFacade,
+    )
+
     facade = ConversationParticipantFacade()
 
     conv = str(uuid.uuid4())
