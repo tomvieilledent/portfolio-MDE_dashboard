@@ -54,6 +54,7 @@ class CompanyFacade:
                 location=kwargs.get('location'),
                 website_link=kwargs.get('website_link'),
                 company_picture=kwargs.get('company_picture'),
+                kind=kwargs.get('kind') or 'company',
                 created_at=datetime.now(timezone.utc),
             )
             db.add(c)
@@ -129,7 +130,7 @@ class CompanyFacade:
             if not company:
                 return None
             for field in ('name', 'description', 'location', 'website_link',
-                          'company_picture', 'admin_email', 'admin_id'):
+                          'company_picture', 'admin_email', 'admin_id', 'kind'):
                 if field in kwargs:
                     setattr(company, field, kwargs.get(field))
             if 'is_active' in kwargs:
@@ -189,6 +190,7 @@ class CompanyFacade:
             'location': getattr(c, 'location', None),
             'website_link': c.website_link,
             'company_picture': c.company_picture,
+            'kind': getattr(c, 'kind', None) or 'company',
             'employee_count': employee_count,
             'is_active': c.is_active,
             'created_at': isoformat(c.created_at),

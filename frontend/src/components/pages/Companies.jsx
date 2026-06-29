@@ -27,6 +27,7 @@ export default function Companies() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [subTab, setSubTab] = useState('companies') // 'companies' | 'trainers'
   const [modal, setModal] = useState(null)
   const [expanded, setExpanded] = useState(new Set())
   const [userEmails, setUserEmails] = useState([]) // pour le champ admin_email du modal
@@ -91,12 +92,18 @@ export default function Companies() {
     return () => { cancelled = true }
   }, [])
 
-  const filtered = companies.filter(
-    (c) =>
+  // L'onglet « Formateurs » isole les fiches marquées kind='trainer' ;
+  // l'onglet « Entreprises » montre les entreprises hébergées (défaut).
+  const wantTrainer = subTab === 'trainers'
+  const filtered = companies.filter((c) => {
+    const isTrainer = (c.kind || 'company') === 'trainer'
+    if (isTrainer !== wantTrainer) return false
+    return (
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.sector || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )
+    )
+  })
 
   // Création / édition persistées via l'API. Avec un logo on envoie un
   // multipart (company_picture_file), sinon du JSON.
@@ -109,6 +116,7 @@ export default function Companies() {
       payload.append('description', form.description || '')
       payload.append('location', form.location || '')
       payload.append('website_link', form.url || '')
+      payload.append('kind', form.kind || 'company')
       if (form.admin_email) payload.append('admin_email', form.admin_email)
       payload.append('company_picture_file', form.logoFile)
     } else {
@@ -117,6 +125,7 @@ export default function Companies() {
         description: form.description || null,
         location: form.location || null,
         website_link: form.url || null,
+        kind: form.kind || 'company',
       }
       if (form.admin_email) payload.admin_email = form.admin_email
     }
@@ -138,17 +147,41 @@ export default function Companies() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Entreprises</h2>
-            <p className="text-sm text-gray-500 mt-1">Gestion des entreprises de la pépinière</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {wantTrainer ? 'Formateurs et intervenants de la pépinière'
+                           : 'Gestion des entreprises de la pépinière'}
+            </p>
           </div>
           {isSuperAdmin && (
             <button
-              onClick={() => setModal({ mode: 'add' })}
+              onClick={() => setModal({ mode: 'add', kind: wantTrainer ? 'trainer' : 'company' })}
               className="btn-primary flex items-center gap-2"
             >
               <Plus size={18} />
-              Ajouter une entreprise
+              {wantTrainer ? 'Ajouter un formateur' : 'Ajouter une entreprise'}
             </button>
           )}
+        </div>
+
+        {/* Onglets internes : Entreprises hébergées / Formateurs */}
+        <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setSubTab('companies')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'companies' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Building2 size={15} /> Entreprises
+          </button>
+          <button
+            onClick={() => setSubTab('trainers')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'trainers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Users size={15} /> Formateurs
+            {companies.filter((c) => (c.kind || 'company') === 'trainer').length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'trainers' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
+                {companies.filter((c) => (c.kind || 'company') === 'trainer').length}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="relative mb-6">
@@ -206,7 +239,7 @@ export default function Companies() {
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                      {company.is_active ? '✓ Active' : 'Inactive'}
+                      {company.is_active ? '✓ Actuellement hébergé' : 'Passé par là'}
                     </span>
                   </div>
 
@@ -316,7 +349,13 @@ export default function Companies() {
 
         {filtered.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-400">Aucune entreprise ne correspond à votre recherche</p>
+            <p className="text-gray-400">
+              {searchQuery
+                ? (wantTrainer ? 'Aucun formateur ne correspond à votre recherche'
+                               : 'Aucune entreprise ne correspond à votre recherche')
+                : (wantTrainer ? 'Aucun formateur pour l’instant'
+                               : 'Aucune entreprise pour l’instant')}
+            </p>
           </div>
         )}
       </div>
@@ -324,6 +363,7 @@ export default function Companies() {
       {modal && (
         <CompanyModal
           company={modal.mode === 'edit' ? modal.company : null}
+          defaultKind={modal.kind || 'company'}
           userEmails={userEmails}
           members={modal.mode === 'edit'
             ? allUsers

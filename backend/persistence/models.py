@@ -46,6 +46,8 @@ class Company(Base):
     company_picture = Column(String(512))
     admin_email = Column(String(254))
     admin_id = Column(String(36))
+    # 'company' (entreprise hébergée) ou 'trainer' (formateur).
+    kind = Column(String(20), default='company')
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))

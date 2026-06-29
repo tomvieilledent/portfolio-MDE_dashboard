@@ -96,6 +96,10 @@ try:
         if 'location' not in company_cols:
             conn.execute(text("ALTER TABLE companies ADD COLUMN location VARCHAR(200)"))
             conn.commit()
+        if 'kind' not in company_cols:
+            conn.execute(text(
+                "ALTER TABLE companies ADD COLUMN kind VARCHAR(20) DEFAULT 'company'"))
+            conn.commit()
 except Exception:
     pass
 

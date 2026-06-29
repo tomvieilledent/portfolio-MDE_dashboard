@@ -33,6 +33,7 @@ class Company(BaseModel):
         location=None,
         website_link=None,
         company_picture=None,
+        kind='company',
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -43,6 +44,7 @@ class Company(BaseModel):
         self.company_picture = company_picture
         self.admin_email = admin_email
         self.admin_id = admin_id
+        self.kind = kind
 
     @property
     def location(self):
@@ -129,6 +131,23 @@ class Company(BaseModel):
         if len(value) > 512:
             raise ValueError("Company picture must be 512 characters or fewer")
         self._company_picture = value
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @kind.setter
+    def kind(self, value):
+        # Distingue une entreprise hébergée d'un formateur. Défaut : 'company'.
+        if value is None or value == '':
+            self._kind = 'company'
+            return
+        if not isinstance(value, str):
+            raise TypeError("Kind must be a string")
+        value = value.strip().lower()
+        if value not in ('company', 'trainer'):
+            raise ValueError("Kind must be 'company' or 'trainer'")
+        self._kind = value
 
     @property
     def admin_id(self):

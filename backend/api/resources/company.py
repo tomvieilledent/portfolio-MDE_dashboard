@@ -86,6 +86,7 @@ class CompanyListResource(Resource):
                 company_picture=company_picture,
                 admin_email=admin_email,
                 admin_id=admin_id,
+                kind=data.get('kind', 'company'),
             )
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
@@ -98,6 +99,7 @@ class CompanyListResource(Resource):
                 location=data.get('location'),
                 website_link=domain.website_link,
                 company_picture=company_picture,
+                kind=domain.kind,
             )
         except ValueError as exc:
             return error_response(ERROR_CODES['BAD_REQUEST'], str(exc), 400)
@@ -172,6 +174,8 @@ class CompanyResource(Resource):
                           'admin_email', 'admin_id', 'is_active'):
                 if field in data:
                     update_data[field] = data.get(field)
+            if 'kind' in data:
+                update_data['kind'] = domain.kind
             # Persist the normalized link (scheme added if the user omitted it).
             if 'website_link' in data:
                 update_data['website_link'] = domain.website_link

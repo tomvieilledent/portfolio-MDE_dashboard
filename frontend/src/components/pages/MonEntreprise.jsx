@@ -172,7 +172,7 @@ export default function MonEntreprise() {
                   ) : (
                     <h3 className="text-xl font-bold text-gray-900">{company.name}</h3>
                   )}
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{company.is_active ? '✓ Active' : 'Inactive'}</span>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{company.is_active ? '✓ Actuellement hébergé' : 'Passé par là'}</span>
                 </div>
                 {company.location && company.location !== '—' && (
                   <p className="text-sm text-gray-500 mt-0.5">{company.location}</p>
