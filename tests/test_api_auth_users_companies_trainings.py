@@ -582,6 +582,14 @@ def test_company_create_is_super_admin_only_with_location_and_count(seeded_conte
     # The admin is auto-attached to the company → employee_count == 1.
     assert company['employee_count'] == 1
 
+    # A scheme-less link is stored with https:// added automatically.
+    no_scheme = client.post('/companies', headers=admin_headers, json={
+        'name': 'Delta', 'admin_email': company_admin_email,
+        'website_link': 'www.delta.fr',
+    })
+    assert no_scheme.status_code == 201
+    assert no_scheme.get_json()['company']['website_link'] == 'https://www.delta.fr'
+
 
 def test_user_reactivate_permissions(seeded_context):
     """Only super admins may reactivate a deactivated user."""

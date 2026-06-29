@@ -138,9 +138,10 @@ export default function CompanyModal({ company, userEmails = [], members = [], o
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               <span className="flex items-center gap-1"><Link size={13} /> Site web</span>
             </label>
-            <input type="url" placeholder="https://www.exemple.com"
+            <input type="text" placeholder="www.exemple.com"
               value={form.url} onChange={set('url')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light" />
+            <p className="mt-1 text-xs text-gray-400">Inutile de saisir « https:// », il est ajouté automatiquement.</p>
           </div>
 
           {isEdit && typeof company.employee_count === 'number' && (

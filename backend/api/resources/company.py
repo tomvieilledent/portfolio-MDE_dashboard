@@ -78,7 +78,7 @@ class CompanyListResource(Resource):
         company_picture = _extract_company_picture(data)
 
         try:
-            DomainCompany(
+            domain = DomainCompany(
                 name=name,
                 description=data.get('description'),
                 location=data.get('location'),
@@ -96,7 +96,7 @@ class CompanyListResource(Resource):
                 admin_id=admin_id,
                 description=data.get('description'),
                 location=data.get('location'),
-                website_link=data.get('website_link'),
+                website_link=domain.website_link,
                 company_picture=company_picture,
             )
         except ValueError as exc:
@@ -172,6 +172,9 @@ class CompanyResource(Resource):
                           'admin_email', 'admin_id', 'is_active'):
                 if field in data:
                     update_data[field] = data.get(field)
+            # Persist the normalized link (scheme added if the user omitted it).
+            if 'website_link' in data:
+                update_data['website_link'] = domain.website_link
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
