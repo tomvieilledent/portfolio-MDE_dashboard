@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { X, Search, Send, ArrowLeft, Users, Plus, Settings, UserPlus, LogOut, Check } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, mediaUrl } from '../lib/api'
 import { connectSocket, getSocket } from '../lib/socket'
 import { useAuth, displayName, initialsOf } from '../context/AuthContext'
 
@@ -222,7 +222,10 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   }
 
   const handleGroupCreated = (conv) => {
-    setConversations((prev) => [conv, ...prev])
+    // Dédup par id : le backend pousse aussi `conversation_added` au créateur,
+    // qui peut arriver avant ou après la réponse REST. Sans ce garde-fou, une
+    // course fait apparaître le groupe en double dans la liste.
+    setConversations((prev) => prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev])
     getSocket()?.emit('join_conversation', { conversation_id: conv.id })
     setShowCreate(false)
     selectGroup(conv.id)
@@ -334,7 +337,7 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                 >
                   <div className="relative flex-shrink-0">
                     {u.profile_picture ? (
-                      <img src={u.profile_picture} alt={displayName(u)} className="w-11 h-11 rounded-full object-cover" />
+                      <img src={mediaUrl(u.profile_picture)} alt={displayName(u)} className="w-11 h-11 rounded-full object-cover" />
                     ) : (
                       <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm ${colorFor(u.id)}`}>
                         {initialsOf(u)}
@@ -384,7 +387,7 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                 ) : (
                   <>
                     {activeUser.profile_picture ? (
-                      <img src={activeUser.profile_picture} alt={displayName(activeUser)} className="w-10 h-10 rounded-full object-cover" />
+                      <img src={mediaUrl(activeUser.profile_picture)} alt={displayName(activeUser)} className="w-10 h-10 rounded-full object-cover" />
                     ) : (
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${colorFor(activeUser.id)}`}>
                         {initialsOf(activeUser)}
@@ -412,7 +415,7 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                     <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                       {!mine && (
                         sender?.profile_picture ? (
-                          <img src={sender.profile_picture} alt="" className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0 self-end" />
+                          <img src={mediaUrl(sender.profile_picture)} alt="" className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0 self-end" />
                         ) : (
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2 flex-shrink-0 self-end ${colorFor(msg.author_id)}`}>
                             {sender ? initialsOf(sender) : '?'}
@@ -552,7 +555,7 @@ function GroupCreateModal({ users, onClose, onCreated }) {
               return (
                 <button key={u.id} onClick={() => toggle(u.id)} className="w-full flex items-center gap-3 px-1 py-2 hover:bg-gray-50 rounded-lg text-left">
                   {u.profile_picture ? (
-                    <img src={u.profile_picture} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    <img src={mediaUrl(u.profile_picture)} alt="" className="w-9 h-9 rounded-full object-cover" />
                   ) : (
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs ${colorFor(u.id)}`}>{initialsOf(u)}</div>
                   )}

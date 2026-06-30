@@ -12,6 +12,7 @@ from backend.api.resources._helpers import _can
 from backend.models.training_session import TrainingSession as DomainSession
 from backend.persistence.services import (
     FormationUserService,
+    InvitationService,
     TrainingService,
     TrainingSessionService,
     UserService,
@@ -22,6 +23,30 @@ session_service = TrainingSessionService()
 formation_service = FormationUserService()
 training_service = TrainingService()
 user_service = UserService()
+invitation_service = InvitationService()
+
+
+def _accessible_session_ids(identity):
+    """Set of session ids a non-manager user may see/access.
+
+    A regular user only reaches a programmed session they were invited to or
+    are already enrolled in. Managers bypass this (they see every session).
+    """
+    invited = invitation_service.facade.target_ids_for_invitee(
+        identity, 'session')
+    enrolled = {e['session_id']
+                for e in formation_service.facade.list_by_user(identity)
+                if e.get('session_id')}
+    return invited | enrolled
+
+
+def _can_access_session(identity, current, sess):
+    """Whether *current* user may see/enroll in *sess* (a session dict)."""
+    if _can(current, 'manage_trainings'):
+        return True
+    if sess.get('created_by') == identity:
+        return True
+    return sess['id'] in _accessible_session_ids(identity)
 
 
 def _parse_dt(value):
@@ -66,6 +91,13 @@ class TrainingSessionListResource(Resource):
         limit = request.args.get('limit', default=100, type=int)
         sessions = session_service.facade.list(
             training_id=training_id, status=status, limit=limit)
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        if not _can(current, 'manage_trainings'):
+            accessible = _accessible_session_ids(identity)
+            sessions = [s for s in sessions
+                        if s.get('created_by') == identity
+                        or s['id'] in accessible]
         return {'sessions': sessions}
 
 
@@ -85,6 +117,13 @@ class TrainingSessionsByTrainingResource(Resource):
         if not training_service.facade.get(training_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'training not found', 404)
         sessions = session_service.facade.list(training_id=training_id)
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        if not _can(current, 'manage_trainings'):
+            accessible = _accessible_session_ids(identity)
+            sessions = [s for s in sessions
+                        if s.get('created_by') == identity
+                        or s['id'] in accessible]
         return {'sessions': sessions}
 
     @jwt_required()
@@ -160,6 +199,12 @@ class TrainingSessionResource(Resource):
         sess = session_service.facade.get(session_id)
         if not sess:
             return error_response(ERROR_CODES['NOT_FOUND'], 'session not found', 404)
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        if not _can_access_session(identity, current, sess):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'not allowed to view this session', 403)
         return {'session': sess}
 
     @jwt_required()
@@ -254,6 +299,11 @@ class TrainingSessionEnrollResource(Resource):
         sess = session_service.facade.get(session_id)
         if not sess:
             return error_response(ERROR_CODES['NOT_FOUND'], 'session not found', 404)
+        current = user_service.get_by_id(user_id)
+        if not _can_access_session(user_id, current, sess):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'you must be invited to enroll in this session', 403)
         if sess['status'] == 'full':
             return error_response(
                 ERROR_CODES['CONFLICT'],
@@ -281,7 +331,7 @@ class TrainingSessionEnrollResource(Resource):
         sess = session_service.facade.get(session_id)
         if not sess:
             return error_response(ERROR_CODES['NOT_FOUND'], 'session not found', 404)
-        if not formation_service.facade.unenroll(user_id, sess['training_id']):
+        if not formation_service.facade.unenroll(user_id, session_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'enrollment not found', 404)
         return {'msg': 'unenrolled'}
 

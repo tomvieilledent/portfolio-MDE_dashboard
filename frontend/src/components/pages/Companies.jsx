@@ -79,6 +79,23 @@ export default function Companies({ isAdmin = false }) {
     return next
   })
 
+  // Le backend n'expose pas d'« équipe » sur la fiche entreprise : on la
+  // reconstruit à partir de la liste des utilisateurs (champ company_id), pour
+  // alimenter le menu déroulant « Voir l'équipe » de chaque entreprise.
+  const membersOf = (companyId) =>
+    allUsers
+      .filter((u) => u.company_id === companyId)
+      .map((u) => {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+        return {
+          id: u.id,
+          name,
+          role: u.is_super_admin ? 'Administrateur' : (u.is_company_admin ? 'Responsable' : 'Membre'),
+          photo: mediaUrl(u.profile_picture)
+            || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
+        }
+      })
+
   useEffect(() => {
     let cancelled = false
     // companies pour la liste, users pour proposer un admin_email valide à la création
@@ -203,7 +220,8 @@ export default function Companies({ isAdmin = false }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((company) => {
             const isExpanded = expanded.has(company.id)
-            const hasTeam = company.team && company.team.length > 0
+            const team = membersOf(company.id)
+            const hasTeam = team.length > 0
             const canEdit = isSuperAdmin || isCompanyAdmin(company)
             const canDeactivate = isSuperAdmin || isCompanyAdmin(company)
             const canDelete = isSuperAdmin
@@ -286,10 +304,11 @@ export default function Companies({ isAdmin = false }) {
                     {hasTeam && (
                       <button
                         onClick={() => toggleExpand(company.id)}
-                        title={isExpanded ? "Masquer l'équipe" : "Voir l'équipe"}
-                        className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 text-sm font-medium rounded-xl transition-colors"
+                        title={isExpanded ? "Masquer les employés" : "Voir les employés"}
+                        className={`flex items-center gap-1.5 px-3 py-2 border text-sm font-medium rounded-xl transition-colors ${canEdit ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600' : 'flex-1 justify-center border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600'}`}
                       >
                         <Users size={15} />
+                        {!canEdit && <span>Employés ({team.length})</span>}
                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </button>
                     )}
@@ -325,10 +344,10 @@ export default function Companies({ isAdmin = false }) {
                 {hasTeam && isExpanded && (
                   <div className="border-t border-gray-100 px-6 py-4 bg-gray-50">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      Équipe — {company.team.length} membre{company.team.length > 1 ? 's' : ''}
+                      Employés — {team.length} membre{team.length > 1 ? 's' : ''}
                     </p>
                     <div className="flex flex-wrap gap-3">
-                      {company.team.map((member, i) => (
+                      {team.map((member, i) => (
                         <div key={i} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 shadow-sm border border-gray-100">
                           <img
                             src={member.photo}

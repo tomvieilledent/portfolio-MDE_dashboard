@@ -8,11 +8,13 @@ from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.resources._helpers import _can
 from backend.models.event import Event as DomainEvent
-from backend.persistence.services import EventService, UserService
+from backend.persistence.services import (
+    EventService, InvitationService, UserService)
 
 
 event_service = EventService()
 user_service = UserService()
+invitation_service = InvitationService()
 
 
 def _can_edit(event, current_user):
@@ -33,12 +35,24 @@ class EventListResource(Resource):
 
     @jwt_required()
     def get(self):
-        """Return all active events.
+        """Return the events the caller may see.
+
+        Managers (super admins or staff with ``manage_trainings``) see every
+        event. A regular user only sees events they created or were invited to.
 
         Returns:
             tuple[dict, int]: ``{events}`` and 200.
         """
-        return {'events': event_service.facade.list()}
+        events = event_service.facade.list()
+        identity = get_jwt_identity()
+        current = user_service.get_by_id(identity)
+        if _can(current, 'manage_trainings'):
+            return {'events': events}
+        invited = invitation_service.facade.target_ids_for_invitee(
+            identity, 'event')
+        visible = [e for e in events
+                   if e.get('created_by') == identity or e['id'] in invited]
+        return {'events': visible}
 
     @jwt_required()
     def post(self):

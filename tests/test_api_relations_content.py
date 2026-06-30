@@ -437,6 +437,12 @@ def test_formation_user_flow(seeded_context):
     assert session_resp.status_code == 201
     session_id = session_resp.get_json()['session']['id']
 
+    # admin invites the member (programmed sessions are invitation-gated)
+    client.post('/invitations', headers=admin_headers, json={
+        'target_type': 'session', 'target_id': session_id,
+        'invitee_ids': [member_id],
+    })
+
     # member enrolls — interest is auto-upgraded to enrolled
     enroll = client.post(f'/training-sessions/{session_id}/enroll', headers=member_headers)
     assert enroll.status_code == 201

@@ -544,7 +544,9 @@ function SessionCard({ session, title, isAdmin, enrolled, onEnroll, onUnenroll, 
       </div>
 
       <div className="mt-auto flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
-        {isAdmin ? (
+        {/* Actions de gestion (admin) : visibles en plus de l'inscription, afin
+            qu'un admin/staff puisse lui aussi s'inscrire à une session. */}
+        {isAdmin && (
           <>
             {onShowParticipants && (
               <button onClick={onShowParticipants}
@@ -559,17 +561,19 @@ function SessionCard({ session, title, isAdmin, enrolled, onEnroll, onUnenroll, 
               </button>
             )}
           </>
-        ) : enrolled ? (
+        )}
+        {/* Inscription / désinscription — disponible pour tous (y compris admin). */}
+        {canEnroll && (enrolled ? (
           <button onClick={onUnenroll} disabled={ended}
             className="text-sm px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 rounded-xl transition-colors font-medium">
             Se désinscrire
           </button>
         ) : (
-          <button onClick={onEnroll} disabled={full || ended || !canEnroll}
+          <button onClick={onEnroll} disabled={full || ended}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm px-4 py-2">
             {full ? 'Complet' : ended ? 'Terminée' : "S'inscrire"}
           </button>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -755,7 +759,20 @@ export default function Trainings({ isAdmin = false, profile = null }) {
       await api.enrollSession(sessionId)
       setEnrolledSessions((prev) => new Set(prev).add(sessionId))
       await loadSessions()
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      // « already enrolled » : l'utilisateur est en réalité déjà inscrit (p.ex.
+      // après acceptation d'une invitation dans un autre onglet) mais l'état
+      // local n'était pas à jour. On réconcilie avec le backend plutôt que
+      // d'afficher une erreur, pour que la session apparaisse bien dans
+      // « Mes inscriptions » et que le bouton devienne « Se désinscrire ».
+      if (/already enrolled/i.test(err.message || '')) {
+        setEnrolledSessions((prev) => new Set(prev).add(sessionId))
+        await loadMyEnrollments()
+        await loadSessions()
+      } else {
+        setError(err.message)
+      }
+    }
   }
 
   const unenrollSession = async (sessionId) => {

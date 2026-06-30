@@ -151,5 +151,5 @@ class InvitationResource(Resource):
                         invitation['invitee_id'], sess['training_id'], sess['id'])
                 elif status == 'declined':
                     formation_service.facade.unenroll(
-                        invitation['invitee_id'], sess['training_id'])
+                        invitation['invitee_id'], sess['id'])
         return {'invitation': invitation}

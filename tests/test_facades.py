@@ -327,7 +327,7 @@ class TestFormationUserFacade:
         user = uf.create_user('revert@x.com', 'password123')
         ff.enroll(user['id'], training['id'], sess['id'])
         assert sf.get(sess['id'])['status'] == 'full'
-        ff.unenroll(user['id'], training['id'])
+        ff.unenroll(user['id'], sess['id'])
         assert sf.get(sess['id'])['status'] == 'upcoming'
 
     def test_unenroll_missing_returns_false(self, facades):

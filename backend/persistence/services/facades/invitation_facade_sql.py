@@ -72,6 +72,21 @@ class InvitationFacade:
                 ORMInvitation.invitee_id == invitee_id,
                 ORMInvitation.status == 'pending').count()
 
+    def target_ids_for_invitee(self, invitee_id, target_type):
+        """Set of *target_id*s a user is invited to for a given target type.
+
+        Used to gate visibility/access: a non-manager may only see events or
+        sessions they were invited to (any RSVP status, including pending).
+
+        Returns:
+            set[str]: The target ids the invitee has an invitation for.
+        """
+        with session_scope() as db:
+            rows = db.query(ORMInvitation.target_id).filter(
+                ORMInvitation.invitee_id == invitee_id,
+                ORMInvitation.target_type == target_type).all()
+            return {r[0] for r in rows}
+
     def list_for_target(self, target_type, target_id):
         """Every invitation for a target (organizer view of responses)."""
         with session_scope() as db:
