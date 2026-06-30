@@ -140,7 +140,13 @@ class FormationUserFacade:
     # ------------------------------------------------------------------
 
     def enroll(self, user_id, training_id, session_id):
-        """Enroll user in a session, checking capacity and removing interest."""
+        """Enroll a user in a *session*, checking capacity and reusing interest.
+
+        Enrollment is tracked per **session**, not per training: a user may be
+        enrolled in several sessions of the same training (e.g. after accepting
+        invitations to distinct dates). The "already enrolled" guard therefore
+        applies to the exact session, not to any session of the training.
+        """
         with session_scope() as db:
             s: Any = db.query(ORMTrainingSession).filter(
                 ORMTrainingSession.id == session_id).first()
@@ -155,36 +161,47 @@ class FormationUserFacade:
             if enrolled_count >= s.max_participants:
                 return None, 'session is full'
 
+            # Is there already a row pinned to this exact session?
             existing: Any = db.query(ORMFormationUser).filter(
                 ORMFormationUser.user_id == user_id,
-                ORMFormationUser.training_id == training_id,
+                ORMFormationUser.session_id == session_id,
             ).first()
             if existing and existing.type == 'enrolled':
                 return None, 'already enrolled'
             if existing and existing.type == 'completed':
-                return None, 'already completed this training'
+                return None, 'already completed this session'
 
             if existing:
-                # upgrade interest → enrolled
-                existing.session_id = session_id
                 existing.type = 'enrolled'
                 existing.enrolled_at = datetime.now(timezone.utc)
-                db.add(existing)
-                db.flush()
-                db.refresh(existing)
                 relation = existing
             else:
-                relation = ORMFormationUser(
-                    id=str(uuid.uuid4()),
-                    user_id=user_id,
-                    training_id=training_id,
-                    session_id=session_id,
-                    type='enrolled',
-                    enrolled_at=datetime.now(timezone.utc),
-                )
-                db.add(relation)
-                db.flush()
-                db.refresh(relation)
+                # Reuse a session-less interest/bookmark row for this training
+                # (e.g. "interested" expressed earlier) and pin it to the
+                # session, so the two states share a single row.
+                placeholder: Any = db.query(ORMFormationUser).filter(
+                    ORMFormationUser.user_id == user_id,
+                    ORMFormationUser.training_id == training_id,
+                    ORMFormationUser.session_id.is_(None),
+                    ORMFormationUser.type != 'enrolled',
+                ).first()
+                if placeholder:
+                    placeholder.session_id = session_id
+                    placeholder.type = 'enrolled'
+                    placeholder.enrolled_at = datetime.now(timezone.utc)
+                    relation = placeholder
+                else:
+                    relation = ORMFormationUser(
+                        id=str(uuid.uuid4()),
+                        user_id=user_id,
+                        training_id=training_id,
+                        session_id=session_id,
+                        type='enrolled',
+                        enrolled_at=datetime.now(timezone.utc),
+                    )
+                    db.add(relation)
+            db.flush()
+            db.refresh(relation)
 
             new_count = enrolled_count + 1
             if new_count >= s.max_participants:
@@ -193,25 +210,28 @@ class FormationUserFacade:
 
             return self._to_dict(relation), None
 
-    def unenroll(self, user_id, training_id):
-        """Remove an active enrollment and revert session to 'upcoming' if full."""
+    def unenroll(self, user_id, session_id):
+        """Remove the user's enrollment in a *session* and free a full seat.
+
+        Keyed by session (matching :meth:`enroll`): unenrolling from one
+        session leaves enrollments in other sessions of the same training
+        untouched.
+        """
         with session_scope() as db:
             relation: Any = db.query(ORMFormationUser).filter(
                 ORMFormationUser.user_id == user_id,
-                ORMFormationUser.training_id == training_id,
+                ORMFormationUser.session_id == session_id,
                 ORMFormationUser.type == 'enrolled',
             ).first()
             if not relation:
                 return False
-            session_id = relation.session_id
             db.delete(relation)
             db.flush()
-            if session_id:
-                s: Any = db.query(ORMTrainingSession).filter(
-                    ORMTrainingSession.id == session_id).first()
-                if s and s.status == 'full':
-                    s.status = 'upcoming'
-                    db.add(s)
+            s: Any = db.query(ORMTrainingSession).filter(
+                ORMTrainingSession.id == session_id).first()
+            if s and s.status == 'full':
+                s.status = 'upcoming'
+                db.add(s)
             return True
 
     # ------------------------------------------------------------------

@@ -5,12 +5,13 @@ from typing import Any
 from flask import request
 from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
+from sqlalchemy.exc import IntegrityError
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.uploads import save_image_upload
-from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
-from backend.models.user import User as DomainUser
+from backend.api.resources._helpers import _can, _cleanup_replaced_upload, _request_payload
+from backend.models.user import User as DomainUser, validate_permissions
 from backend.persistence.services import CompanyService, UserService
 
 
@@ -96,11 +97,15 @@ class UserListResource(Resource):
         """
         current = service.get_by_id(get_jwt_identity())
         is_super_admin = bool(current and current.get('is_super_admin'))
-        admin_company = None if is_super_admin else _administered_company(current)
-        if not is_super_admin and not admin_company:
+        # A super admin and any staff member holding ``manage_users`` may
+        # create platform-wide accounts; a company admin is limited to their
+        # own company.
+        can_manage_users = _can(current, 'manage_users')
+        admin_company = None if can_manage_users else _administered_company(current)
+        if not can_manage_users and not admin_company:
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins or company admins can create users', 403)
+                'only super admins, staff or company admins can create users', 403)
 
         data = _request_payload()
         email = data.get('email')
@@ -115,12 +120,23 @@ class UserListResource(Resource):
             return error_response(ERROR_CODES['BAD_REQUEST'], 'email and password required', 400)
 
         # Determine the target company: a company admin is locked to their own.
-        if is_super_admin:
+        if can_manage_users:
             company_id = data.get('company_id')
             make_company_admin = bool(data.get('is_company_admin'))
         else:
             company_id = admin_company['id']
             make_company_admin = False
+
+        # Privileged accounts (super admin / staff with rights) may only be
+        # minted by a super admin — staff cannot escalate their own reach.
+        make_super = is_super_admin and bool(data.get('is_super_admin'))
+        make_staff = is_super_admin and bool(data.get('is_staff'))
+        permissions = []
+        if make_staff:
+            try:
+                permissions = validate_permissions(data.get('permissions'))
+            except Exception as exc:
+                return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
         try:
             DomainUser(email=email, password=password, first_name=first_name)
@@ -139,9 +155,16 @@ class UserListResource(Resource):
                 phone=phone,
                 company_id=company_id,
                 is_company_admin=make_company_admin,
+                is_super_admin=make_super,
+                is_staff=make_staff,
+                permissions=permissions,
                 profile_picture=profile_picture,
                 business_card=business_card,
             )
+        except IntegrityError:
+            return error_response(
+                ERROR_CODES['CONFLICT'],
+                'a user with this email already exists', 409)
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create user', 409, str(exc))
 
@@ -360,10 +383,19 @@ class UserResource(Resource):
             tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
         current = service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_users'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can delete users', 403)
+                'not allowed to delete users', 403)
+        target = service.get_by_id(user_id)
+        if not target:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        # A super-admin account may never be deleted by a non-super-admin
+        # (e.g. a staff member holding ``manage_users``).
+        if target.get('is_super_admin') and not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'cannot delete a super admin account', 403)
         if not service.delete(user_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'msg': 'user deleted'}
@@ -387,11 +419,19 @@ class UserDeactivateResource(Resource):
         """
         identity = get_jwt_identity()
         current = service.get_by_id(identity)
-        is_super_admin = bool(current and current.get('is_super_admin'))
-        if identity != user_id and not is_super_admin:
+        if identity != user_id and not _can(current, 'manage_users'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
                 'not allowed to deactivate this user', 403)
+        # A super-admin account may not be deactivated by a non-super-admin
+        # (a staff member with ``manage_users``); only the super admin
+        # themselves or another super admin may do so.
+        target = service.get_by_id(user_id)
+        if (target and target.get('is_super_admin') and identity != user_id
+                and not current.get('is_super_admin')):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'cannot deactivate a super admin account', 403)
         # A company admin cannot be deactivated while still administering an
         # active company — a replacement must be assigned first
         # (PATCH /companies/<id> {admin_email}).
@@ -421,10 +461,10 @@ class UserReactivateResource(Resource):
             tuple[dict, int]: ``{msg, user}`` and 200, 403, or 404.
         """
         current = service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_users'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can reactivate users', 403)
+                'not allowed to reactivate users', 403)
         user = service.update(user_id, is_active=True)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -474,6 +514,46 @@ class UserRoleResource(Resource):
                     ERROR_CODES['FORBIDDEN'],
                     'cannot demote the last active super admin', 403)
         user = service.update(user_id, is_super_admin=make_super)
+        if not user:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        return {'user': user}
+
+
+class UserPermissionsResource(Resource):
+    """Manage a user's staff status and granular rights (super admins only)."""
+
+    @jwt_required()
+    def patch(self, user_id):
+        """Set a user's ``is_staff`` flag and ``permissions`` list.
+
+        Expected JSON body:
+            is_staff (bool): Whether the account is a platform staff member.
+            permissions (list[str]): Subset of
+                ``backend.models.user.STAFF_PERMISSIONS``. Ignored (cleared)
+                when ``is_staff`` is false.
+
+        Args:
+            user_id (str): User UUID path parameter.
+
+        Returns:
+            tuple[dict, int]: ``{user}`` and 200, 400, 403, or 404.
+        """
+        current = service.get_by_id(get_jwt_identity())
+        if not current or not current.get('is_super_admin'):
+            return error_response(
+                ERROR_CODES['FORBIDDEN'],
+                'only super admins can assign staff rights', 403)
+        target = service.get_by_id(user_id)
+        if not target:
+            return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
+        data = request.get_json(silent=True) or {}
+        make_staff = bool(data.get('is_staff'))
+        try:
+            permissions = validate_permissions(data.get('permissions')) if make_staff else []
+        except Exception as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        user = service.update(
+            user_id, is_staff=make_staff, permissions=permissions)
         if not user:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
         return {'user': user}

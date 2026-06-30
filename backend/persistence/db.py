@@ -40,32 +40,15 @@ except Exception:
 try:
     # import here to avoid circular import when models import Base
     from backend.persistence import models as _models
-    # If the sqlite file exists but was created with an older schema (missing
-    # recently added columns), attempt a best-effort migration by recreating
-    # the schema. We check a representative table for the new column.
+    # Create any missing tables. This is purely *additive* and never drops
+    # existing tables, so user data is preserved across restarts. Schema drift
+    # on existing tables is handled by the additive ALTER TABLE blocks below
+    # (and by Alembic for real migrations) — never by a destructive recreate.
     try:
-        if engine.url.drivername == 'sqlite' and engine.url.database:
-            with engine.connect() as conn:
-                try:
-                    res = conn.execute(
-                        "PRAGMA table_info('conversation_participants')")
-                    cols = [row[1] for row in res]
-                    if 'uploaded_at' not in cols:
-                        _models.Base.metadata.drop_all(bind=engine)
-                        _models.Base.metadata.create_all(bind=engine)
-                    else:
-                        _models.Base.metadata.create_all(bind=engine)
-                except Exception:
-                    # If PRAGMA fails, fall back to create_all
-                    _models.Base.metadata.create_all(bind=engine)
-        else:
-            _models.Base.metadata.create_all(bind=engine)
+        _models.Base.metadata.create_all(bind=engine)
     except Exception:
         # best-effort, do not fail import
-        try:
-            _models.Base.metadata.create_all(bind=engine)
-        except Exception:
-            pass
+        pass
 except Exception:
     pass
 
@@ -108,10 +91,63 @@ except Exception:
 
 try:
     with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('users')"))
+        user_cols = [row[1] for row in res]
+        if 'is_staff' not in user_cols:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN is_staff BOOLEAN DEFAULT 0"))
+            conn.commit()
+        if 'permissions' not in user_cols:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN permissions VARCHAR(512)"))
+            conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
         res = conn.execute(text("PRAGMA table_info('companies')"))
         company_cols = [row[1] for row in res]
         if 'location' not in company_cols:
             conn.execute(text("ALTER TABLE companies ADD COLUMN location VARCHAR(200)"))
+            conn.commit()
+        if 'kind' not in company_cols:
+            conn.execute(text(
+                "ALTER TABLE companies ADD COLUMN kind VARCHAR(20) DEFAULT 'company'"))
+            conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('trainings')"))
+        training_cols = [row[1] for row in res]
+        if 'category' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN category VARCHAR(100)"))
+            conn.commit()
+        if 'type' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN type VARCHAR(20) DEFAULT 'formation'"))
+            conn.commit()
+        if 'documents' not in training_cols:
+            conn.execute(text(
+                "ALTER TABLE trainings ADD COLUMN documents VARCHAR(2000)"))
+            conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info('conversations')"))
+        conversation_cols = [row[1] for row in res]
+        if 'title' not in conversation_cols:
+            conn.execute(text(
+                "ALTER TABLE conversations ADD COLUMN title VARCHAR(200)"))
+            conn.commit()
+        if 'creator_id' not in conversation_cols:
+            conn.execute(text(
+                "ALTER TABLE conversations ADD COLUMN creator_id VARCHAR(36)"))
             conn.commit()
 except Exception:
     pass

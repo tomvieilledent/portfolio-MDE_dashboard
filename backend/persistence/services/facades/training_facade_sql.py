@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from backend.persistence.db import SessionLocal
 from backend.persistence.models import Training as ORMTraining
-from ._common_sql import isoformat
+from ._common_sql import from_csv, isoformat, to_csv
 
 
 class TrainingFacade:
@@ -34,6 +34,9 @@ class TrainingFacade:
                 company_id=company_id,
                 description=kwargs.get('description'),
                 picture=kwargs.get('picture'),
+                category=kwargs.get('category'),
+                type=kwargs.get('type') or 'formation',
+                documents=to_csv(kwargs.get('documents') or []),
                 created_at=datetime.now(timezone.utc),
             )
             db.add(t)
@@ -92,9 +95,12 @@ class TrainingFacade:
                 ORMTraining.id == training_id).first()
             if not training:
                 return None
-            for field in ('title', 'company_id', 'description', 'picture'):
+            for field in ('title', 'company_id', 'description', 'picture',
+                          'category', 'type'):
                 if field in kwargs:
                     setattr(training, field, kwargs.get(field))
+            if 'documents' in kwargs:
+                training.documents = to_csv(kwargs.get('documents') or [])
             if 'is_active' in kwargs:
                 training.is_active = bool(kwargs.get('is_active'))
             training.updated_at = datetime.now(timezone.utc)
@@ -145,6 +151,9 @@ class TrainingFacade:
             'company_id': t.company_id,
             'description': t.description,
             'picture': t.picture,
+            'category': getattr(t, 'category', None),
+            'type': getattr(t, 'type', None) or 'formation',
+            'documents': from_csv(getattr(t, 'documents', None)),
             'is_active': t.is_active,
             'created_at': isoformat(t.created_at),
             'updated_at': isoformat(getattr(t, 'updated_at', None)),

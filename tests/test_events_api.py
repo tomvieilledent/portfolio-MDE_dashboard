@@ -29,7 +29,7 @@ def test_event_list_starts_empty(seeded_context):
     assert resp.get_json()['events'] == []
 
 
-def test_any_user_can_create_and_everyone_sees(seeded_context):
+def test_event_visible_to_creator_invitees_and_managers_only(seeded_context):
     client = seeded_context['client']
     # A regular member creates an event...
     created = client.post('/events', headers=seeded_context['member_headers'],
@@ -39,11 +39,24 @@ def test_any_user_can_create_and_everyone_sees(seeded_context):
     assert event['title'] == 'Réunion'
     assert event['created_by'] == seeded_context['member_user']['id']
 
-    # ...and the super admin (a different user) sees it.
-    listed = client.get('/events', headers=seeded_context['admin_headers'])
-    assert_ok(listed, 200)
-    ids = [e['id'] for e in listed.get_json()['events']]
-    assert event['id'] in ids
+    def event_ids(headers):
+        resp = client.get('/events', headers=headers)
+        assert_ok(resp, 200)
+        return [e['id'] for e in resp.get_json()['events']]
+
+    # The creator sees their own event.
+    assert event['id'] in event_ids(seeded_context['member_headers'])
+    # The super admin (a manager) sees every event.
+    assert event['id'] in event_ids(seeded_context['admin_headers'])
+    # A non-invited regular user (company admin) does NOT see it.
+    assert event['id'] not in event_ids(seeded_context['company_admin_headers'])
+
+    # Once invited, that user sees it.
+    invited = client.post('/invitations', headers=seeded_context['member_headers'],
+                          json={'target_type': 'event', 'target_id': event['id'],
+                                'invitee_ids': [seeded_context['company_admin_user']['id']]})
+    assert_ok(invited, 201)
+    assert event['id'] in event_ids(seeded_context['company_admin_headers'])
 
 
 def test_non_creator_cannot_edit_or_delete(seeded_context):

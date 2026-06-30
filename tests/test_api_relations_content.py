@@ -80,6 +80,93 @@ def test_conversation_and_message_flow(seeded_context):
     ) == {'msg': 'conversation deactivated'}
 
 
+def test_group_conversation_title_and_rename(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_id = seeded_context['member_user']['id']
+
+    # Create a named group chat.
+    created = client.post('/conversations', headers=admin_headers, json={
+        'title': '  Équipe Projet  ',
+        'participant_ids': [member_id],
+    })
+    assert created.status_code == 201
+    conversation = created.get_json()['conversation']
+    assert conversation['title'] == 'Équipe Projet'  # trimmed
+    conversation_id = conversation['id']
+
+    # The list endpoint exposes the title plus enriched fields.
+    listed = client.get('/conversations', headers=admin_headers).get_json()['conversations']
+    mine = next(c for c in listed if c['id'] == conversation_id)
+    assert mine['title'] == 'Équipe Projet'
+    assert 'unread' in mine and 'last_message' in mine
+
+    # Rename via PATCH.
+    renamed = client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                           json={'title': 'Comité de pilotage'})
+    assert renamed.status_code == 200
+    assert renamed.get_json()['conversation']['title'] == 'Comité de pilotage'
+
+    # Clearing the title (empty string) is allowed.
+    cleared = client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                           json={'title': ''})
+    assert cleared.status_code == 200
+    assert cleared.get_json()['conversation']['title'] is None
+
+    # A non-string title is rejected.
+    bad = client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                       json={'title': 123})
+    assert_error(bad, 400, ERROR_CODES['VALIDATION_ERROR'])
+
+
+def test_group_management_restricted_to_creator(seeded_context):
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']        # creator
+    member_headers = seeded_context['member_headers']      # invited guest
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+    company_admin_id = seeded_context['company_admin_user']['id']
+
+    # Admin creates the group and is recorded as its creator.
+    created = client.post('/conversations', headers=admin_headers, json={
+        'title': 'Projet',
+        'participant_ids': [member_id],
+    })
+    conversation = created.get_json()['conversation']
+    conversation_id = conversation['id']
+    assert conversation['creator_id'] == admin_id
+
+    # A guest cannot rename the group.
+    assert_error(client.patch(f'/conversations/{conversation_id}', headers=member_headers,
+                              json={'title': 'Pirate'}),
+                 403, ERROR_CODES['FORBIDDEN'])
+
+    # A guest cannot add a member.
+    assert_error(client.patch(f'/conversations/{conversation_id}', headers=member_headers,
+                              json={'participant_id': company_admin_id, 'action': 'add'}),
+                 403, ERROR_CODES['FORBIDDEN'])
+
+    # A guest cannot remove another member.
+    assert_error(client.patch(f'/conversations/{conversation_id}', headers=member_headers,
+                              json={'participant_id': admin_id, 'action': 'remove'}),
+                 403, ERROR_CODES['FORBIDDEN'])
+
+    # But a guest CAN remove themselves (leave the group).
+    left = client.patch(f'/conversations/{conversation_id}', headers=member_headers,
+                        json={'participant_id': member_id, 'action': 'remove'})
+    assert left.status_code == 200
+    assert member_id not in left.get_json()['conversation']['participant_ids']
+
+    # The creator retains full control (re-add, rename).
+    readded = client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                           json={'participant_id': member_id, 'action': 'add'})
+    assert readded.status_code == 200
+    assert member_id in readded.get_json()['conversation']['participant_ids']
+    renamed = client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                           json={'title': 'Comité'})
+    assert renamed.get_json()['conversation']['title'] == 'Comité'
+
+
 def test_conversation_rest_enforces_membership(seeded_context):
     client = seeded_context['client']
     admin_headers = seeded_context['admin_headers']
@@ -349,6 +436,12 @@ def test_formation_user_flow(seeded_context):
     })
     assert session_resp.status_code == 201
     session_id = session_resp.get_json()['session']['id']
+
+    # admin invites the member (programmed sessions are invitation-gated)
+    client.post('/invitations', headers=admin_headers, json={
+        'target_type': 'session', 'target_id': session_id,
+        'invitee_ids': [member_id],
+    })
 
     # member enrolls — interest is auto-upgraded to enrolled
     enroll = client.post(f'/training-sessions/{session_id}/enroll', headers=member_headers)

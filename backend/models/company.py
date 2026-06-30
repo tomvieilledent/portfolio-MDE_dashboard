@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Domain model for companies."""
 
+import re
 import uuid
 
 from email_validator import EmailNotValidError, validate_email
 
 from .base import BaseModel
+
+# Matches an explicit URL scheme like "http://", "https://", "ftp://".
+_URL_SCHEME_RE = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
 
 
 class Company(BaseModel):
@@ -29,6 +33,7 @@ class Company(BaseModel):
         location=None,
         website_link=None,
         company_picture=None,
+        kind='company',
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -39,6 +44,7 @@ class Company(BaseModel):
         self.company_picture = company_picture
         self.admin_email = admin_email
         self.admin_id = admin_id
+        self.kind = kind
 
     @property
     def location(self):
@@ -96,9 +102,17 @@ class Company(BaseModel):
             return
         if not isinstance(value, str):
             raise TypeError("Website link must be a string URL")
+        value = value.strip()
+        if not value:
+            self._website_link = None
+            return
+        # Accept links typed without a scheme (e.g. "www.exemple.com") by
+        # defaulting to https://, so the stored URL is absolute and clickable.
+        if not _URL_SCHEME_RE.match(value):
+            value = 'https://' + value
         if len(value) > 512:
             raise ValueError("Website link must be 512 characters or fewer")
-        self._website_link = value.strip()
+        self._website_link = value
 
     @property
     def company_picture(self):
@@ -117,6 +131,23 @@ class Company(BaseModel):
         if len(value) > 512:
             raise ValueError("Company picture must be 512 characters or fewer")
         self._company_picture = value
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @kind.setter
+    def kind(self, value):
+        # Distingue une entreprise hébergée d'un formateur. Défaut : 'company'.
+        if value is None or value == '':
+            self._kind = 'company'
+            return
+        if not isinstance(value, str):
+            raise TypeError("Kind must be a string")
+        value = value.strip().lower()
+        if value not in ('company', 'trainer'):
+            raise ValueError("Kind must be 'company' or 'trainer'")
+        self._kind = value
 
     @property
     def admin_id(self):

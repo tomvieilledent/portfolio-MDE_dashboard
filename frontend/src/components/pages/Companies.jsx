@@ -20,13 +20,16 @@ function mapCompany(c) {
   }
 }
 
-export default function Companies() {
+export default function Companies({ isAdmin = false }) {
   const { user, role } = useAuth()
-  const isSuperAdmin = role === 'admin'
+  // « isAdmin » porte la capacité de gestion plateforme : super admin OU membre
+  // du staff disposant du droit `manage_companies` (passé par Dashboard).
+  const isSuperAdmin = isAdmin || role === 'admin'
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [subTab, setSubTab] = useState('companies') // 'companies' | 'trainers'
   const [modal, setModal] = useState(null)
   const [expanded, setExpanded] = useState(new Set())
   const [userEmails, setUserEmails] = useState([]) // pour le champ admin_email du modal
@@ -76,6 +79,23 @@ export default function Companies() {
     return next
   })
 
+  // Le backend n'expose pas d'« équipe » sur la fiche entreprise : on la
+  // reconstruit à partir de la liste des utilisateurs (champ company_id), pour
+  // alimenter le menu déroulant « Voir l'équipe » de chaque entreprise.
+  const membersOf = (companyId) =>
+    allUsers
+      .filter((u) => u.company_id === companyId)
+      .map((u) => {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email
+        return {
+          id: u.id,
+          name,
+          role: u.is_super_admin ? 'Administrateur' : (u.is_company_admin ? 'Responsable' : 'Membre'),
+          photo: mediaUrl(u.profile_picture)
+            || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f8a8b&color=fff`,
+        }
+      })
+
   useEffect(() => {
     let cancelled = false
     // companies pour la liste, users pour proposer un admin_email valide à la création
@@ -91,12 +111,18 @@ export default function Companies() {
     return () => { cancelled = true }
   }, [])
 
-  const filtered = companies.filter(
-    (c) =>
+  // L'onglet « Formateurs » isole les fiches marquées kind='trainer' ;
+  // l'onglet « Entreprises » montre les entreprises hébergées (défaut).
+  const wantTrainer = subTab === 'trainers'
+  const filtered = companies.filter((c) => {
+    const isTrainer = (c.kind || 'company') === 'trainer'
+    if (isTrainer !== wantTrainer) return false
+    return (
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.sector || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.location || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )
+    )
+  })
 
   // Création / édition persistées via l'API. Avec un logo on envoie un
   // multipart (company_picture_file), sinon du JSON.
@@ -109,6 +135,7 @@ export default function Companies() {
       payload.append('description', form.description || '')
       payload.append('location', form.location || '')
       payload.append('website_link', form.url || '')
+      payload.append('kind', form.kind || 'company')
       if (form.admin_email) payload.append('admin_email', form.admin_email)
       payload.append('company_picture_file', form.logoFile)
     } else {
@@ -117,6 +144,7 @@ export default function Companies() {
         description: form.description || null,
         location: form.location || null,
         website_link: form.url || null,
+        kind: form.kind || 'company',
       }
       if (form.admin_email) payload.admin_email = form.admin_email
     }
@@ -138,17 +166,41 @@ export default function Companies() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Entreprises</h2>
-            <p className="text-sm text-gray-500 mt-1">Gestion des entreprises de la pépinière</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {wantTrainer ? 'Formateurs et intervenants de la pépinière'
+                           : 'Gestion des entreprises de la pépinière'}
+            </p>
           </div>
           {isSuperAdmin && (
             <button
-              onClick={() => setModal({ mode: 'add' })}
-              className="btn-primary flex items-center gap-2"
+              onClick={() => setModal({ mode: 'add', kind: wantTrainer ? 'trainer' : 'company' })}
+              className="flex items-center gap-2 btn-primary text-sm"
             >
-              <Plus size={18} />
-              Ajouter une entreprise
+              <Plus size={16} />
+              {wantTrainer ? 'Ajouter un formateur' : 'Ajouter une entreprise'}
             </button>
           )}
+        </div>
+
+        {/* Onglets internes : Entreprises hébergées / Formateurs */}
+        <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setSubTab('companies')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'companies' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Building2 size={15} /> Entreprises
+          </button>
+          <button
+            onClick={() => setSubTab('trainers')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'trainers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Users size={15} /> Formateurs
+            {companies.filter((c) => (c.kind || 'company') === 'trainer').length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTab === 'trainers' ? 'bg-primary-light/10 text-primary-light' : 'bg-gray-200 text-gray-500'}`}>
+                {companies.filter((c) => (c.kind || 'company') === 'trainer').length}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="relative mb-6">
@@ -168,7 +220,8 @@ export default function Companies() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((company) => {
             const isExpanded = expanded.has(company.id)
-            const hasTeam = company.team && company.team.length > 0
+            const team = membersOf(company.id)
+            const hasTeam = team.length > 0
             const canEdit = isSuperAdmin || isCompanyAdmin(company)
             const canDeactivate = isSuperAdmin || isCompanyAdmin(company)
             const canDelete = isSuperAdmin
@@ -206,7 +259,7 @@ export default function Companies() {
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${company.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                      {company.is_active ? '✓ Active' : 'Inactive'}
+                      {company.is_active ? '✓ Actuellement hébergé' : 'Passé par là'}
                     </span>
                   </div>
 
@@ -251,10 +304,11 @@ export default function Companies() {
                     {hasTeam && (
                       <button
                         onClick={() => toggleExpand(company.id)}
-                        title={isExpanded ? "Masquer l'équipe" : "Voir l'équipe"}
-                        className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 text-sm font-medium rounded-xl transition-colors"
+                        title={isExpanded ? "Masquer les employés" : "Voir les employés"}
+                        className={`flex items-center gap-1.5 px-3 py-2 border text-sm font-medium rounded-xl transition-colors ${canEdit ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600' : 'flex-1 justify-center border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600'}`}
                       >
                         <Users size={15} />
+                        {!canEdit && <span>Employés ({team.length})</span>}
                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </button>
                     )}
@@ -290,10 +344,10 @@ export default function Companies() {
                 {hasTeam && isExpanded && (
                   <div className="border-t border-gray-100 px-6 py-4 bg-gray-50">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      Équipe — {company.team.length} membre{company.team.length > 1 ? 's' : ''}
+                      Employés — {team.length} membre{team.length > 1 ? 's' : ''}
                     </p>
                     <div className="flex flex-wrap gap-3">
-                      {company.team.map((member, i) => (
+                      {team.map((member, i) => (
                         <div key={i} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 shadow-sm border border-gray-100">
                           <img
                             src={member.photo}
@@ -316,7 +370,13 @@ export default function Companies() {
 
         {filtered.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-400">Aucune entreprise ne correspond à votre recherche</p>
+            <p className="text-gray-400">
+              {searchQuery
+                ? (wantTrainer ? 'Aucun formateur ne correspond à votre recherche'
+                               : 'Aucune entreprise ne correspond à votre recherche')
+                : (wantTrainer ? 'Aucun formateur pour l’instant'
+                               : 'Aucune entreprise pour l’instant')}
+            </p>
           </div>
         )}
       </div>
@@ -324,6 +384,7 @@ export default function Companies() {
       {modal && (
         <CompanyModal
           company={modal.mode === 'edit' ? modal.company : null}
+          defaultKind={modal.kind || 'company'}
           userEmails={userEmails}
           members={modal.mode === 'edit'
             ? allUsers

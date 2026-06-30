@@ -178,7 +178,7 @@ function FlipCard({ user, flipped, onFlip, onContact, businessCard, bio }) {
   )
 }
 
-export default function Users({ onContact, role, profile }) {
+export default function Users({ onContact, role, canManage = false, profile }) {
   const [users, setUsers] = useState([])
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
@@ -236,7 +236,7 @@ export default function Users({ onContact, role, profile }) {
           <h2 className="text-2xl font-bold text-gray-900">Professionnels</h2>
           <p className="text-sm text-gray-500 mt-1">Répertoire des professionnels de la pépinière</p>
         </div>
-        {role === 'admin' && (
+        {(role === 'admin' || canManage) && (
           <button onClick={() => setCreateModal(true)} className="flex items-center gap-2 btn-primary text-sm">
             <UserPlus size={16} /> Créer un utilisateur
           </button>

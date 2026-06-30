@@ -35,7 +35,7 @@ async function findAdministeredCompany(user) {
     const match = companies.find(
       (c) => c.admin_id === user.id || (c.admin_email || '').toLowerCase().trim() === email
     )
-    return match ? match.id : null
+    return match || null
   } catch (_) {
     return null
   }
@@ -58,13 +58,16 @@ export function initialsOf(user) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [companyAdminId, setCompanyAdminId] = useState(null)
+  const [companyAdminName, setCompanyAdminName] = useState(null)
   const [loading, setLoading] = useState(true)
 
   // Installe l'utilisateur authentifié + détecte son éventuel rôle « patron ».
   async function establishSession(u) {
     setUser(u)
     connectSocket()
-    setCompanyAdminId(await findAdministeredCompany(u))
+    const company = await findAdministeredCompany(u)
+    setCompanyAdminId(company?.id || null)
+    setCompanyAdminName(company?.name || null)
   }
 
   // Restauration de session au démarrage.
@@ -92,7 +95,7 @@ export function AuthProvider({ children }) {
 
   // Déconnexion forcée déclenchée par le client API sur un 401 authentifié.
   useEffect(() => {
-    const onForcedLogout = () => { disconnectSocket(); setUser(null); setCompanyAdminId(null) }
+    const onForcedLogout = () => { disconnectSocket(); setUser(null); setCompanyAdminId(null); setCompanyAdminName(null) }
     window.addEventListener('auth:logout', onForcedLogout)
     return () => window.removeEventListener('auth:logout', onForcedLogout)
   }, [])
@@ -130,9 +133,14 @@ export function AuthProvider({ children }) {
     clearTokens()
     setUser(null)
     setCompanyAdminId(null)
+    setCompanyAdminName(null)
   }
 
   const role = roleOf(user, companyAdminId)
+  // Droits du staff : un super admin les possède tous implicitement, un membre
+  // « staff » porte un sous-ensemble explicite dans user.permissions.
+  const permissions = user?.permissions || []
+  const can = (perm) => !!user && (!!user.is_super_admin || permissions.includes(perm))
   const value = {
     user,
     loading,
@@ -140,7 +148,11 @@ export function AuthProvider({ children }) {
     role,
     isAdmin: role === 'admin',
     isPatron: role === 'patron',
+    isStaff: !!user?.is_staff,
+    permissions,
+    can,
     companyAdminId,
+    companyAdminName,
     login,
     register,
     logout,

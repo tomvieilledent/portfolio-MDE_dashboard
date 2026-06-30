@@ -1,9 +1,16 @@
 import React, { useState } from 'react'
 import { X, CalendarClock, Calendar, Users, MapPin, Link as LinkIcon, Save, GraduationCap, Loader2 } from 'lucide-react'
+import InviteePicker from '../InviteePicker'
 
 // Programmation d'une session de formation (réservée au super admin) : c'est
-// ici que l'on choisit une formation existante, ses dates et sa jauge.
-export default function SessionFormModal({ trainings = [], onClose, onSave }) {
+// ici que l'on choisit une formation existante, ses dates, sa jauge et les
+// personnes à inviter (RSVP interne).
+export default function SessionFormModal({ trainings = [], users = [], currentUserId = null, onClose, onSave }) {
+  // Le catalogue mélange formations et ateliers : on les sépare pour les
+  // présenter dans deux groupes distincts du menu déroulant.
+  const formations = trainings.filter((t) => (t.type || 'formation') !== 'atelier')
+  const ateliers = trainings.filter((t) => t.type === 'atelier')
+
   const [form, setForm] = useState({
     training_id: trainings[0]?.id || '',
     start_date: '',
@@ -12,6 +19,8 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
     location: '',
     link: '',
   })
+  const [inviteAll, setInviteAll] = useState(false)
+  const [invitees, setInvitees] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -35,7 +44,7 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
         max_participants: Number(form.max_participants),
         location: form.location.trim() || null,
         link: form.link.trim() || null,
-      })
+      }, { inviteAll, inviteeIds: invitees })
       onClose()
     } catch (err) {
       setError(err?.message || 'Échec de la programmation')
@@ -52,7 +61,7 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
               <CalendarClock size={20} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Programmer une formation</h2>
+              <h2 className="text-lg font-bold text-white">Programmer une formation / un atelier</h2>
               <p className="text-sm text-white/80">Dates et jauge d'inscrits</p>
             </div>
           </div>
@@ -62,14 +71,14 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Formation */}
+          {/* Formation / Atelier — regroupés par type pour les distinguer */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <span className="flex items-center gap-1"><GraduationCap size={13} /> Formation *</span>
+              <span className="flex items-center gap-1"><GraduationCap size={13} /> Formation / Atelier *</span>
             </label>
             {trainings.length === 0 ? (
               <p className="text-sm text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                Aucune formation au catalogue. Créez d'abord une formation.
+                Aucune formation ou atelier au catalogue. Créez-en d'abord un.
               </p>
             ) : (
               <select
@@ -77,7 +86,16 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
                 onChange={set('training_id')}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
               >
-                {trainings.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                {formations.length > 0 && (
+                  <optgroup label="Formations">
+                    {formations.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                  </optgroup>
+                )}
+                {ateliers.length > 0 && (
+                  <optgroup label="Ateliers">
+                    {ateliers.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                  </optgroup>
+                )}
               </select>
             )}
           </div>
@@ -123,6 +141,15 @@ export default function SessionFormModal({ trainings = [], onClose, onSave }) {
             <input type="url" placeholder="https://…" value={form.link} onChange={set('link')}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
           </div>
+
+          {/* Invitations (RSVP interne) */}
+          {users.length > 0 && (
+            <InviteePicker
+              users={users} excludeId={currentUserId}
+              selected={invitees} onChange={setInvitees}
+              all={inviteAll} onToggleAll={setInviteAll}
+            />
+          )}
 
           {error && (
             <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>

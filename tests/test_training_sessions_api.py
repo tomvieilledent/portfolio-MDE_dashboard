@@ -26,6 +26,20 @@ def member_headers(seeded_context):
     return {'Authorization': f"Bearer {seeded_context['member_login']['access_token']}"}
 
 
+def invite_to_session(seeded_context, session_id, invitee_ids):
+    """Invite users to a session (as admin).
+
+    Programmed sessions are now invitation-gated: a non-manager must hold an
+    invitation before they can see or enroll in a session.
+    """
+    return seeded_context['client'].post(
+        '/invitations',
+        headers=admin_headers(seeded_context),
+        json={'target_type': 'session', 'target_id': session_id,
+              'invitee_ids': invitee_ids},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -56,7 +70,10 @@ def session(seeded_context, training):
         },
     )
     assert_ok(resp, 201)
-    return resp.get_json()['session']
+    sess = resp.get_json()['session']
+    # Invite the seeded member so they can enroll (sessions are invite-gated).
+    invite_to_session(seeded_context, sess['id'], [seeded_context['member_user']['id']])
+    return sess
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +189,61 @@ class TestTrainingSessionListing:
         )
         assert_ok(resp)
         assert resp.get_json()['session']['id'] == session['id']
+
+
+# ---------------------------------------------------------------------------
+# Session visibility / access — programmed sessions are invitation-gated
+# ---------------------------------------------------------------------------
+
+class TestSessionVisibility:
+    def _uninvited_session(self, seeded_context, training):
+        """A session the seeded member is NOT invited to."""
+        return seeded_context['client'].post(
+            f"/trainings/{training['id']}/sessions",
+            headers=admin_headers(seeded_context),
+            json={'start_date': '2028-01-01T09:00:00',
+                  'end_date': '2028-01-02T17:00:00', 'max_participants': 10},
+        ).get_json()['session']
+
+    def test_uninvited_member_does_not_see_session(self, seeded_context, training):
+        client = seeded_context['client']
+        sess = self._uninvited_session(seeded_context, training)
+        for url in (f"/trainings/{training['id']}/sessions", '/training-sessions'):
+            ids = [s['id'] for s in
+                   client.get(url, headers=member_headers(seeded_context)).get_json()['sessions']]
+            assert sess['id'] not in ids
+        # ...but a manager (super admin) does.
+        ids = [s['id'] for s in
+               client.get('/training-sessions', headers=admin_headers(seeded_context)).get_json()['sessions']]
+        assert sess['id'] in ids
+
+    def test_uninvited_member_cannot_get_session(self, seeded_context, training):
+        client = seeded_context['client']
+        sess = self._uninvited_session(seeded_context, training)
+        resp = client.get(f"/training-sessions/{sess['id']}",
+                          headers=member_headers(seeded_context))
+        assert_error(resp, 403, ERROR_CODES['FORBIDDEN'])
+
+    def test_uninvited_member_cannot_enroll(self, seeded_context, training):
+        client = seeded_context['client']
+        sess = self._uninvited_session(seeded_context, training)
+        resp = client.post(f"/training-sessions/{sess['id']}/enroll",
+                           headers=member_headers(seeded_context))
+        assert_error(resp, 403, ERROR_CODES['FORBIDDEN'])
+
+    def test_invited_member_sees_and_enrolls(self, seeded_context, training):
+        client = seeded_context['client']
+        sess = self._uninvited_session(seeded_context, training)
+        invite_to_session(seeded_context, sess['id'],
+                          [seeded_context['member_user']['id']])
+        # Now visible...
+        ids = [s['id'] for s in
+               client.get('/training-sessions', headers=member_headers(seeded_context)).get_json()['sessions']]
+        assert sess['id'] in ids
+        # ...and enrollable.
+        resp = client.post(f"/training-sessions/{sess['id']}/enroll",
+                           headers=member_headers(seeded_context))
+        assert_ok(resp, 201)
 
     def test_get_missing_session_returns_404(self, seeded_context):
         client = seeded_context['client']
@@ -302,15 +374,18 @@ class TestEnrollment:
                 'max_participants': 1,
             },
         ).get_json()['session']
-        # member fills the seat
+        # member fills the seat (must be invited first)
+        invite_to_session(seeded_context, tiny_session['id'],
+                          [seeded_context['member_user']['id']])
         client.post(
             f"/training-sessions/{tiny_session['id']}/enroll",
             headers=member_headers(seeded_context),
         )
-        # second user tries to enroll
+        # second user (also invited) tries to enroll → blocked because full
         from backend.persistence.services import UserService
         user_svc = UserService()
         extra_user = user_svc.register('extra@x.com', 'password123')
+        invite_to_session(seeded_context, tiny_session['id'], [extra_user['id']])
         extra_login = client.post(
             '/auth/login', json={'email': 'extra@x.com', 'password': 'password123'})
         extra_token = extra_login.get_json()['access_token']
@@ -345,6 +420,8 @@ class TestEnrollment:
             },
         )
         sess_id = sess_resp.get_json()['session']['id']
+        invite_to_session(seeded_context, sess_id,
+                          [seeded_context['member_user']['id']])
         client.post(
             f"/training-sessions/{sess_id}/enroll",
             headers=member_headers(seeded_context),
@@ -691,3 +768,81 @@ class TestMeTrainings:
         resp = client.get('/me/trainings', headers=member_headers(seeded_context))
         assert_ok(resp)
         assert len(resp.get_json()['enrollments']) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Multi-session enrollment (per-session, not per-training) — regression
+# ---------------------------------------------------------------------------
+
+class TestMultiSessionEnrollment:
+    def _make_session(self, ctx, training, start, invite=True):
+        client = ctx['client']
+        sess = client.post(
+            f"/trainings/{training['id']}/sessions",
+            headers=admin_headers(ctx),
+            json={
+                'start_date': f'{start}T09:00:00',
+                'end_date': f'{start}T17:00:00',
+                'max_participants': 10,
+            },
+        ).get_json()['session']
+        if invite:
+            invite_to_session(ctx, sess['id'], [ctx['member_user']['id']])
+        return sess
+
+    def test_enroll_in_two_sessions_of_same_training(self, seeded_context, training):
+        """A user can be enrolled in several sessions of the same training."""
+        client = seeded_context['client']
+        s1 = self._make_session(seeded_context, training, '2030-01-01')
+        s2 = self._make_session(seeded_context, training, '2030-02-01')
+
+        r1 = client.post(f"/training-sessions/{s1['id']}/enroll",
+                         headers=member_headers(seeded_context))
+        assert_ok(r1, 201)
+        r2 = client.post(f"/training-sessions/{s2['id']}/enroll",
+                         headers=member_headers(seeded_context))
+        assert_ok(r2, 201)
+        assert r2.get_json()['enrollment']['session_id'] == s2['id']
+
+        enrolled = client.get('/me/trainings?type=enrolled',
+                              headers=member_headers(seeded_context)).get_json()['enrollments']
+        sids = {e['session_id'] for e in enrolled}
+        assert s1['id'] in sids and s2['id'] in sids
+
+    def test_accept_second_session_invitation_enrolls(self, seeded_context, training):
+        """Accepting an invitation to a 2nd session enrolls in that session
+        even when already enrolled in another session of the same training."""
+        client = seeded_context['client']
+        member_id = seeded_context['member_user']['id']
+        s1 = self._make_session(seeded_context, training, '2030-03-01')
+        s2 = self._make_session(seeded_context, training, '2030-04-01', invite=False)
+
+        # already enrolled in s1
+        client.post(f"/training-sessions/{s1['id']}/enroll",
+                    headers=member_headers(seeded_context))
+
+        # admin invites member to s2, member accepts
+        inv = client.post('/invitations', headers=admin_headers(seeded_context), json={
+            'target_type': 'session', 'target_id': s2['id'], 'invitee_ids': [member_id],
+        }).get_json()['invitations'][0]
+        client.patch(f"/invitations/{inv['id']}", headers=member_headers(seeded_context),
+                     json={'status': 'accepted'})
+
+        enrolled = client.get('/me/trainings?type=enrolled',
+                              headers=member_headers(seeded_context)).get_json()['enrollments']
+        sids = {e['session_id'] for e in enrolled}
+        assert s2['id'] in sids, f"second session {s2['id']} missing from {sids}"
+
+    def test_unenroll_one_session_keeps_other(self, seeded_context, training):
+        client = seeded_context['client']
+        s1 = self._make_session(seeded_context, training, '2030-05-01')
+        s2 = self._make_session(seeded_context, training, '2030-06-01')
+        client.post(f"/training-sessions/{s1['id']}/enroll", headers=member_headers(seeded_context))
+        client.post(f"/training-sessions/{s2['id']}/enroll", headers=member_headers(seeded_context))
+
+        client.delete(f"/training-sessions/{s1['id']}/enroll", headers=member_headers(seeded_context))
+
+        enrolled = client.get('/me/trainings?type=enrolled',
+                              headers=member_headers(seeded_context)).get_json()['enrollments']
+        sids = {e['session_id'] for e in enrolled}
+        assert s1['id'] not in sids and s2['id'] in sids

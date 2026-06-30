@@ -9,13 +9,30 @@ from flask_restful import Resource
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.uploads import save_image_upload
-from backend.api.resources._helpers import _cleanup_replaced_upload, _request_payload
+from backend.api.resources._helpers import _can, _cleanup_replaced_upload, _request_payload
 from backend.models.company import Company as DomainCompany
 from backend.persistence.services import CompanyService, UserService
 
 
 company_service = CompanyService()
 user_service = UserService()
+
+
+def _administers_active_company(user_id, exclude_company_id=None):
+    """Return an active company *user_id* administers (by ``admin_id``), if any.
+
+    Used to prevent detaching an admin from their company, which would leave it
+    without an administrator. ``exclude_company_id`` skips the company we are
+    (re)assigning them to.
+    """
+    if not user_id:
+        return None
+    for company in company_service.facade.list(limit=1000):
+        if (company.get('admin_id') == user_id
+                and company.get('is_active')
+                and company.get('id') != exclude_company_id):
+            return company
+    return None
 
 
 def _extract_company_picture(payload):
@@ -57,10 +74,10 @@ class CompanyListResource(Resource):
             tuple[dict, int]: ``{company}`` and 201.
         """
         current = user_service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_companies'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can create companies', 403)
+                'not allowed to create companies', 403)
         data = _request_payload()
         name = data.get('name')
         admin_email = data.get('admin_email')
@@ -78,7 +95,7 @@ class CompanyListResource(Resource):
         company_picture = _extract_company_picture(data)
 
         try:
-            DomainCompany(
+            domain = DomainCompany(
                 name=name,
                 description=data.get('description'),
                 location=data.get('location'),
@@ -86,6 +103,7 @@ class CompanyListResource(Resource):
                 company_picture=company_picture,
                 admin_email=admin_email,
                 admin_id=admin_id,
+                kind=data.get('kind', 'company'),
             )
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
@@ -96,8 +114,11 @@ class CompanyListResource(Resource):
                 admin_id=admin_id,
                 description=data.get('description'),
                 location=data.get('location'),
-                website_link=data.get('website_link'),
+                website_link=domain.website_link,
                 company_picture=company_picture,
+                kind=domain.kind,
+                # A super admin keeps full control and may reuse an admin.
+                enforce_single_admin=not current.get('is_super_admin'),
             )
         except ValueError as exc:
             return error_response(ERROR_CODES['BAD_REQUEST'], str(exc), 400)
@@ -172,6 +193,11 @@ class CompanyResource(Resource):
                           'admin_email', 'admin_id', 'is_active'):
                 if field in data:
                     update_data[field] = data.get(field)
+            if 'kind' in data:
+                update_data['kind'] = domain.kind
+            # Persist the normalized link (scheme added if the user omitted it).
+            if 'website_link' in data:
+                update_data['website_link'] = domain.website_link
         except Exception as exc:
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
 
@@ -192,10 +218,10 @@ class CompanyResource(Resource):
             tuple[dict, int]: ``{msg}`` and 200, 403, or 404.
         """
         current = user_service.get_by_id(get_jwt_identity())
-        if not current or not current.get('is_super_admin'):
+        if not _can(current, 'manage_companies'):
             return error_response(
                 ERROR_CODES['FORBIDDEN'],
-                'only super admins can delete companies', 403)
+                'not allowed to delete companies', 403)
         if not company_service.facade.delete(company_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
         return {'msg': 'company deleted'}
@@ -209,7 +235,7 @@ def _can_manage_company(user, company):
     """
     if not user or not company:
         return False
-    if user.get('is_super_admin'):
+    if _can(user, 'manage_companies'):
         return True
     # Co-responsable : porte le flag is_company_admin pour cette entreprise.
     if user.get('is_company_admin') and user.get('company_id') == company.get('id'):
@@ -317,6 +343,16 @@ class CompanyAssignUserResource(Resource):
         """
         if not company_service.facade.get(company_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        current = user_service.get_by_id(get_jwt_identity())
+        # A super admin keeps full control; others can't orphan a company.
+        if not (current or {}).get('is_super_admin'):
+            administered = _administers_active_company(user_id, exclude_company_id=company_id)
+            if administered is not None:
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    "Cet utilisateur administre l'entreprise "
+                    f"« {administered['name']} ». Réassignez d'abord un autre "
+                    "administrateur à celle-ci avant de le déplacer.", 409)
         updated = user_service.update(user_id, company_id=company_id)
         if not updated:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -333,6 +369,16 @@ class CompanyAssignUserResource(Resource):
         Returns:
             tuple[dict, int]: ``{user}`` and 200, or 404.
         """
+        current = user_service.get_by_id(get_jwt_identity())
+        # A super admin keeps full control; others can't orphan a company.
+        if not (current or {}).get('is_super_admin'):
+            administered = _administers_active_company(user_id)
+            if administered is not None:
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    "Cet utilisateur administre l'entreprise "
+                    f"« {administered['name']} ». Réassignez d'abord un autre "
+                    "administrateur avant de le retirer.", 409)
         updated = user_service.update(user_id, company_id=None)
         if not updated:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)

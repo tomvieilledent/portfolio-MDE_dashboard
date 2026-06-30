@@ -24,6 +24,10 @@ class User(Base):
     business_card = Column(String(256))
     is_super_admin = Column(Boolean, default=False)
     is_company_admin = Column(Boolean, default=False)
+    # Platform staff: a non-super-admin account holding a configurable subset
+    # of admin rights, stored as a CSV of permission keys in ``permissions``.
+    is_staff = Column(Boolean, default=False)
+    permissions = Column(String(512))
     company_id = Column(String(36))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
@@ -46,6 +50,8 @@ class Company(Base):
     company_picture = Column(String(512))
     admin_email = Column(String(254))
     admin_id = Column(String(36))
+    # 'company' (entreprise hébergée) ou 'trainer' (formateur).
+    kind = Column(String(20), default='company')
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
@@ -64,6 +70,11 @@ class Training(Base):
     company_id = Column(String(36))
     description = Column(String(2000))
     picture = Column(String(512))
+    # Free-text category (no fixed list) and kind: 'formation' or 'atelier'.
+    category = Column(String(100))
+    type = Column(String(20), default='formation')
+    # Attachments (e.g. scanned brochures) stored as a CSV of upload paths.
+    documents = Column(String(2000))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
@@ -93,6 +104,12 @@ class Conversation(Base):
     __tablename__ = 'conversations'
     id = Column(String(36), primary_key=True,
                 default=lambda: str(uuid.uuid4()))
+    # Optional group name. A conversation with a title is a named group chat;
+    # untitled conversations are treated as ad-hoc rooms.
+    title = Column(String(200))
+    # UUID of the user who created the group. Only the creator may rename it
+    # or add/remove members; other participants may only leave.
+    creator_id = Column(String(36))
     # participant_ids stored as a comma-separated string for simplicity
     participant_ids = Column(String(1000))
     is_active = Column(Boolean, default=True)
@@ -214,3 +231,34 @@ class FormationUser(Base):
     enrolled_at = Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True))
+
+
+class Invitation(Base):
+    """An RSVP invitation to an event or a training, one row per invitee."""
+    __tablename__ = 'invitations'
+    id = Column(String(36), primary_key=True,
+                default=lambda: str(uuid.uuid4()))
+    target_type = Column(String(20), nullable=False)   # 'event' | 'training'
+    target_id = Column(String(36), nullable=False)
+    target_title = Column(String(300))                 # denormalised for display
+    inviter_id = Column(String(36), nullable=False)
+    invitee_id = Column(String(36), nullable=False)
+    status = Column(String(20), default='pending')     # pending|accepted|declined
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc))
+    responded_at = Column(DateTime(timezone=True))
+
+
+class SiteContent(Base):
+    """Editable site content blocks, keyed by name (e.g. 'landing').
+
+    `value` holds a JSON document so a whole structured block (slogan,
+    subtitle, cards…) can be stored and edited from the admin UI.
+    """
+    __tablename__ = 'site_content'
+    key = Column(String(100), primary_key=True)
+    value = Column(String(8000))
+    updated_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))

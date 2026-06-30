@@ -122,6 +122,8 @@ export const api = {
   reactivateUser: (id) => request(`/users/${id}/reactivate`, { method: 'PATCH' }),
   setUserRole: (id, is_super_admin) =>
     request(`/users/${id}/role`, { method: 'PATCH', body: { is_super_admin } }),
+  setUserPermissions: (id, { is_staff, permissions }) =>
+    request(`/users/${id}/permissions`, { method: 'PATCH', body: { is_staff, permissions } }),
   setUserCompanyRole: (id, is_company_admin) =>
     request(`/users/${id}/company-admin`, { method: 'PATCH', body: { is_company_admin } }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
@@ -132,6 +134,8 @@ export const api = {
   getTrainings: () => request('/trainings'),
   createTraining: (payload) => request('/trainings', { method: 'POST', body: payload }),
   updateTraining: (id, payload) => request(`/trainings/${id}`, { method: 'PATCH', body: payload }),
+  removeTrainingDocument: (id, path) =>
+    request(`/trainings/${id}/documents`, { method: 'DELETE', body: { path } }),
   expressInterest: (id) => request(`/trainings/${id}/interest`, { method: 'POST' }),
   removeInterest: (id) => request(`/trainings/${id}/interest`, { method: 'DELETE' }),
 
@@ -144,6 +148,11 @@ export const api = {
   deleteSession: (id) => request(`/training-sessions/${id}`, { method: 'DELETE' }),
   enrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'POST' }),
   unenrollSession: (id) => request(`/training-sessions/${id}/enroll`, { method: 'DELETE' }),
+  // Mes inscriptions (type: 'enrolled' | 'interested' | 'completed').
+  getMyTrainings: (type) => request(`/me/trainings${type ? `?type=${type}` : ''}`),
+  // Inscrits à une formation (admin / staff manage_trainings).
+  getTrainingEnrollments: (trainingId, type) =>
+    request(`/trainings/${trainingId}/enrollments${type ? `?type=${type}` : ''}`),
 
   // --- Events (agenda) ---
   getEvents: () => request('/events'),
@@ -160,10 +169,31 @@ export const api = {
 
   // --- Chat ---
   getConversations: () => request('/conversations'),
+  createConversation: (payload) => request('/conversations', { method: 'POST', body: payload }),
+  getConversation: (id) => request(`/conversations/${id}`),
+  renameConversation: (id, title) => request(`/conversations/${id}`, { method: 'PATCH', body: { title } }),
+  addParticipant: (id, participantId) =>
+    request(`/conversations/${id}`, { method: 'PATCH', body: { participant_id: participantId, action: 'add' } }),
+  removeParticipant: (id, participantId) =>
+    request(`/conversations/${id}`, { method: 'PATCH', body: { participant_id: participantId, action: 'remove' } }),
+  leaveConversation: (id) => request(`/conversations/${id}`, { method: 'DELETE' }),
   getConversationMessages: (id) => request(`/conversations/${id}/messages`),
+  markConversationRead: (id) => request(`/conversations/${id}/read`, { method: 'POST' }),
   getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
   markDirectRead: (otherUserId) => request(`/messages/direct/${otherUserId}`, { method: 'POST' }),
   getUnreadCount: () => request('/messages/unread'),
+
+  // --- Site content (editable landing page) ---
+  getLandingContent: () => request('/content/landing'),
+  updateLandingContent: (content) => request('/content/landing', { method: 'PUT', body: { content } }),
+
+  // --- Invitations (RSVP for events & trainings) ---
+  createInvitations: (payload) => request('/invitations', { method: 'POST', body: payload }),
+  getMyInvitations: () => request('/me/invitations'),
+  markInvitationsRead: () => request('/me/invitations', { method: 'POST' }),
+  respondInvitation: (id, status) => request(`/invitations/${id}`, { method: 'PATCH', body: { status } }),
+  getTargetInvitations: (targetType, targetId) =>
+    request(`/invitations?target_type=${targetType}&target_id=${targetId}`),
 }
 
 export default api

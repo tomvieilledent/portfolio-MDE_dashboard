@@ -405,6 +405,63 @@ def test_training_permissions_and_crud(seeded_context):
         db.close()
 
 
+def test_training_category_type_and_documents(seeded_context):
+    """Free-text category, formation/atelier type, and document attachments."""
+    from io import BytesIO
+    from pathlib import Path
+    from backend.api.uploads import UPLOAD_ROOT
+
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+
+    # Free-text category + explicit atelier type persist.
+    created = client.post('/trainings', headers=admin_headers, json={
+        'title': 'Atelier Cybersécurité', 'category': 'Cybersécurité', 'type': 'atelier',
+    })
+    assert created.status_code == 201
+    training = created.get_json()['training']
+    assert training['category'] == 'Cybersécurité'
+    assert training['type'] == 'atelier'
+    assert training['documents'] == []
+
+    # Type defaults to 'formation' when omitted.
+    default_type = client.post('/trainings', headers=admin_headers, json={
+        'title': 'Formation Marketing', 'category': 'Marketing',
+    }).get_json()['training']
+    assert default_type['type'] == 'formation'
+
+    # Invalid type is rejected.
+    bad = client.post('/trainings', headers=admin_headers, json={
+        'title': 'X', 'type': 'webinaire'})
+    assert_error(bad, 400, ERROR_CODES['VALIDATION_ERROR'])
+
+    # Multipart create with an attached document.
+    with_doc = client.post('/trainings', headers=admin_headers, data={
+        'title': 'Atelier avec plaquette', 'category': 'Design', 'type': 'atelier',
+        'document_file': (BytesIO(b'%PDF-1.4 fake brochure'), 'plaquette.pdf'),
+    }, content_type='multipart/form-data')
+    assert with_doc.status_code == 201
+    doc_training = with_doc.get_json()['training']
+    assert len(doc_training['documents']) == 1
+    doc_path = doc_training['documents'][0]
+    assert doc_path.startswith('/uploads/trainings/documents/')
+    assert doc_path.endswith('__plaquette.pdf')
+    on_disk = UPLOAD_ROOT / Path(doc_path.lstrip('/')).relative_to('uploads')
+    assert on_disk.exists()
+
+    # Removing the document detaches it and deletes the file.
+    removed = client.delete(f"/trainings/{doc_training['id']}/documents",
+                            headers=admin_headers, json={'path': doc_path})
+    assert removed.status_code == 200
+    assert removed.get_json()['training']['documents'] == []
+    assert not on_disk.exists()
+
+    # A non-super-admin cannot remove documents.
+    forbidden = client.delete(f"/trainings/{doc_training['id']}/documents",
+                              headers=seeded_context['member_headers'], json={'path': doc_path})
+    assert_error(forbidden, 403, ERROR_CODES['FORBIDDEN'])
+
+
 @pytest.mark.parametrize(
     'payload',
     [
@@ -581,6 +638,50 @@ def test_company_create_is_super_admin_only_with_location_and_count(seeded_conte
     assert company['website_link'] == 'https://g.fr'
     # The admin is auto-attached to the company → employee_count == 1.
     assert company['employee_count'] == 1
+
+    # A super admin keeps full control and may reuse an admin (the
+    # single-active-company guard only applies to non-super-admins). A
+    # scheme-less link is stored with https:// added automatically.
+    no_scheme = client.post('/companies', headers=admin_headers, json={
+        'name': 'Delta', 'admin_email': company_admin_email,
+        'website_link': 'www.delta.fr',
+    })
+    assert no_scheme.status_code == 201
+    assert no_scheme.get_json()['company']['website_link'] == 'https://www.delta.fr'
+
+
+def test_company_admin_can_create_employee(seeded_context):
+    """A company admin may create employees in their own company. A duplicate
+    email returns a clear conflict message (not the generic create failure)."""
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    company_admin_email = seeded_context['company_admin_user']['email']
+    company_admin_headers = seeded_context['company_admin_headers']
+    member_email = seeded_context['member_user']['email']
+
+    # Super admin makes the company_admin user the admin of a company.
+    company = client.post('/companies', headers=admin_headers, json={
+        'name': 'Patron Co', 'admin_email': company_admin_email,
+    }).get_json()['company']
+
+    # The company admin creates an employee -> attached to their company.
+    created = client.post('/users', headers=company_admin_headers, json={
+        'email': 'employee@patron.co', 'password': 'password123',
+        'first_name': 'Emp', 'last_name': 'Loyee',
+    })
+    assert created.status_code == 201, created.get_json()
+    new_user = created.get_json()['user']
+    assert new_user['company_id'] == company['id']
+    assert new_user['is_company_admin'] is False
+
+    # Re-using an existing email yields a clear, specific 409.
+    dup = client.post('/users', headers=company_admin_headers, json={
+        'email': member_email, 'password': 'password123', 'first_name': 'Dup',
+    })
+    assert dup.status_code == 409
+    body = dup.get_json()['error']
+    assert body['code'] == ERROR_CODES['CONFLICT']
+    assert body['message'] == 'a user with this email already exists'
 
 
 def test_user_reactivate_permissions(seeded_context):

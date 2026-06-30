@@ -89,6 +89,133 @@ def test_conversation_message_broadcast_and_membership(seeded_context, app_bundl
         c.disconnect()
 
 
+def test_passive_member_receives_group_message_without_opening_panel(
+        seeded_context, app_bundle):
+    """A member who connects but never emits ``join_conversation`` (i.e. never
+    opens the chat panel) still receives messages for groups that already
+    exist, thanks to the auto-join in ``handle_connect``."""
+    from backend.api.sockets import socketio
+
+    app = app_bundle['app']
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    admin_token = seeded_context['admin_login']['access_token']
+    member_token = seeded_context['member_login']['access_token']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'title': 'Equipe', 'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    # Member connects AFTER the group exists, but never opens the panel.
+    member_client = socketio.test_client(app, auth={'token': member_token})
+    member_client.get_received()  # flush connect noise
+    admin_client = socketio.test_client(app, auth={'token': admin_token})
+    admin_client.get_received()
+
+    admin_client.emit('send_message', {
+        'content': 'coucou', 'conversation_id': conversation_id})
+
+    member_events = _events(member_client.get_received())
+    assert 'new_message' in member_events
+    assert member_events['new_message']['message']['content'] == 'coucou'
+
+    admin_client.disconnect()
+    member_client.disconnect()
+
+
+def test_online_member_auto_joined_to_new_and_added_groups(
+        seeded_context, app_bundle):
+    """A member who is already online gets server-side joined to a group that
+    is created (or that they are added to) afterwards, so notifications arrive
+    without them re-opening the chat panel."""
+    from backend.api.sockets import socketio
+
+    app = app_bundle['app']
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    admin_token = seeded_context['admin_login']['access_token']
+    member_token = seeded_context['member_login']['access_token']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    # Member is online BEFORE any group exists; never opens the panel.
+    member_client = socketio.test_client(app, auth={'token': member_token})
+    member_client.get_received()
+
+    # 1) Group created with the member while they are online.
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'title': 'Nouveau', 'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+
+    admin_client = socketio.test_client(app, auth={'token': admin_token})
+    admin_client.emit('join_conversation', {'conversation_id': conversation_id})
+    admin_client.get_received()
+    admin_client.emit('send_message', {
+        'content': 'bienvenue', 'conversation_id': conversation_id})
+
+    assert 'new_message' in _events(member_client.get_received())
+
+    # 2) Member removed -> stops receiving the group's messages live.
+    client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                 json={'participant_id': member_id, 'action': 'remove'})
+    admin_client.emit('send_message', {
+        'content': 'sans toi', 'conversation_id': conversation_id})
+    assert 'new_message' not in _events(member_client.get_received())
+
+    # 3) Member added back -> receives again, still without opening the panel.
+    client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                 json={'participant_id': member_id, 'action': 'add'})
+    admin_client.emit('send_message', {
+        'content': 'de retour', 'conversation_id': conversation_id})
+    assert 'new_message' in _events(member_client.get_received())
+
+    admin_client.disconnect()
+    member_client.disconnect()
+
+
+def test_conversation_list_live_events(seeded_context, app_bundle):
+    """A member with the panel open gets live list events: a group is pushed on
+    create/add (``conversation_added``), renamed (``conversation_updated``) and
+    pulled on removal (``conversation_removed``) — no manual refresh needed."""
+    from backend.api.sockets import socketio
+
+    app = app_bundle['app']
+    client = seeded_context['client']
+    admin_headers = seeded_context['admin_headers']
+    member_token = seeded_context['member_login']['access_token']
+    admin_id = seeded_context['admin_user']['id']
+    member_id = seeded_context['member_user']['id']
+
+    member_client = socketio.test_client(app, auth={'token': member_token})
+    member_client.get_received()
+
+    # Create a group including the member -> conversation_added on their room.
+    conversation_id = client.post('/conversations', headers=admin_headers, json={
+        'title': 'Equipe', 'participant_ids': [admin_id, member_id],
+    }).get_json()['conversation']['id']
+    added = _events(member_client.get_received())
+    assert 'conversation_added' in added
+    assert added['conversation_added']['conversation']['id'] == conversation_id
+    # The enriched payload carries the list fields the inbox renders.
+    assert 'unread' in added['conversation_added']['conversation']
+
+    # Rename -> conversation_updated broadcast to the room.
+    client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                 json={'title': 'Comité'})
+    updated = _events(member_client.get_received())
+    assert updated['conversation_updated']['conversation']['title'] == 'Comité'
+
+    # Remove the member -> conversation_removed on their room.
+    client.patch(f'/conversations/{conversation_id}', headers=admin_headers,
+                 json={'participant_id': member_id, 'action': 'remove'})
+    removed = _events(member_client.get_received())
+    assert removed['conversation_removed'] == {'conversation_id': conversation_id}
+
+    member_client.disconnect()
+
+
 def test_presence_broadcast(seeded_context, app_bundle):
     from backend.api.sockets import socketio
 

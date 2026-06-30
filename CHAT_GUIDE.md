@@ -185,11 +185,16 @@ Serveur → client :
 - `online_users` `{user_ids}` — réponse à `who_is_online`
 - `error` `{message}`
 
-Rooms : `conversation:<id>` pour les conversations ; **`user:<id>`** rejoint automatiquement à la connexion, utilisé pour livrer les **messages directs** (1-à-1, sans `conversation_id`) et les accusés de lecture à tous les appareils d'un utilisateur.
+Rooms : `conversation:<id>` pour les conversations ; **`user:<id>`** rejoint automatiquement à la connexion, utilisé pour livrer les **messages directs** (1-à-1, sans `conversation_id`) et les accusés de lecture à tous les appareils d'un utilisateur. **À la connexion, le serveur rejoint aussi automatiquement toutes les rooms `conversation:<id>` de l'utilisateur** (via `list_by_participant`), pour que les messages de groupe déclenchent badges/toasts même panneau de chat fermé.
 
 Présence : suivie en mémoire dans `backend/api/state.py` (`ONLINE_USERS`, compteur de connexions par user) ; `presence` n'est diffusé qu'aux transitions réelles online↔offline (multi-onglets gérés).
 
 Côté REST :
+- Conversations (DM ad-hoc **et groupes nommés**) :
+  - `GET /conversations` → `{conversations}` ; chaque entrée est **enrichie** de `title`, `last_message` et `unread` (pour l'inbox style WhatsApp).
+  - `POST /conversations` `{participant_ids[], title?}` — le créateur est toujours ajouté. `title` (≤ 200 car., trim) crée un **groupe nommé** ; sans titre, conversation ad-hoc.
+  - `PATCH /conversations/<id>` accepte soit `{title}` (renommer le groupe ; `""` efface le nom), soit `{participant_id, action:"add"|"remove"}` (gérer les membres — `remove` de soi-même = quitter le groupe). `title` a priorité s'il est présent.
+  - `DELETE /conversations/<id>` désactive (soft) la conversation.
 - Lu/non-lu : `POST /conversations/<id>/read`, `POST /messages/<id>/read`, `GET /messages/unread` → `{unread, conversations, direct}`
 - Présence : `GET /presence` → `{online: [user_id, ...]}`
 - Suppression : `DELETE /messages/<id>` est un **soft-delete** (colonne `is_active`, réservé à l'auteur) ; les messages inactifs sont exclus de tous les listings/compteurs et un `message_deleted` est diffusé en temps réel.

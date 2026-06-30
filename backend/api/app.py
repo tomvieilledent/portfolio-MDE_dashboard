@@ -42,9 +42,16 @@ from backend.api.resources.news import (
     SavedNewsListResource, SavedNewsResource,
 )
 from backend.api.resources.notification import NotificationListResource, NotificationResource
+from backend.api.resources.content import ContentResource
+from backend.api.resources.invitation import (
+    CurrentUserInvitationsResource,
+    InvitationListResource,
+    InvitationResource,
+)
 from backend.api.resources.training import (
     CurrentUserSavedTrainingsResource,
     CurrentUserTrainingsResource,
+    TrainingDocumentResource,
     TrainingEnrollmentsResource,
     TrainingInterestResource,
     TrainingListResource,
@@ -60,7 +67,7 @@ from backend.api.resources.training_session import (
     TrainingSessionResource,
     TrainingSessionsByTrainingResource,
 )
-from backend.api.resources.user import UserCompanyAdminResource, UserDeactivateResource, UserListResource, UserMeResource, UserReactivateResource, UserResetPasswordResource, UserResource, UserRoleResource
+from backend.api.resources.user import UserCompanyAdminResource, UserDeactivateResource, UserListResource, UserMeResource, UserPermissionsResource, UserReactivateResource, UserResetPasswordResource, UserResource, UserRoleResource
 from backend.persistence.db import engine
 import backend.persistence.models  # ensure models are imported
 from pathlib import Path
@@ -153,6 +160,8 @@ def create_app():
                      '/users/<string:user_id>/reactivate')
     api.add_resource(UserRoleResource,
                      '/users/<string:user_id>/role')
+    api.add_resource(UserPermissionsResource,
+                     '/users/<string:user_id>/permissions')
     api.add_resource(UserCompanyAdminResource,
                      '/users/<string:user_id>/company-admin')
     api.add_resource(UserResetPasswordResource,
@@ -171,6 +180,8 @@ def create_app():
 
     api.add_resource(TrainingListResource, '/trainings')
     api.add_resource(TrainingResource, '/trainings/<string:training_id>')
+    api.add_resource(TrainingDocumentResource,
+                     '/trainings/<string:training_id>/documents')
     api.add_resource(TrainingInterestResource,
                      '/trainings/<string:training_id>/interest')
     api.add_resource(TrainingSavedResource,
@@ -211,6 +222,10 @@ def create_app():
     api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')
     api.add_resource(MessageResource, '/messages/<string:message_id>')
 
+    api.add_resource(ContentResource, '/content/<string:key>')
+    api.add_resource(InvitationListResource, '/invitations')
+    api.add_resource(CurrentUserInvitationsResource, '/me/invitations')
+    api.add_resource(InvitationResource, '/invitations/<string:invitation_id>')
     api.add_resource(NotificationListResource, '/notifications')
     api.add_resource(NotificationResource,
                      '/notifications/<string:notification_id>')

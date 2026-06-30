@@ -13,4 +13,6 @@ from .layer import (
     SavedNewsService,
     FormationUserService,
     EventService,
+    SiteContentService,
+    InvitationService,
 )

@@ -125,7 +125,7 @@ export default function News() {
         {isAdmin && (
           <button onClick={handleSync} disabled={syncing}
             className="flex items-center gap-2 btn-primary text-sm disabled:opacity-60">
-            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Synchronisation…' : 'Synchroniser'}
           </button>
         )}

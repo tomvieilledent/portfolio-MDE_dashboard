@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useAuth, displayName } from '../context/AuthContext'
 import { connectSocket } from '../lib/socket'
 import { api, mediaUrl } from '../lib/api'
@@ -22,7 +22,7 @@ const COMMON_TABS = [
   { id: 'dashboard',  label: 'Accueil' },
   { id: 'companies',  label: 'Entreprises' },
   { id: 'users',      label: 'Trombinoscope' },
-  { id: 'trainings',  label: 'Formations' },
+  { id: 'trainings',  label: 'Formations / Ateliers' },
   { id: 'news',       label: 'Veille économique' },
 ]
 
@@ -30,10 +30,35 @@ const ADMIN_TABS = [...COMMON_TABS, { id: 'gestion', label: 'Gestion' }]
 const PATRON_TABS = [...COMMON_TABS, { id: 'monentreprise', label: 'Mon entreprise' }]
 const SALARIE_TABS = COMMON_TABS
 
-function getTabsForRole(role) {
-  if (role === 'admin')  return ADMIN_TABS
-  if (role === 'patron') return PATRON_TABS
-  return SALARIE_TABS
+// Droits de gestion ouvrant l'onglet « Gestion » à un membre du staff.
+const STAFF_PERMS = ['manage_companies', 'manage_users', 'manage_trainings', 'manage_news']
+
+function getTabsForRole(role, can = () => false, companyName = null) {
+  const administersCompany = !!companyName
+  // L'onglet « Mon entreprise » porte le nom de l'entreprise administrée.
+  const companyLabel = companyName || 'Mon entreprise'
+  let tabs
+  if (role === 'admin')  tabs = ADMIN_TABS
+  else if (role === 'patron') tabs = PATRON_TABS
+  // Un membre du staff disposant d'au moins un droit de gestion accède aussi
+  // à l'onglet « Gestion » (les sous-onglets y sont filtrés par droit).
+  else if (STAFF_PERMS.some((p) => can(p))) tabs = ADMIN_TABS
+  else tabs = SALARIE_TABS
+  // Renomme l'onglet « Mon entreprise » présent dans PATRON_TABS.
+  tabs = tabs.map((t) => (t.id === 'monentreprise' ? { ...t, label: companyLabel } : t))
+  // Cumul des rôles : un utilisateur qui administre une entreprise (y compris
+  // un super admin) voit aussi cet onglet, en plus de ses autres onglets.
+  if (administersCompany && !tabs.some((t) => t.id === 'monentreprise')) {
+    const companyTab = { id: 'monentreprise', label: companyLabel }
+    // « Gestion » reste le dernier onglet : on insère l'entreprise juste avant.
+    const gestionIdx = tabs.findIndex((t) => t.id === 'gestion')
+    if (gestionIdx === -1) {
+      tabs = [...tabs, companyTab]
+    } else {
+      tabs = [...tabs.slice(0, gestionIdx), companyTab, ...tabs.slice(gestionIdx)]
+    }
+  }
+  return tabs
 }
 
 // Construit l'objet `profile` attendu par le Header / les pages à partir de
@@ -58,7 +83,7 @@ function profileFromUser(user, role) {
 }
 
 export default function DashboardContainer() {
-  const { user, role, isAuthenticated, loading, logout, updateProfile } = useAuth()
+  const { user, role, can, companyAdminId, companyAdminName, isAuthenticated, loading, logout, updateProfile } = useAuth()
   const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
@@ -101,8 +126,10 @@ export default function DashboardContainer() {
     if (!socket) return
     const onNew = ({ message }) => {
       if (!message || message.author_id === myId) return
-      // Message qui m'est adressé (DM) — on ne notifie que panneau fermé.
-      if (message.recipient_id !== myId) return
+      // DM qui m'est adressé OU message de groupe (room rejointe à la
+      // connexion). On ne notifie que lorsque le panneau est fermé.
+      const forMe = message.conversation_id ? true : message.recipient_id === myId
+      if (!forMe) return
       if (!messagingOpenRef.current) {
         setUnreadCount((n) => n + 1)
         setMsgToast(message.content ? `📨 ${message.content}` : '📨 Nouveau message reçu')
@@ -119,6 +146,10 @@ export default function DashboardContainer() {
     const t = setTimeout(() => setMsgToast(null), 5000)
     return () => clearTimeout(t)
   }, [msgToast])
+
+  // Stable identity so Messagerie's socket effect doesn't re-subscribe (and
+  // briefly drop its listeners) on every Dashboard re-render.
+  const handleIncomingMessage = useCallback(() => setUnreadCount((n) => n + 1), [])
 
   const handleLogout = () => { logout() }
 
@@ -143,10 +174,10 @@ export default function DashboardContainer() {
   const renderPage = () => {
     switch (activeTab) {
       case 'dashboard':     return <DashboardPage />
-      case 'companies':     return <Companies isAdmin={role === 'admin'} />
+      case 'companies':     return <Companies isAdmin={role === 'admin' || can('manage_companies')} />
       case 'monentreprise': return <MonEntreprise />
-      case 'users':         return <Users onContact={handleContact} role={role} profile={profile} />
-      case 'trainings':     return <Trainings isAdmin={role === 'admin'} profile={profile} />
+      case 'users':         return <Users onContact={handleContact} role={role} canManage={role === 'admin' || can('manage_users')} profile={profile} />
+      case 'trainings':     return <Trainings isAdmin={role === 'admin' || can('manage_trainings')} profile={profile} />
       case 'news':          return <News />
       case 'gestion':       return <GestionPage />
       case 'mononglet':     return <MonOnglet />
@@ -181,7 +212,7 @@ export default function DashboardContainer() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
       />
-      <TabNavigation tabs={getTabsForRole(role)} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabNavigation tabs={getTabsForRole(role, can, companyAdminName)} activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-8">
         {renderPage()}
       </main>
@@ -189,7 +220,7 @@ export default function DashboardContainer() {
         <Messagerie
           onClose={handleCloseMessaging}
           initialContact={messagingContact}
-          onNewMessage={() => setUnreadCount((n) => n + 1)}
+          onNewMessage={handleIncomingMessage}
         />
       )}
 

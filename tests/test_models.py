@@ -140,15 +140,29 @@ def test_company_model_accepts_boundary_lengths():
         admin_email=f"{make_text(242)}@x.com",
         admin_id=str(uuid.uuid4()),
         description=make_text(2000),
-        website_link=make_text(512),
+        website_link='https://' + make_text(504),  # 512 chars, scheme present
         company_picture=make_text(512),
     )
 
     assert company.name == make_text(200)
     assert company.admin_email == f"{make_text(242)}@x.com"
     assert company.description == make_text(2000)
-    assert company.website_link == make_text(512)
+    assert company.website_link == 'https://' + make_text(504)
     assert company.company_picture == make_text(512)
+
+
+@pytest.mark.parametrize('value, expected', [
+    ('www.exemple.com', 'https://www.exemple.com'),
+    ('  exemple.fr  ', 'https://exemple.fr'),
+    ('http://exemple.fr', 'http://exemple.fr'),
+    ('https://exemple.fr', 'https://exemple.fr'),
+    ('HTTPS://exemple.fr', 'HTTPS://exemple.fr'),
+    ('', None),
+    ('   ', None),
+])
+def test_company_website_link_defaults_to_https(value, expected):
+    company = Company(name='X', admin_email='a@b.com', website_link=value)
+    assert company.website_link == expected
 
 
 @pytest.mark.parametrize('name', ['', ' ' * 3, 123])

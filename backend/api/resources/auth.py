@@ -11,6 +11,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 from flask_restful import Resource
+from sqlalchemy.exc import IntegrityError
 
 from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
@@ -52,6 +53,10 @@ class AuthRegisterResource(Resource):
             return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
         try:
             user = service.register(email, password, first_name=first_name)
+        except IntegrityError:
+            return error_response(
+                ERROR_CODES['CONFLICT'],
+                'a user with this email already exists', 409)
         except Exception as exc:
             return error_response(ERROR_CODES['CONFLICT'], 'could not create user', 409, str(exc))
         access_token = create_access_token(identity=user['id'])
