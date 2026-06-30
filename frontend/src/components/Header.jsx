@@ -71,7 +71,7 @@ export default function Header({ role = 'salarie', isLoggedIn = false, profile, 
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-5">
-            <img src="/logo-rodez.png" alt="Rodez Agglomération" className="h-14 w-auto" />
+            <img src={darkMode ? "/logo%20mode%20sombre.png" : "/logo-rodez.png"} alt="Rodez Agglomération" className="h-14 w-auto" />
             <div className="w-px h-10 bg-gray-200" />
             <h1 className="text-xl font-bold text-gray-900">Maison de l'Économie</h1>
           </div>

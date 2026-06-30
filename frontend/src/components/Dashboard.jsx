@@ -33,13 +33,32 @@ const SALARIE_TABS = COMMON_TABS
 // Droits de gestion ouvrant l'onglet « Gestion » à un membre du staff.
 const STAFF_PERMS = ['manage_companies', 'manage_users', 'manage_trainings', 'manage_news']
 
-function getTabsForRole(role, can = () => false) {
-  if (role === 'admin')  return ADMIN_TABS
-  if (role === 'patron') return PATRON_TABS
+function getTabsForRole(role, can = () => false, companyName = null) {
+  const administersCompany = !!companyName
+  // L'onglet « Mon entreprise » porte le nom de l'entreprise administrée.
+  const companyLabel = companyName || 'Mon entreprise'
+  let tabs
+  if (role === 'admin')  tabs = ADMIN_TABS
+  else if (role === 'patron') tabs = PATRON_TABS
   // Un membre du staff disposant d'au moins un droit de gestion accède aussi
   // à l'onglet « Gestion » (les sous-onglets y sont filtrés par droit).
-  if (STAFF_PERMS.some((p) => can(p))) return ADMIN_TABS
-  return SALARIE_TABS
+  else if (STAFF_PERMS.some((p) => can(p))) tabs = ADMIN_TABS
+  else tabs = SALARIE_TABS
+  // Renomme l'onglet « Mon entreprise » présent dans PATRON_TABS.
+  tabs = tabs.map((t) => (t.id === 'monentreprise' ? { ...t, label: companyLabel } : t))
+  // Cumul des rôles : un utilisateur qui administre une entreprise (y compris
+  // un super admin) voit aussi cet onglet, en plus de ses autres onglets.
+  if (administersCompany && !tabs.some((t) => t.id === 'monentreprise')) {
+    const companyTab = { id: 'monentreprise', label: companyLabel }
+    // « Gestion » reste le dernier onglet : on insère l'entreprise juste avant.
+    const gestionIdx = tabs.findIndex((t) => t.id === 'gestion')
+    if (gestionIdx === -1) {
+      tabs = [...tabs, companyTab]
+    } else {
+      tabs = [...tabs.slice(0, gestionIdx), companyTab, ...tabs.slice(gestionIdx)]
+    }
+  }
+  return tabs
 }
 
 // Construit l'objet `profile` attendu par le Header / les pages à partir de
@@ -64,7 +83,7 @@ function profileFromUser(user, role) {
 }
 
 export default function DashboardContainer() {
-  const { user, role, can, isAuthenticated, loading, logout, updateProfile } = useAuth()
+  const { user, role, can, companyAdminId, companyAdminName, isAuthenticated, loading, logout, updateProfile } = useAuth()
   const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [messagingOpen, setMessagingOpen] = useState(false)
@@ -193,7 +212,7 @@ export default function DashboardContainer() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((d) => !d)}
       />
-      <TabNavigation tabs={getTabsForRole(role, can)} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabNavigation tabs={getTabsForRole(role, can, companyAdminName)} activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-8">
         {renderPage()}
       </main>

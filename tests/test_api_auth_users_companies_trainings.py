@@ -639,7 +639,9 @@ def test_company_create_is_super_admin_only_with_location_and_count(seeded_conte
     # The admin is auto-attached to the company → employee_count == 1.
     assert company['employee_count'] == 1
 
-    # A scheme-less link is stored with https:// added automatically.
+    # A super admin keeps full control and may reuse an admin (the
+    # single-active-company guard only applies to non-super-admins). A
+    # scheme-less link is stored with https:// added automatically.
     no_scheme = client.post('/companies', headers=admin_headers, json={
         'name': 'Delta', 'admin_email': company_admin_email,
         'website_link': 'www.delta.fr',

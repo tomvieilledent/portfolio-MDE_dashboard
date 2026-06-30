@@ -17,7 +17,8 @@ class CompanyFacade:
     provided, the facade looks up the user whose email matches *admin_email*.
     """
 
-    def create(self, name, admin_email=None, admin_id=None, **kwargs):
+    def create(self, name, admin_email=None, admin_id=None,
+               enforce_single_admin=True, **kwargs):
         """Persist a new company, resolving admin_id from admin_email if needed.
 
         Args:
@@ -46,6 +47,19 @@ class CompanyFacade:
                 if not admin_user:
                     raise ValueError('admin_email not found')
                 resolved_admin_id = admin_user.id
+            # An admin can only run a single active company: reassigning one who
+            # already administers another would leave that one without an admin.
+            # A super admin may override this (caller passes enforce=False).
+            if enforce_single_admin:
+                already_admin = db.query(ORMCompany).filter(
+                    ORMCompany.admin_id == resolved_admin_id,
+                    ORMCompany.is_active.is_(True),
+                ).first()
+                if already_admin is not None:
+                    raise ValueError(
+                        "Cet utilisateur administre déjà l'entreprise "
+                        f"« {already_admin.name} ». Réassignez d'abord un autre "
+                        "administrateur à celle-ci avant de le désigner ici.")
             c = ORMCompany(
                 name=name.strip(),
                 admin_email=normalized_admin_email,

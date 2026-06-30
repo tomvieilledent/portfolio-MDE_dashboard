@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2, UserPlus, Mail, CheckCircle, Clock, Shield, ShieldOff, Loader2 } from 'lucide-react'
+import { Building2, MapPin, Calendar, Users, ExternalLink, ChevronDown, ChevronUp, Edit2, UserPlus, Mail, CheckCircle, Clock, Loader2 } from 'lucide-react'
 import CompanyModal from '../modals/CompanyModal'
 import CreateAccountModal from '../modals/CreateAccountModal'
 import { api, mediaUrl } from '../../lib/api'
@@ -47,7 +47,6 @@ export default function MonEntreprise() {
   const [teamExpanded, setTeamExpanded] = useState(true)
   const [editModal, setEditModal] = useState(false)
   const [inviteModal, setInviteModal] = useState(false)
-  const [roleBusy, setRoleBusy] = useState(null) // id du membre en cours de maj
 
   const loadAll = () =>
     Promise.all([api.getCompanies(), api.getUsers().catch(() => ({ users: [] }))])
@@ -100,23 +99,8 @@ export default function MonEntreprise() {
     setCompany((prev) => mapCompany(updated, prev?.team || []))
   }
 
-  // Promotion / rétrogradation d'un membre en co-responsable de l'entreprise.
-  const toggleRole = async (member) => {
-    setRoleBusy(member.id)
-    setError('')
-    try {
-      await api.setUserCompanyRole(member.id, !member.isCompanyAdmin)
-      await loadAll()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setRoleBusy(null)
-    }
-  }
-
   const actifs = team.filter((m) => m.isActive)
   const inactifs = team.filter((m) => !m.isActive)
-  const responsablesCount = team.filter((m) => m.isCompanyAdmin).length
 
   if (loading) return <p className="text-gray-400 py-12 text-center">Chargement de votre entreprise…</p>
   if (error && !company) return <p className="text-red-500 py-12 text-center">{error}</p>
@@ -248,28 +232,6 @@ export default function MonEntreprise() {
                   }`}>
                     {member.isActive ? <><CheckCircle size={11} /> Actif</> : <><Clock size={11} /> Désactivé</>}
                   </span>
-                  {/* Changement de rôle : réservé au responsable / admin, pas sur les super admins ni soi-même.
-                      Impossible de rétrograder le dernier responsable de l'entreprise. */}
-                  {canManage && !member.isSuperAdmin && member.id !== user?.id && (() => {
-                    const isLastResponsable = member.isCompanyAdmin && responsablesCount <= 1
-                    return (
-                      <button
-                        onClick={() => toggleRole(member)}
-                        disabled={roleBusy === member.id || isLastResponsable}
-                        title={isLastResponsable ? "L'entreprise doit garder au moins un responsable"
-                          : member.isCompanyAdmin ? 'Retirer le rôle de responsable' : 'Promouvoir responsable'}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          member.isCompanyAdmin
-                            ? 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                            : 'border-purple-200 text-purple-600 hover:bg-purple-50'
-                        }`}
-                      >
-                        {roleBusy === member.id ? <Loader2 size={13} className="animate-spin" />
-                          : member.isCompanyAdmin ? <ShieldOff size={13} /> : <Shield size={13} />}
-                        {member.isCompanyAdmin ? 'Rétrograder' : 'Promouvoir'}
-                      </button>
-                    )
-                  })()}
                 </div>
               ))}
               {team.length === 0 && (

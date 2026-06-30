@@ -17,7 +17,7 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
     email: '',
     password: '',
     confirm: '',
-    company_id: isCreatingPatron ? (activeCompanies[0]?.id || '') : (companyId || ''),
+    company_id: isCreatingPatron ? '' : (companyId || ''),
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -27,7 +27,6 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (isCreatingPatron && !form.company_id) { setError('Choisissez une entreprise'); return }
     if (form.password !== form.confirm) { setError('Les mots de passe ne correspondent pas'); return }
     setSubmitting(true)
     try {
@@ -38,7 +37,7 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
         last_name: form.last_name.trim() || null,
         company_id: form.company_id || null,
       }
-      if (isCreatingPatron) payload.is_company_admin = true
+      if (isCreatingPatron && form.company_id) payload.is_company_admin = true
       const res = await api.createUser(payload)
       onSuccess?.(res?.user || res)
       onClose()
@@ -60,10 +59,10 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">
-                {isCreatingPatron ? "Créer un admin d'entreprise" : 'Créer un compte salarié'}
+                {isCreatingPatron ? "Créer un utilisateur" : 'Créer un compte salarié'}
               </h2>
               <p className="text-sm text-white/80">
-                {isCreatingPatron ? "Devient l'administrateur de l'entreprise" : 'Compte actif immédiatement'}
+                {isCreatingPatron ? "Entreprise facultative" : 'Compte actif immédiatement'}
               </p>
             </div>
           </div>
@@ -126,18 +125,16 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
           {isCreatingPatron && (
             <div>
               <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                <Building2 size={13} className="text-gray-400" /> Entreprise *
+                <Building2 size={13} className="text-gray-400" /> Entreprise
               </label>
-              {activeCompanies.length === 0 ? (
-                <p className="text-sm text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                  Aucune entreprise. Créez d'abord une entreprise.
-                </p>
-              ) : (
-                <select value={form.company_id} onChange={set('company_id')}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white">
-                  {activeCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              )}
+              <select value={form.company_id} onChange={set('company_id')}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-light bg-white">
+                <option value="">Aucune entreprise</option>
+                {activeCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Si une entreprise est choisie, l'utilisateur en devient l'administrateur.
+              </p>
             </div>
           )}
 
@@ -150,7 +147,7 @@ export default function CreateAccountModal({ forRole, companies = [], companyId 
               className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
               Annuler
             </button>
-            <button type="submit" disabled={submitting || (isCreatingPatron && activeCompanies.length === 0)}
+            <button type="submit" disabled={submitting}
               className={`flex-1 text-white font-medium py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${isCreatingPatron ? 'bg-primary-light hover:bg-primary' : 'bg-purple-500 hover:bg-purple-600'}`}>
               {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
               Créer le compte

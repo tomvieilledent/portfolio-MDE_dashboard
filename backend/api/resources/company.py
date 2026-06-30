@@ -18,6 +18,23 @@ company_service = CompanyService()
 user_service = UserService()
 
 
+def _administers_active_company(user_id, exclude_company_id=None):
+    """Return an active company *user_id* administers (by ``admin_id``), if any.
+
+    Used to prevent detaching an admin from their company, which would leave it
+    without an administrator. ``exclude_company_id`` skips the company we are
+    (re)assigning them to.
+    """
+    if not user_id:
+        return None
+    for company in company_service.facade.list(limit=1000):
+        if (company.get('admin_id') == user_id
+                and company.get('is_active')
+                and company.get('id') != exclude_company_id):
+            return company
+    return None
+
+
 def _extract_company_picture(payload):
     uploaded_file = (request.files.get('company_picture_file')
                      or request.files.get('company_picture'))
@@ -100,6 +117,8 @@ class CompanyListResource(Resource):
                 website_link=domain.website_link,
                 company_picture=company_picture,
                 kind=domain.kind,
+                # A super admin keeps full control and may reuse an admin.
+                enforce_single_admin=not current.get('is_super_admin'),
             )
         except ValueError as exc:
             return error_response(ERROR_CODES['BAD_REQUEST'], str(exc), 400)
@@ -324,6 +343,16 @@ class CompanyAssignUserResource(Resource):
         """
         if not company_service.facade.get(company_id):
             return error_response(ERROR_CODES['NOT_FOUND'], 'company not found', 404)
+        current = user_service.get_by_id(get_jwt_identity())
+        # A super admin keeps full control; others can't orphan a company.
+        if not (current or {}).get('is_super_admin'):
+            administered = _administers_active_company(user_id, exclude_company_id=company_id)
+            if administered is not None:
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    "Cet utilisateur administre l'entreprise "
+                    f"« {administered['name']} ». Réassignez d'abord un autre "
+                    "administrateur à celle-ci avant de le déplacer.", 409)
         updated = user_service.update(user_id, company_id=company_id)
         if not updated:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
@@ -340,6 +369,16 @@ class CompanyAssignUserResource(Resource):
         Returns:
             tuple[dict, int]: ``{user}`` and 200, or 404.
         """
+        current = user_service.get_by_id(get_jwt_identity())
+        # A super admin keeps full control; others can't orphan a company.
+        if not (current or {}).get('is_super_admin'):
+            administered = _administers_active_company(user_id)
+            if administered is not None:
+                return error_response(
+                    ERROR_CODES['CONFLICT'],
+                    "Cet utilisateur administre l'entreprise "
+                    f"« {administered['name']} ». Réassignez d'abord un autre "
+                    "administrateur avant de le retirer.", 409)
         updated = user_service.update(user_id, company_id=None)
         if not updated:
             return error_response(ERROR_CODES['NOT_FOUND'], 'user not found', 404)
