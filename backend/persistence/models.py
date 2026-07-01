@@ -194,6 +194,9 @@ class Event(Base):
     description = Column(String(2000))
     creator = Column(String(120))
     created_by = Column(String(36))
+    # Public events are visible to everyone and included in the monthly export
+    # sheet; private ones stay invitation-only.
+    is_public = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))
@@ -212,6 +215,9 @@ class TrainingSession(Base):
     location = Column(String(512))
     link = Column(String(512))
     status = Column(String(50), default='upcoming')
+    # Public sessions are visible to everyone and included in the monthly
+    # export sheet; private ones stay invitation-only.
+    is_public = Column(Boolean, default=False)
     created_by = Column(String(36))
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc))

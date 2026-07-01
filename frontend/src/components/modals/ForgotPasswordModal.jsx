@@ -1,14 +1,26 @@
 import React, { useState } from 'react'
-import { X, Mail, KeyRound, ArrowLeft, CheckCircle2, Send } from 'lucide-react'
+import { X, Mail, KeyRound, ArrowLeft, CheckCircle2, Send, Loader2 } from 'lucide-react'
+import { api } from '../../lib/api'
 
 export default function ForgotPasswordModal({ onClose, onBack }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email.trim()) return
-    setSent(true)
+    if (!email.trim() || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.forgotPassword(email.trim())
+      setSent(true)
+    } catch (err) {
+      setError(err?.message || "Une erreur est survenue. Réessayez plus tard.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -55,12 +67,19 @@ export default function ForgotPasswordModal({ onClose, onBack }) {
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full bg-primary-light hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Send size={16} />
-              Envoyer le lien de récupération
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {loading ? 'Envoi…' : 'Envoyer le lien de récupération'}
             </button>
 
             <button

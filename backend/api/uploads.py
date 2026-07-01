@@ -25,6 +25,7 @@ def ensure_upload_dirs():
         'companies',
         'trainings',
         'trainings/documents',
+        'exports',
     ):
         (UPLOAD_ROOT / folder_name).mkdir(parents=True, exist_ok=True)
 

@@ -105,6 +105,10 @@ export const api = {
   resetPassword: (reset_token, password) =>
     request('/auth/reset-password', { method: 'POST', body: { reset_token, password }, auth: false }),
 
+  // --- Contact (public) ---
+  sendContact: (payload) =>
+    request('/contact', { method: 'POST', body: payload, auth: false }),
+
   // --- Users ---
   getUsers: (params = '') => request(`/users${params}`),
 
@@ -159,6 +163,11 @@ export const api = {
   createEvent: (payload) => request('/events', { method: 'POST', body: payload }),
   updateEvent: (id, payload) => request(`/events/${id}`, { method: 'PATCH', body: payload }),
   deleteEvent: (id) => request(`/events/${id}`, { method: 'DELETE' }),
+
+  // --- Monthly export (super-admin) ---
+  getMonthlyExports: () => request('/exports/monthly'),
+  generateMonthlyExport: (payload = {}) =>
+    request('/exports/monthly', { method: 'POST', body: payload }),
 
   // --- News ---
   getNews: () => request('/news'),

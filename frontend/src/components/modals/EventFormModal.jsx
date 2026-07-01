@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, CalendarDays, Clock, Tag, AlignLeft, Pencil, User } from 'lucide-react'
+import { X, CalendarDays, Clock, Tag, AlignLeft, Pencil, User, Globe, Lock } from 'lucide-react'
 import InviteePicker from '../InviteePicker'
 import InvitationResponses from '../InvitationResponses'
 
@@ -32,6 +32,7 @@ export default function EventFormModal({ date, event, onClose, onSave, users = [
     creator:     event?.creator     || '',
   })
   const [errors, setErrors] = useState({})
+  const [isPublic, setIsPublic] = useState(!!event?.is_public)
   const [inviteAll, setInviteAll] = useState(false)
   const [invitees, setInvitees] = useState([])
 
@@ -51,7 +52,9 @@ export default function EventFormModal({ date, event, onClose, onSave, users = [
     if (Object.keys(e2).length) { setErrors(e2); return }
     onSave({
       ...(event || {}), ...form, title: form.title.trim(), id: event?.id ?? Date.now(),
-      inviteAll, inviteeIds: invitees,
+      is_public: isPublic,
+      inviteAll: isPublic ? false : inviteAll,
+      inviteeIds: isPublic ? [] : invitees,
     })
     onClose()
   }
@@ -175,8 +178,36 @@ export default function EventFormModal({ date, event, onClose, onSave, users = [
             </div>
           </div>
 
-          {/* Invitations */}
-          {users.length > 0 && (
+          {/* Visibilité : public (tout le monde) ou privé (sur invitation) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Visibilité</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button" onClick={() => setIsPublic(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  isPublic ? 'bg-primary-light text-white border-primary-light' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Globe size={15} /> Public
+              </button>
+              <button
+                type="button" onClick={() => setIsPublic(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  !isPublic ? 'bg-primary-light text-white border-primary-light' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Lock size={15} /> Privé
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-400">
+              {isPublic
+                ? 'Visible par tous et inclus dans la feuille mensuelle.'
+                : 'Visible uniquement par les personnes invitées.'}
+            </p>
+          </div>
+
+          {/* Invitations (uniquement pour un événement privé) */}
+          {!isPublic && users.length > 0 && (
             <InviteePicker
               users={users} excludeId={currentUserId}
               selected={invitees} onChange={setInvitees}

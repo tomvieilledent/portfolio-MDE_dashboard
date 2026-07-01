@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, CalendarClock, Calendar, Users, MapPin, Link as LinkIcon, Save, GraduationCap, Loader2 } from 'lucide-react'
+import { X, CalendarClock, Calendar, Users, MapPin, Link as LinkIcon, Save, GraduationCap, Loader2, Globe, Lock } from 'lucide-react'
 import InviteePicker from '../InviteePicker'
 
 // Programmation d'une session de formation (réservée au super admin) : c'est
@@ -19,6 +19,7 @@ export default function SessionFormModal({ trainings = [], users = [], currentUs
     location: '',
     link: '',
   })
+  const [isPublic, setIsPublic] = useState(false)
   const [inviteAll, setInviteAll] = useState(false)
   const [invitees, setInvitees] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -44,7 +45,9 @@ export default function SessionFormModal({ trainings = [], users = [], currentUs
         max_participants: Number(form.max_participants),
         location: form.location.trim() || null,
         link: form.link.trim() || null,
-      }, { inviteAll, inviteeIds: invitees })
+        is_public: isPublic,
+      }, { inviteAll: isPublic ? false : inviteAll,
+           inviteeIds: isPublic ? [] : invitees })
       onClose()
     } catch (err) {
       setError(err?.message || 'Échec de la programmation')
@@ -142,8 +145,36 @@ export default function SessionFormModal({ trainings = [], users = [], currentUs
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
           </div>
 
-          {/* Invitations (RSVP interne) */}
-          {users.length > 0 && (
+          {/* Visibilité : publique (tout le monde) ou privée (sur invitation) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Visibilité</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button" onClick={() => setIsPublic(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  isPublic ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Globe size={15} /> Publique
+              </button>
+              <button
+                type="button" onClick={() => setIsPublic(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  !isPublic ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Lock size={15} /> Privée
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-400">
+              {isPublic
+                ? 'Visible par tous et incluse dans la feuille mensuelle.'
+                : 'Visible uniquement par les personnes invitées.'}
+            </p>
+          </div>
+
+          {/* Invitations (RSVP interne) — uniquement pour une session privée */}
+          {!isPublic && users.length > 0 && (
             <InviteePicker
               users={users} excludeId={currentUserId}
               selected={invitees} onChange={setInvitees}

@@ -16,7 +16,7 @@ class TrainingSessionFacade:
     """SQL-backed facade for training session entities."""
 
     def create(self, training_id, start_date, end_date, max_participants,
-               location=None, link=None, created_by=None):
+               location=None, link=None, created_by=None, is_public=False):
         with session_scope() as db:
             session = ORMTrainingSession(
                 id=str(uuid.uuid4()),
@@ -27,6 +27,7 @@ class TrainingSessionFacade:
                 location=location,
                 link=link,
                 status='upcoming',
+                is_public=bool(is_public),
                 created_by=created_by,
                 created_at=datetime.now(timezone.utc),
             )
@@ -71,6 +72,8 @@ class TrainingSessionFacade:
                           'location', 'link', 'status'):
                 if field in kwargs:
                     setattr(s, field, kwargs[field])
+            if 'is_public' in kwargs:
+                s.is_public = bool(kwargs['is_public'])
             s.updated_at = datetime.now(timezone.utc)
             db.add(s)
             db.flush()
@@ -114,6 +117,7 @@ class TrainingSessionFacade:
             'location': s.location,
             'link': s.link,
             'status': s.status,
+            'is_public': bool(s.is_public),
             'created_by': s.created_by,
             'created_at': isoformat(s.created_at),
             'updated_at': isoformat(s.updated_at),

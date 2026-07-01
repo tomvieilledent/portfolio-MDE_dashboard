@@ -43,6 +43,8 @@ from backend.api.resources.news import (
 )
 from backend.api.resources.notification import NotificationListResource, NotificationResource
 from backend.api.resources.content import ContentResource
+from backend.api.resources.contact import ContactResource
+from backend.api.resources.export import MonthlyExportResource
 from backend.api.resources.invitation import (
     CurrentUserInvitationsResource,
     InvitationListResource,
@@ -223,6 +225,8 @@ def create_app():
     api.add_resource(MessageResource, '/messages/<string:message_id>')
 
     api.add_resource(ContentResource, '/content/<string:key>')
+    api.add_resource(ContactResource, '/contact')
+    api.add_resource(MonthlyExportResource, '/exports/monthly')
     api.add_resource(InvitationListResource, '/invitations')
     api.add_resource(CurrentUserInvitationsResource, '/me/invitations')
     api.add_resource(InvitationResource, '/invitations/<string:invitation_id>')
@@ -266,11 +270,15 @@ def create_app():
             from datetime import datetime, timezone
             from apscheduler.schedulers.background import BackgroundScheduler
             from backend.services.news_sync import sync_all
+            from backend.services.agenda_export import generate_next_month_if_due
 
             scheduler = BackgroundScheduler(daemon=True)
             scheduler.add_job(sync_all, 'interval', days=1,
                                id='news_sync', replace_existing=True,
                                next_run_time=datetime.now(timezone.utc))
+            # On the 25th of each month, generate next month's agenda sheet.
+            scheduler.add_job(generate_next_month_if_due, 'cron', day=25, hour=6,
+                               id='agenda_export', replace_existing=True)
             scheduler.start()
             atexit.register(scheduler.shutdown)
         except Exception:

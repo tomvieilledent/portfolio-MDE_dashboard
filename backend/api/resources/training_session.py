@@ -44,6 +44,8 @@ def _can_access_session(identity, current, sess):
     """Whether *current* user may see/enroll in *sess* (a session dict)."""
     if _can(current, 'manage_trainings'):
         return True
+    if sess.get('is_public'):
+        return True
     if sess.get('created_by') == identity:
         return True
     return sess['id'] in _accessible_session_ids(identity)
@@ -96,7 +98,8 @@ class TrainingSessionListResource(Resource):
         if not _can(current, 'manage_trainings'):
             accessible = _accessible_session_ids(identity)
             sessions = [s for s in sessions
-                        if s.get('created_by') == identity
+                        if s.get('is_public')
+                        or s.get('created_by') == identity
                         or s['id'] in accessible]
         return {'sessions': sessions}
 
@@ -122,7 +125,8 @@ class TrainingSessionsByTrainingResource(Resource):
         if not _can(current, 'manage_trainings'):
             accessible = _accessible_session_ids(identity)
             sessions = [s for s in sessions
-                        if s.get('created_by') == identity
+                        if s.get('is_public')
+                        or s.get('created_by') == identity
                         or s['id'] in accessible]
         return {'sessions': sessions}
 
@@ -178,6 +182,7 @@ class TrainingSessionsByTrainingResource(Resource):
             max_participants=int(max_participants),
             location=data.get('location'),
             link=data.get('link'),
+            is_public=bool(data.get('is_public')),
             created_by=get_jwt_identity(),
         )
         return {'session': sess}, 201
@@ -235,6 +240,8 @@ class TrainingSessionResource(Resource):
         for field in ('location', 'link', 'status'):
             if field in data:
                 update[field] = data[field]
+        if 'is_public' in data:
+            update['is_public'] = bool(data['is_public'])
         for dt_field in ('start_date', 'end_date'):
             if dt_field in data:
                 parsed = _parse_dt(data[dt_field])

@@ -114,6 +114,7 @@ export default function DashboardPage() {
       color: ev.color,
       description: ev.description || '',
       creator: ev.creator || displayName(user),
+      is_public: !!ev.is_public,
     }
     try {
       let saved

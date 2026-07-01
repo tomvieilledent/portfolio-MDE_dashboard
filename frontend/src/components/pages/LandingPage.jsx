@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { LogIn, Mail, Lightbulb, TrendingUp, Key, X, User, Phone, FileText, Send, CheckCircle } from 'lucide-react'
+import { LogIn, Mail, Lightbulb, TrendingUp, Key, X, User, Phone, FileText, Send, CheckCircle, Loader2 } from 'lucide-react'
 import LoginModal from '../modals/LoginModal'
 import { api } from '../../lib/api'
 
@@ -45,12 +45,24 @@ const DEFAULT_LANDING = {
 function ContactModal({ onClose }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSent(true)
+    if (loading) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.sendContact(form)
+      setSent(true)
+    } catch (err) {
+      setError(err?.message || "L'envoi a échoué. Réessayez plus tard.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -151,6 +163,12 @@ function ContactModal({ onClose }) {
               />
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
             <div className="flex gap-3 pt-1">
               <button
                 type="button" onClick={onClose}
@@ -160,9 +178,11 @@ function ContactModal({ onClose }) {
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-primary-light hover:bg-primary text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+                disabled={loading}
+                className="flex-1 bg-primary-light hover:bg-primary text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Send size={15} /> Envoyer
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                {loading ? 'Envoi…' : 'Envoyer'}
               </button>
             </div>
           </form>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Agenda — Juillet 2026</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; color: #14231b;
+         background: #eef1ef; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .poster { max-width: 820px; margin: 24px auto; background: #fff; border-radius: 18px;
+            overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.12); }
+
+  /* Header banner */
+  .hero { position: relative; padding: 34px 40px 28px;
+          background: linear-gradient(135deg, #4a7a1a 0%, #7ec843 100%); color: #fff; }
+  .hero .eyebrow { font-size: 13px; letter-spacing: .28em; text-transform: uppercase;
+                   opacity: .82; font-weight: 600; }
+  .hero h1 { margin: 6px 0 0; font-size: 52px; line-height: 1; font-weight: 800;
+             text-transform: capitalize; letter-spacing: -.01em; }
+  .hero .brand { position: absolute; top: 30px; right: 40px; text-align: right;
+                 font-size: 12px; opacity: .9; }
+  .hero .brand strong { display: block; font-size: 15px; }
+  .hero .logo { position: absolute; top: 28px; right: 40px; background: #fff;
+                border-radius: 12px; padding: 10px 14px; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+  .hero .logo img { display: block; height: 48px; width: auto; }
+  .hero .tagline { margin-top: 14px; font-size: 14px; opacity: .9; }
+
+  /* Legend */
+  .legend { display: flex; gap: 18px; padding: 14px 40px; background: #f7f9f8;
+            border-bottom: 1px solid #e6ebe8; font-size: 13px; font-weight: 600; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; color: #3d4b43; }
+  .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .lg-formation { background: #2563eb; }
+  .lg-atelier { background: #d97706; }
+  .lg-evenement { background: #16a34a; }
+
+  /* Body */
+  .list { padding: 22px 40px 8px; }
+  .day { display: flex; gap: 20px; padding: 16px 0; border-top: 1px solid #eef1ef; }
+  .day:first-child { border-top: none; }
+  .day-date { flex: 0 0 76px; text-align: center; padding-top: 4px; }
+  .d-week { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+            color: #6b7a71; font-weight: 600; }
+  .d-num { display: block; font-size: 40px; font-weight: 800; color: #4a7a1a; line-height: 1.05; }
+  .d-month { display: block; font-size: 13px; text-transform: capitalize; color: #6b7a71; }
+  .day-cards { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+  .card { display: flex; gap: 16px; padding: 14px 16px; border-radius: 12px;
+          border: 1px solid #e8ece9; border-left: 6px solid #16a34a; background: #f0fdf4;
+          break-inside: avoid; }
+  .card .c-time { flex: 0 0 84px; font-size: 20px; font-weight: 800; color: #14231b;
+                  font-variant-numeric: tabular-nums; }
+  .card .c-end { display: block; font-size: 12px; font-weight: 600; color: #6b7a71; margin-top: 2px; }
+  .c-body { flex: 1; }
+  .c-kind { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+            text-transform: uppercase; padding: 2px 10px; border-radius: 999px;
+            background: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); }
+  .c-kind::before { content: ''; display: inline-block; width: 8px; height: 8px;
+                    border-radius: 50%; background: currentColor; margin-right: 6px;
+                    vertical-align: 1px; }
+  .c-place .pin { vertical-align: -2px; margin-right: 2px; }
+  .c-title { margin: 6px 0 0; font-size: 20px; font-weight: 700; color: #14231b; }
+  .c-place { margin: 5px 0 0; font-size: 14px; color: #3d4b43; font-weight: 600; }
+  .c-detail { margin: 4px 0 0; font-size: 13px; color: #6b7a71; }
+
+  .card.formation { border-left-color: #2563eb; background: #eff6ff; }
+  .card.formation .c-kind { color: #1e40af; }
+  .card.atelier { border-left-color: #d97706; background: #fffbeb; }
+  .card.atelier .c-kind { color: #92400e; }
+  .card.evenement { border-left-color: #16a34a; background: #f0fdf4; }
+  .card.evenement .c-kind { color: #166534; }
+
+  .empty { text-align: center; color: #9aa8a0; padding: 80px 0; font-size: 20px; line-height: 2; }
+
+  footer { padding: 16px 40px 26px; font-size: 11px; color: #9aa8a0; text-align: center; }
+  .print-btn { position: fixed; top: 18px; right: 18px; padding: 11px 20px; border: none;
+               background: #5da020; color: #fff; border-radius: 10px; font-weight: 700;
+               font-size: 14px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+
+  @media print {
+    body { background: #fff; }
+    .poster { margin: 0; max-width: none; border-radius: 0; box-shadow: none; }
+    .print-btn { display: none; }
+    .card, .day { break-inside: avoid; }
+  }
+  @page { size: A4; margin: 12mm; }
+</style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Imprimer / PDF</button>
+  <div class="poster">
+    <div class="hero">
+      <div class="brand"><strong>Maison de l'Économie</strong>Rodez Agglomération</div>
+      <div class="eyebrow">Agenda du mois</div>
+      <h1>Juillet 2026</h1>
+      <div class="tagline">Événements &amp; formations ouverts à tous</div>
+    </div>
+    <div class="legend">
+      <span><i class="lg-evenement"></i> Événement</span>
+      <span><i class="lg-formation"></i> Formation</span>
+      <span><i class="lg-atelier"></i> Atelier</span>
+    </div>
+    <div class="list">
+      <section class="day"><div class="day-date"><span class="d-week">jeudi</span><span class="d-num">02</span><span class="d-month">juillet</span></div><div class="day-cards"><article class="card formation"><div class="c-time">10:57<span class="c-end">→ 10:57</span></div><div class="c-body"><span class="c-kind">Formation</span><h3 class="c-title">Bien se connaitre</h3><p class="c-detail">Bien se connaitre</p></div></article></div></section>
+    </div>
+    <footer>Maison de l'Économie · Rodez Agglomération — mis à jour le 01/07/2026 à 12:39</footer>
+  </div>
+</body>
+</html>

@@ -51,7 +51,9 @@ class EventListResource(Resource):
         invited = invitation_service.facade.target_ids_for_invitee(
             identity, 'event')
         visible = [e for e in events
-                   if e.get('created_by') == identity or e['id'] in invited]
+                   if e.get('is_public')
+                   or e.get('created_by') == identity
+                   or e['id'] in invited]
         return {'events': visible}
 
     @jwt_required()
@@ -82,6 +84,7 @@ class EventListResource(Resource):
             color=data.get('color'),
             description=data.get('description'),
             creator=data.get('creator'),
+            is_public=bool(data.get('is_public')),
             created_by=get_jwt_identity(),
         )
         return {'event': event}, 201
@@ -110,7 +113,8 @@ class EventResource(Resource):
                 'not allowed to edit this event', 403)
         data = request.get_json(silent=True) or {}
         update = {f: data[f] for f in ('title', 'date', 'time', 'color',
-                                       'description', 'creator') if f in data}
+                                       'description', 'creator', 'is_public')
+                  if f in data}
         result = event_service.facade.update(event_id, **update)
         return {'event': result}
 
