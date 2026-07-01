@@ -182,6 +182,7 @@ export const api = {
   getDirectMessages: (otherUserId) => request(`/messages/direct/${otherUserId}`),
   markDirectRead: (otherUserId) => request(`/messages/direct/${otherUserId}`, { method: 'POST' }),
   getUnreadCount: () => request('/messages/unread'),
+  uploadMessageAttachment: (formData) => request('/messages/attachment', { method: 'POST', body: formData }),
 
   // --- Site content (editable landing page) ---
   getLandingContent: () => request('/content/landing'),

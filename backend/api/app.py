@@ -30,6 +30,7 @@ from backend.api.resources.message import (
     ConversationMessagesResource,
     ConversationReadResource,
     DirectMessagesResource,
+    MessageAttachmentResource,
     MessageListResource,
     MessageReadResource,
     MessageResource,
@@ -217,6 +218,7 @@ def create_app():
 
     api.add_resource(PresenceResource, '/presence')
     api.add_resource(MessageListResource, '/messages')
+    api.add_resource(MessageAttachmentResource, '/messages/attachment')
     api.add_resource(DirectMessagesResource, '/messages/direct/<string:user_id>')
     api.add_resource(UnreadCountResource, '/messages/unread')
     api.add_resource(MessageReadResource, '/messages/<string:message_id>/read')

@@ -17,6 +17,13 @@ ALLOWED_DOCUMENT_EXTENSIONS = {
 }
 
 
+ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.webp',
+    '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx',
+    '.odt', '.odp', '.ods', '.txt', '.csv', '.zip',
+}
+
+
 def ensure_upload_dirs():
     """Create the upload sub-folders if they do not already exist."""
     for folder_name in (
@@ -25,6 +32,7 @@ def ensure_upload_dirs():
         'companies',
         'trainings',
         'trainings/documents',
+        'messages/attachments',
     ):
         (UPLOAD_ROOT / folder_name).mkdir(parents=True, exist_ok=True)
 
@@ -107,6 +115,38 @@ def save_document_upload(file_storage: FileStorage, category: str) -> str | None
     file_storage.save(destination)
 
     return f"/uploads/{relative_path.as_posix()}"
+
+
+def save_message_attachment(file_storage: FileStorage) -> tuple[str, str] | tuple[None, None]:
+    """Save a message attachment and return ``(public_url, original_filename)``.
+
+    Accepts images and common document types.  The original filename is
+    preserved (after sanitising) after a UUID prefix so links stay readable.
+
+    Returns:
+        tuple[str, str]: ``(public_url, original_filename)`` on success.
+        tuple[None, None]: when no file was provided.
+
+    Raises:
+        ValueError: If the extension is not allowed.
+    """
+    if not file_storage or not file_storage.filename:
+        return None, None
+
+    ensure_upload_dirs()
+    original_name = secure_filename(file_storage.filename)
+    if not original_name:
+        raise ValueError('invalid filename')
+    if Path(original_name).suffix.lower() not in ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS:
+        raise ValueError('unsupported file type')
+
+    public_name = f"{uuid4().hex}__{original_name}"
+    relative_path = Path('messages/attachments') / public_name
+    destination = UPLOAD_ROOT / relative_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    file_storage.save(destination)
+
+    return f"/uploads/{relative_path.as_posix()}", original_name
 
 
 def delete_uploaded_file(public_path: str | None) -> None:

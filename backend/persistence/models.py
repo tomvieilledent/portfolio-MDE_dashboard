@@ -93,6 +93,8 @@ class Message(Base):
     recipient_id = Column(String(36))
     conversation_id = Column(String(36))
     content = Column(String(5000), nullable=False)
+    file_url = Column(String(1000))
+    file_name = Column(String(500))
     is_read = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True),

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { X, Search, Send, ArrowLeft, Users, Plus, Settings, UserPlus, LogOut, Check } from 'lucide-react'
+import { X, Search, Send, ArrowLeft, Users, Plus, Settings, UserPlus, LogOut, Check, Paperclip, FileText, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { api, mediaUrl } from '../lib/api'
 import { connectSocket, getSocket } from '../lib/socket'
 import { useAuth, displayName, initialsOf } from '../context/AuthContext'
@@ -38,6 +38,10 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [showManage, setShowManage] = useState(false)
+  const [pendingAttachment, setPendingAttachment] = useState(null) // {file_url, file_name}
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef(null)
   const scrollRef = useRef(null)
   // Mirror `selected` in a ref so the socket handler can read the active
   // conversation without putting side effects inside a setState updater
@@ -208,17 +212,41 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
     } catch { /* historique indisponible */ }
   }
 
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploadError('')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.uploadMessageAttachment(formData)
+      setPendingAttachment({ file_url: res.file_url, file_name: res.file_name })
+    } catch (err) {
+      setUploadError(err.message || 'Échec de l\'upload')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const sendMessage = () => {
     const content = newMessage.trim()
-    if (!content || !selected) return
+    if (!content && !pendingAttachment || !selected) return
     const socket = getSocket()
     if (!socket) return
+    const payload = {
+      content: content || pendingAttachment.file_name,
+      ...(pendingAttachment || {}),
+    }
     if (selected.type === 'group') {
-      socket.emit('send_message', { conversation_id: selected.id, content })
+      socket.emit('send_message', { conversation_id: selected.id, ...payload })
     } else {
-      socket.emit('send_message', { recipient_id: selected.id, content })
+      socket.emit('send_message', { recipient_id: selected.id, ...payload })
     }
     setNewMessage('')
+    setPendingAttachment(null)
+    setUploadError('')
   }
 
   const handleGroupCreated = (conv) => {
@@ -426,7 +454,26 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                         {!mine && activeGroup && (
                           <p className="px-4 pt-2 text-xs font-bold text-primary">{sender ? displayName(sender) : 'Inconnu'}</p>
                         )}
-                        <p className="px-4 pt-2.5 pb-1">{msg.content}</p>
+                        {msg.file_url && (() => {
+                          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.file_name || msg.file_url)
+                          const fullUrl = msg.file_url.startsWith('http') ? msg.file_url : `${window.location.origin.replace(':3000', ':8000')}${msg.file_url}`
+                          return isImage ? (
+                            <a href={fullUrl} target="_blank" rel="noreferrer" className="block px-2 pt-2">
+                              <img src={fullUrl} alt={msg.file_name || 'image'} className="rounded-xl max-h-48 object-cover" />
+                            </a>
+                          ) : (
+                            <a href={fullUrl} target="_blank" rel="noreferrer" download={msg.file_name}
+                              className={`flex items-center gap-2 mx-3 mt-2 px-3 py-2 rounded-lg text-xs font-medium ${mine ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} transition-colors`}
+                            >
+                              <FileText size={14} className="flex-shrink-0" />
+                              <span className="truncate max-w-[180px]">{msg.file_name || 'Fichier joint'}</span>
+                            </a>
+                          )
+                        })()}
+                        {/* Affiche le texte : toujours sans fichier, ou comme légende si différent du nom du fichier */}
+                        {(!msg.file_url || (msg.content && msg.content !== msg.file_name)) && (
+                          <p className={`px-4 pb-1 ${msg.file_url ? 'pt-1.5' : 'pt-2.5'}`}>{msg.content}</p>
+                        )}
                         <p className={`text-xs px-4 pb-2.5 ${mine ? 'text-green-100' : 'text-gray-400'}`}>{fmtTime(msg.created_at)}</p>
                       </div>
                     </div>
@@ -435,8 +482,31 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
               </div>
 
               {/* Zone de saisie */}
-              <div className="px-6 py-4 border-t border-gray-200 bg-white">
+              <div className="px-6 py-3 border-t border-gray-200 bg-white">
+                {/* Chip fichier en attente */}
+                {pendingAttachment && (
+                  <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-primary-light/10 rounded-lg max-w-xs">
+                    <FileText size={14} className="text-primary-light flex-shrink-0" />
+                    <span className="text-xs text-primary-light truncate flex-1">{pendingAttachment.file_name}</span>
+                    <button onClick={() => setPendingAttachment(null)} className="text-primary-light hover:text-red-500 flex-shrink-0">
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+                {uploadError && <p className="text-xs text-red-500 mb-1">{uploadError}</p>}
                 <div className="flex items-center gap-2">
+                  {/* Input fichier caché */}
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect}
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.odp,.ods,.txt,.csv,.zip"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    title="Joindre un fichier"
+                    className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-primary-light transition-colors disabled:opacity-40"
+                  >
+                    {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                  </button>
                   <input
                     type="text"
                     placeholder="Écrire un message..."
@@ -447,7 +517,7 @@ export default function Messagerie({ onClose, initialContact = null, onNewMessag
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() && !pendingAttachment}
                     className="w-10 h-10 flex-shrink-0 bg-primary-light hover:bg-primary disabled:opacity-40 rounded-full flex items-center justify-center text-white transition-colors"
                   >
                     <Send size={16} />
