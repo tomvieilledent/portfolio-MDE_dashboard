@@ -181,7 +181,7 @@ export default function DashboardContainer() {
       case 'news':          return <News />
       case 'gestion':       return <GestionPage />
       case 'mononglet':     return <MonOnglet />
-      default:              return <DashboardPageeiksoiksmlsdldsll
+      default:              return <DashboardPage />
     }
   }
 
