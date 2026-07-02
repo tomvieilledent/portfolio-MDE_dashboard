@@ -38,16 +38,3 @@ def error_response(code: str, message: str, status: int = 400, details: Any = No
     if details is not None:
         payload['error']['details'] = details
     return payload, status
-
-
-def ok_response(data: Any, status: int = 200):
-    """Return a successful response payload.
-
-    Args:
-        data (Any): Data to return as JSON.
-        status (int): HTTP status code. Defaults to 200.
-
-    Returns:
-        tuple[Any, int]: Payload and HTTP status code.
-    """
-    return data, status
