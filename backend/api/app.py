@@ -7,6 +7,14 @@ error handlers and registers all API resources for the application.
 import atexit
 import os
 
+from dotenv import load_dotenv
+
+# Load variables from a local .env file if present. This is a no-op in
+# production where real environment variables are set by the platform.
+# Existing environment variables always take precedence (override=False),
+# so tests and prod configs are never clobbered by a stray .env.
+load_dotenv()
+
 from flask import Flask, jsonify, send_from_directory
 from flask_restful import Api
 from flask_jwt_extended import JWTManager

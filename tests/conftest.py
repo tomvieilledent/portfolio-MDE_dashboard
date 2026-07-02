@@ -15,6 +15,10 @@ def app_bundle(monkeypatch, tmp_path):
     db_path = tmp_path / 'test.db'
     monkeypatch.setenv('DATABASE_URL', f'sqlite:///{db_path}')
     monkeypatch.setenv('JWT_SECRET_KEY', 'test-secret-key-for-pytest-suite')
+    # Force "SMTP not configured" in tests so the mail-based flows use their
+    # dev fallback and never attempt a real network send. An empty (but set)
+    # value survives load_dotenv(override=False) even when a real .env exists.
+    monkeypatch.setenv('SMTP_HOST', '')
 
     _clear_backend_modules()
 
