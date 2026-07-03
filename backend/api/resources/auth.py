@@ -18,6 +18,7 @@ from backend.api.jwt_helpers import jwt_required
 from backend.api.state import BLOCKLIST
 from backend.models.user import User as DomainUser
 from backend.persistence.services import UserService
+from backend.services import mailer
 
 
 service = UserService()
@@ -123,18 +124,52 @@ class AuthLogoutResource(Resource):
 RESET_PURPOSE = 'pwd_reset'
 
 
+def _send_reset_email(email: str, reset_token: str) -> bool:
+    """Email a password-reset link to the user. Returns whether it was sent."""
+    link = f'{mailer.frontend_url()}/?reset_token={reset_token}'
+    subject = 'Réinitialisation de votre mot de passe'
+    text_body = (
+        "Bonjour,\n\n"
+        "Vous avez demandé la réinitialisation de votre mot de passe pour la "
+        "Maison de l'Économie – Rodez Agglomération.\n\n"
+        f"Cliquez sur le lien ci-dessous pour définir un nouveau mot de passe "
+        f"(valable 15 minutes) :\n{link}\n\n"
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : "
+        "votre mot de passe restera inchangé.\n\n"
+        "— Maison de l'Économie, Rodez Agglomération"
+    )
+    html_body = (
+        "<div style=\"font-family:Arial,sans-serif;color:#1f2937;line-height:1.6\">"
+        "<p>Bonjour,</p>"
+        "<p>Vous avez demandé la réinitialisation de votre mot de passe pour la "
+        "<strong>Maison de l'Économie – Rodez Agglomération</strong>.</p>"
+        "<p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe "
+        "(lien valable 15&nbsp;minutes) :</p>"
+        f"<p style=\"margin:24px 0\"><a href=\"{link}\" "
+        "style=\"background:#1a3a2a;color:#ffffff;padding:12px 22px;border-radius:10px;"
+        "text-decoration:none;font-weight:bold;display:inline-block\">"
+        "Réinitialiser mon mot de passe</a></p>"
+        f"<p style=\"font-size:12px;color:#6b7280\">Ou copiez ce lien : {link}</p>"
+        "<p style=\"font-size:12px;color:#6b7280\">Si vous n'êtes pas à l'origine de "
+        "cette demande, ignorez cet email : votre mot de passe restera inchangé.</p>"
+        "<p style=\"font-size:12px;color:#6b7280\">— Maison de l'Économie, Rodez Agglomération</p>"
+        "</div>"
+    )
+    return mailer.send_email(email, subject, text_body, html_body=html_body)
+
+
 class AuthForgotPasswordResource(Resource):
     """Start a password reset for the account matching an email."""
 
     def post(self):
-        """Issue a short-lived password-reset token for the given email.
+        """Issue a short-lived password-reset token and email a reset link.
 
         Expected JSON body:
             email (str): Account email address.
 
-        Returns ``{msg}`` always (no account enumeration). In this demo the
-        reset token is returned in ``reset_token`` because there is no email
-        service — **in production it must instead be emailed to the user**.
+        Returns ``{msg}`` always (no account enumeration). When SMTP is not
+        configured, the token is returned in ``reset_token`` as a dev fallback
+        so the flow remains testable without a mail server.
         """
         data = request.get_json(silent=True) or {}
         email = data.get('email')
@@ -149,7 +184,10 @@ class AuthForgotPasswordResource(Resource):
             expires_delta=timedelta(minutes=15),
             additional_claims={'purpose': RESET_PURPOSE},
         )
-        # DEV ONLY: returning the token here stands in for emailing it.
+        sent = _send_reset_email(email, reset_token)
+        if sent:
+            return generic
+        # DEV fallback: no mail server configured — return the token directly.
         return {**generic, 'reset_token': reset_token}
 
 

@@ -18,7 +18,7 @@ class Event(BaseModel):
     """
 
     def __init__(self, title, date, time=None, color=None, description=None,
-                 creator=None, created_by=None, **kwargs):
+                 creator=None, created_by=None, is_public=False, **kwargs):
         super().__init__(**kwargs)
         self.title = title
         self.date = date
@@ -27,6 +27,7 @@ class Event(BaseModel):
         self.description = description
         self.creator = creator
         self.created_by = created_by
+        self.is_public = bool(is_public)
 
     @property
     def title(self):

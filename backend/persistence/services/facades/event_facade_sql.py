@@ -11,7 +11,7 @@ class EventFacade:
     """SQLAlchemy-backed facade for agenda event CRUD operations."""
 
     def create(self, title, date, time=None, color=None, description=None,
-               creator=None, created_by=None, **kwargs):
+               creator=None, created_by=None, is_public=False, **kwargs):
         with session_scope() as db:
             event = ORMEvent(
                 title=normalize_text(title),
@@ -21,6 +21,7 @@ class EventFacade:
                 description=normalize_text(description),
                 creator=normalize_text(creator),
                 created_by=created_by,
+                is_public=bool(is_public),
                 created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
             )
             db.add(event)
@@ -58,6 +59,8 @@ class EventFacade:
                           'creator'):
                 if field in kwargs:
                     setattr(event, field, normalize_text(kwargs[field]))
+            if 'is_public' in kwargs:
+                event.is_public = bool(kwargs['is_public'])
             db.flush()
             db.refresh(event)
             return self._to_dict(event)
@@ -88,5 +91,6 @@ class EventFacade:
             'description': event.description,
             'creator': event.creator,
             'created_by': event.created_by,
+            'is_public': bool(event.is_public),
             'created_at': isoformat(event.created_at),
         }

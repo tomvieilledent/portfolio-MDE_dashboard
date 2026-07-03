@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2, Home, Save, CheckCircle, UserPlus, KeyRound } from 'lucide-react'
+import { Users, Building2, UserX, UserCheck, Trash2, AlertTriangle, ShieldCheck, Shield, X, Loader2, Home, Save, CheckCircle, UserPlus, KeyRound, FileDown, Download, Printer, RefreshCw, CalendarDays } from 'lucide-react'
 import { api, mediaUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import StaffAccountModal, { PERMISSION_META, ALL_PERMISSIONS } from '../modals/StaffAccountModal'
@@ -544,6 +544,120 @@ function LandingEditor() {
   )
 }
 
+// ── Export mensuel de l'agenda (super-admin) ─────────────────────────────────
+const EXPORT_MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+function nextMonth() {
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return { year: d.getFullYear(), month: d.getMonth() + 1 }
+}
+
+function ExportPanel() {
+  const [exports, setExports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState('')
+  const [error, setError] = useState('')
+  const nxt = nextMonth()
+  const [year, setYear] = useState(nxt.year)
+  const [month, setMonth] = useState(nxt.month)
+
+  const load = () =>
+    api.getMonthlyExports()
+      .then((res) => setExports(res.exports || []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+
+  useEffect(() => { load() }, [])
+
+  // `tag` identifie le bouton en cours (pour le spinner) ; target = {year, month}.
+  const handleGenerate = async (target, tag = 'custom') => {
+    const y = Number(target?.year ?? year)
+    const m = Number(target?.month ?? month)
+    setGenerating(tag)
+    setError('')
+    try {
+      await api.generateMonthlyExport({ year: y, month: m })
+      setYear(y); setMonth(m)
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGenerating('')
+    }
+  }
+
+  const years = [nxt.year - 1, nxt.year, nxt.year + 1]
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-gray-500">
+        Feuille imprimable : <strong>événements publics</strong>, <strong>formations</strong> et <strong>ateliers</strong> du mois.
+        Une feuille du mois suivant est générée automatiquement le 25 de chaque mois.
+      </p>
+
+      {/* Génération à la demande */}
+      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Mois</label>
+          <select value={month} onChange={(e) => setMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-light">
+            {EXPORT_MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Année</label>
+          <select value={year} onChange={(e) => setYear(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-light">
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button onClick={() => handleGenerate(null, 'custom')} disabled={!!generating}
+          className="flex items-center gap-2 bg-primary-light hover:bg-primary text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-60">
+          {generating === 'custom' ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+          Générer maintenant
+        </button>
+      </div>
+
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+
+      {/* Feuilles disponibles */}
+      {loading ? (
+        <p className="text-gray-400 py-6 text-center">Chargement…</p>
+      ) : exports.length === 0 ? (
+        <p className="text-gray-400 py-6 text-center">Aucune feuille générée pour le moment.</p>
+      ) : (
+        <div className="space-y-2">
+          {exports.map((exp) => (
+            <div key={exp.filename}
+              className="border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-4 shadow-sm bg-white">
+              <div className="w-10 h-10 rounded-lg bg-primary-light/10 flex items-center justify-center flex-shrink-0">
+                <CalendarDays size={18} className="text-primary-light" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{exp.label}</p>
+                <p className="text-xs text-gray-400">
+                  Générée le {new Date(exp.generated_at).toLocaleString('fr-FR')}
+                  {typeof exp.count === 'number' ? ` · ${exp.count} élément(s)` : ''}
+                </p>
+              </div>
+              <a href={mediaUrl(exp.url)} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg text-sm transition-colors">
+                <Printer size={14} /> Ouvrir / Imprimer
+              </a>
+              <a href={mediaUrl(exp.url)} download={exp.filename}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg text-sm transition-colors">
+                <Download size={14} /> Télécharger
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function GestionPage() {
   const { user: currentUser, can } = useAuth()
   const isSuperAdmin = !!currentUser?.is_super_admin
@@ -552,8 +666,9 @@ export default function GestionPage() {
     users:     can('manage_users'),
     companies: can('manage_companies'),
     landing:   can('manage_news'),
+    export:    isSuperAdmin,
   }
-  const firstVisible = ['users', 'companies', 'landing'].find((t) => visibleTabs[t]) || 'users'
+  const firstVisible = ['users', 'companies', 'landing', 'export'].find((t) => visibleTabs[t]) || 'users'
 
   const [subTab,    setSubTab]    = useState(firstVisible)
   const [users,     setUsers]     = useState([])
@@ -712,7 +827,16 @@ export default function GestionPage() {
               <Home size={15} /> Page d'accueil
             </button>
           )}
+          {visibleTabs.export && (
+            <button onClick={() => setSubTab('export')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subTab === 'export' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <FileDown size={15} /> Export agenda
+            </button>
+          )}
         </div>
+
+        {/* ── Export agenda ── */}
+        {subTab === 'export' && <ExportPanel />}
 
         {/* ── Page d'accueil ── */}
         {subTab === 'landing' && <LandingEditor />}

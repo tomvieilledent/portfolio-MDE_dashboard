@@ -33,6 +33,7 @@ def ensure_upload_dirs():
         'trainings',
         'trainings/documents',
         'messages/attachments',
+        'exports',
     ):
         (UPLOAD_ROOT / folder_name).mkdir(parents=True, exist_ok=True)
 

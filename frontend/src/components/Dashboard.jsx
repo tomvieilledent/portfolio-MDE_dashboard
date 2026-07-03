@@ -14,6 +14,7 @@ import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
 import LandingPage from './pages/LandingPage'
 import GestionPage from './pages/GestionPage'
+import ResetPasswordModal from './modals/ResetPasswordModal'
 
 // Ordre des onglets identique pour tous les rôles ; seul le dernier onglet
 // (spécifique au rôle) diffère : Gestion pour l'admin, Mon entreprise pour le
@@ -86,6 +87,19 @@ export default function DashboardContainer() {
   const { user, role, can, companyAdminId, companyAdminName, isAuthenticated, loading, logout, updateProfile } = useAuth()
   const [profileOverride, setProfileOverride] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
+  // Jeton de réinitialisation de mot de passe passé dans l'URL (lien email).
+  const [resetToken, setResetToken] = useState(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('reset_token')
+  })
+  const clearResetToken = useCallback(() => {
+    setResetToken(null)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('reset_token')
+      window.history.replaceState({}, '', url.pathname + url.search)
+    }
+  }, [])
   const [messagingOpen, setMessagingOpen] = useState(false)
   const [messagingContact, setMessagingContact] = useState(null)
   const [darkMode, setDarkMode] = useState(
@@ -183,6 +197,17 @@ export default function DashboardContainer() {
       case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
     }
+  }
+
+  // Lien de réinitialisation ouvert depuis l'email : on affiche le formulaire
+  // par-dessus la landing, quel que soit l'état d'authentification.
+  if (resetToken) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <LandingPage onLoginSuccess={() => {}} />
+        <ResetPasswordModal token={resetToken} onDone={clearResetToken} />
+      </div>
+    )
   }
 
   if (loading) {

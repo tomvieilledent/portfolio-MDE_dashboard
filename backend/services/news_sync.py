@@ -70,16 +70,6 @@ def _parse_date(parsed_time):
         return None
 
 
-def _parse_iso(date_str):
-    if not date_str:
-        return None
-    try:
-        dt = datetime.fromisoformat(date_str)
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
-
-
 _HEAD_HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
 
@@ -130,97 +120,6 @@ def _fetch_rss(source, facade):
             url=url,
             published_at=_parse_date(entry.get('published_parsed')),
             category=source['category'],
-        )
-        count += 1
-    return count
-
-
-def _fetch_bodacc(facade):
-    """Créations, cessions, liquidations depuis BODACC OpenDataSoft."""
-    url = (
-        'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1'
-        '/catalog/datasets/annonces-commerciales/records'
-    )
-    params = {'limit': 20, 'order_by': 'dateparution desc', 'timezone': 'UTC'}
-    try:
-        resp = requests.get(url, params=params, timeout=TIMEOUT)
-        resp.raise_for_status()
-    except Exception as exc:
-        logger.warning("BODACC: %s", exc)
-        return 0
-
-    count = 0
-    for rec in resp.json().get('results', []):
-        canonical_url = str(rec.get('url_complete') or '').strip()
-        if not canonical_url or facade.url_exists(canonical_url):
-            continue
-
-        commercant = str(rec.get('commercant') or '').strip()
-        famille_lib = str(rec.get('familleavis_lib') or '').strip()
-        type_lib = str(rec.get('typeavis_lib') or '').strip()
-        tribunal = str(rec.get('tribunal') or '').strip()
-        ville = str(rec.get('ville') or '').strip()
-
-        title = ' — '.join(filter(None, [famille_lib, commercant]))
-        if not title:
-            continue
-
-        summary_parts = list(filter(None, [type_lib, tribunal, ville]))
-        facade.create(
-            title=title[:500],
-            source='BODACC',
-            summary=' | '.join(summary_parts)[:2000] or None,
-            url=canonical_url,
-            published_at=_parse_iso(rec.get('dateparution')),
-            category='vie-entreprises',
-        )
-        count += 1
-    return count
-
-
-def _fetch_boamp(facade):
-    """Marchés publics depuis BOAMP OpenDataSoft."""
-    url = (
-        'https://boamp-datadila.opendatasoft.com/api/explore/v2.1'
-        '/catalog/datasets/boamp/records'
-    )
-    params = {'limit': 20, 'order_by': 'dateparution desc', 'timezone': 'UTC'}
-    try:
-        resp = requests.get(url, params=params, timeout=TIMEOUT)
-        resp.raise_for_status()
-    except Exception as exc:
-        logger.warning("BOAMP: %s", exc)
-        return 0
-
-    count = 0
-    for rec in resp.json().get('results', []):
-        canonical_url = str(rec.get('url_avis') or '').strip()
-        rec_id = str(rec.get('id') or '').strip()
-        if not canonical_url:
-            if not rec_id:
-                continue
-            canonical_url = f"https://www.boamp.fr/avis/detail/{rec_id}"
-
-        if facade.url_exists(canonical_url):
-            continue
-
-        objet = str(rec.get('objet') or '').strip()
-        acheteur = str(rec.get('nomacheteur') or '').strip()
-        nature_lib = str(rec.get('nature_libelle') or '').strip()
-        famille_lib = str(rec.get('famille_libelle') or '').strip()
-
-        title = objet or acheteur
-        if not title:
-            continue
-
-        summary_parts = list(filter(None, [nature_lib, famille_lib, acheteur]))
-        facade.create(
-            title=title[:500],
-            source='BOAMP',
-            summary=' | '.join(summary_parts)[:2000] or None,
-            url=canonical_url,
-            published_at=_parse_iso(rec.get('dateparution')),
-            category='opportunités',
         )
         count += 1
     return count
