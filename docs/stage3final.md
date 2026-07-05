@@ -41,136 +41,184 @@ L’architecture retenue dans la documentation est une architecture web classiqu
 flowchart LR
 	U[Utilisateur] --> F[Frontend]
 	A[Administrateur] --> F
-	F --> B[Backend]
-	B --> D[(PostgreSQL)]
-	B --> N[Service d'actualités externe]
-	B --> R[Temps réel / WebSockets]
+	F --> B[Backend Flask REST]
+	B --> D[(SQLite dev / PostgreSQL prod)]
+	B --> N[Flux RSS actualités éco.]
+	B --> R[Socket.IO / WebSockets]
 	R --> F
 ```
 
 ### 3.1 Choix d’architecture
 
-- **Frontend** : React pour l’interface et la navigation.
-- **Backend** : API REST Flask pour les opérations métier.
-- **Base de données** : PostgreSQL pour la persistance.
-- **Temps réel** : WebSockets pour la messagerie.
-- **Sécurité** : authentification JWT et contrôle par rôle.
+- **Frontend** : React 18 + Vite ; navigation par état d’onglet (`Dashboard.jsx`), sans `react-router`.
+- **Backend** : API REST Flask (Flask-RESTful) en couches strictes `Resource → Service → Facade → ORM`.
+- **Base de données** : SQLAlchemy avec **SQLite en développement** et **PostgreSQL en production** (`psycopg2-binary`, `DATABASE_URL`) ; migrations gérées par **Alembic**.
+- **Temps réel** : **Socket.IO** (Flask-SocketIO) pour la messagerie et la présence.
+- **Sécurité** : authentification **JWT** (`flask_jwt_extended`) et contrôle d’accès par rôle et permissions.
+- **Tâches de fond** : APScheduler synchronise chaque heure des flux **RSS** d’actualités économiques françaises (`feedparser`).
 
 ## 4. Composants, classes et modèle de données
 
-Les principaux composants métier identifiés sont :
+Les tables de persistance effectivement livrées (`backend/persistence/models.py`) sont :
 
-- utilisateurs,
-- entreprises,
-- formations,
-- inscriptions,
-- messages,
-- actualités,
-- notifications.
+- utilisateurs (`users`),
+- entreprises (`companies`),
+- formations / ateliers (`trainings`),
+- sessions de formation (`training_sessions`),
+- inscriptions & favoris (`formation_users`),
+- conversations et messages (`conversations`, `messages`, `conversation_participants`),
+- notifications (`notifications`),
+- actualités et actualités enregistrées (`news`, `saved_news`),
+- événements d’agenda (`events`),
+- invitations (`invitations`),
+- contenu de site éditable (`site_content`).
 
 ### 4.1 Entités principales
 
-- **User** : UUID, email utilisé comme identifiant de connexion Django, username aligné sur email, mot de passe, rôles admin, informations de profil, statut actif et champs d’audit.
-- **Company** : UUID, nom, description, image, administrateur associé, statut actif et champs d’audit.
-- **Training** : UUID, titre, description, image, statut actif et champs d’audit.
-- **Enrollment** : relation entre un user et une formation.
-- **Message** : auteur, destinataire ou salon, contenu, date.
-- **Notification** : contenu, statut de lecture, destinataire.
+- **User** (`users`) : UUID, **email** (identifiant de connexion, unique), `password_hash`, profil (`first_name`, `last_name`, `job_title`, `phone`, `profile_picture`, `business_card`), rôles `is_super_admin` / `is_company_admin` / `is_staff` avec `permissions` (CSV de droits granulaires), `company_id`, statut `is_active`, champs d’audit.
+- **Company** (`companies`) : UUID, `name`, `description`, `location`, `website_link`, `company_picture`, `admin_email`/`admin_id`, `kind` (`company` = entreprise hébergée / `trainer` = formateur), statut et audit.
+- **Training** (`trainings`) : UUID, `title`, `description`, `picture`, `category` (texte libre), `type` (`formation` / `atelier`), `documents` (pièces jointes en CSV), statut et audit.
+- **TrainingSession** (`training_sessions`) : session planifiée d’une formation — `training_id`, `start_date`, `end_date`, `max_participants`, `location`/`link`, `status`, `is_public`.
+- **FormationUser** (`formation_users`) : lien user ↔ formation/session — inscription (`enrolled_at`, `completed_at`) **ou** favori (`saved`), avec `type`.
+- **Conversation** (`conversations`) : salon 1-1 ou groupe nommé — `title` (groupe), `creator_id`, `participant_ids` (CSV, source de vérité des membres).
+- **Message** (`messages`) : `author_id`, `recipient_id` **ou** `conversation_id`, `content`, `is_read`.
+- **Notification** (`notifications`) : `recipient_id`, `content`, `is_read`.
+- **News** / **SavedNews** : article normalisé (source, url, résumé, `published_at`) ; `saved_news` est un signet par utilisateur (snapshot autoporté, unicité `user_id`+`news_id`).
+- **Event** (`events`) : `title`, `date`/`time` (chaînes), `color`, `creator`/`created_by`, `is_public` (sinon visible sur invitation).
+- **Invitation** (`invitations`) : invitation RSVP à un `event` ou une `training` (`target_type`/`target_id`), `inviter_id`, `invitee_id`, `status` (`pending`/`accepted`/`declined`).
+- **SiteContent** (`site_content`) : blocs de contenu éditables (ex. `landing`), `value` en JSON.
 
-#### BaseClass
+#### Conventions communes (pas de `BaseClass` héritée)
 
-Toutes les entités persistantes héritent d'une `BaseClass` contenant les champs communs et d'audit afin d'éviter la duplication et d'homogénéiser le modèle :
+Il n’existe **pas** de super-classe `BaseClass` : chaque modèle hérite du `Base` déclaratif de SQLAlchemy et répète les colonnes utiles. Les conventions partagées sont :
 
-- `uuid` / `id` (PK)
-- `is_active` (bool)
-- `created_at` (datetime)
-- `updated_at` (datetime)
-- `deactivate_by` (uuid FK)
-- `delete_by` (uuid FK)
+- **clé primaire** : `id` en `String(36)`, UUID généré (`default=lambda: str(uuid.uuid4())`) ;
+- **horodatage** : `created_at` (et `updated_at` sur les tables mutables) ;
+- **suppression douce (soft delete)** : les tables cœur (`users`, `companies`, `trainings`) portent `is_active`, `deactivate_by`, `delete_by` au lieu d’être supprimées physiquement.
 
-Les entités `User`, `Company`, `Training`, `Enrollment`, `Message` et `Notification` héritent de `BaseClass` et ajoutent leurs attributs métier spécifiques.
+Les champs d’audit ne sont donc présents que sur les entités qui en ont besoin, pas uniformément sur toutes les tables.
 
 ### 4.2 Diagramme ER
 
 ```mermaid
 erDiagram
-	%% BaseClass centralise les champs communs à toutes les entités
-	BASECLASS {
-		uuid id PK
+	USER {
+		string id PK
+		string email
+		string password_hash
+		bool is_super_admin
+		bool is_company_admin
+		bool is_staff
+		string permissions
+		string company_id FK
 		bool is_active
-		datetime created_at
-		datetime updated_at
-		uuid deactivate_by FK
-		uuid delete_by FK
 	}
 
-	%% Entités principales avec clés étrangères explicites
 	COMPANY {
-		uuid id PK
+		string id PK
 		string name
 		string description
-		string company_picture
+		string location
 		string website_link
-		uuid admin_id FK
-	}
-
-	USER {
-		uuid id PK
-		uuid company_id FK
-		bool is_super_admin
-		bool is_admin
-		string email
-		string password
-		string first_name
-		string last_name
-		string bio
-		string phone
-		string profile_picture
-		string business_card
+		string admin_id FK
+		string kind
+		bool is_active
 	}
 
 	TRAINING {
-		uuid id PK
-		uuid company_id FK
+		string id PK
+		string company_id FK
 		string title
-		string description
-		string picture
+		string category
+		string type
+		string documents
+		bool is_active
 	}
 
-	ENROLLMENT {
-		uuid id PK
-		uuid user_id FK
-		uuid training_id FK
+	TRAINING_SESSION {
+		string id PK
+		string training_id FK
+		datetime start_date
+		datetime end_date
+		int max_participants
+		bool is_public
+	}
+
+	FORMATION_USER {
+		string id PK
+		string user_id FK
+		string training_id FK
+		string session_id FK
+		bool saved
 		datetime enrolled_at
+		datetime completed_at
+	}
+
+	CONVERSATION {
+		string id PK
+		string title
+		string creator_id FK
+		string participant_ids
 	}
 
 	MESSAGE {
-		uuid id PK
-		uuid author_id FK
-		uuid recipient_id FK
-		uuid conversation_id FK
+		string id PK
+		string author_id FK
+		string recipient_id FK
+		string conversation_id FK
 		string content
-		datetime created_at
+		bool is_read
+	}
+
+	EVENT {
+		string id PK
+		string title
+		string date
+		string created_by FK
+		bool is_public
+	}
+
+	INVITATION {
+		string id PK
+		string target_type
+		string target_id
+		string inviter_id FK
+		string invitee_id FK
+		string status
 	}
 
 	NOTIFICATION {
-		uuid id PK
-		uuid recipient_id FK
+		string id PK
+		string recipient_id FK
 		string content
 		bool is_read
-		datetime created_at
 	}
 
-	%% Relations (cardinalités)
+	SAVED_NEWS {
+		string id PK
+		string user_id FK
+		string news_id
+		string title
+	}
+
 	COMPANY ||--o{ USER : employs
 	COMPANY ||--o{ TRAINING : organizes
-	TRAINING ||--o{ ENROLLMENT : contains
-	USER ||--o{ ENROLLMENT : joins
+	TRAINING ||--o{ TRAINING_SESSION : schedules
+	TRAINING ||--o{ FORMATION_USER : enrolls
+	TRAINING_SESSION ||--o{ FORMATION_USER : books
+	USER ||--o{ FORMATION_USER : joins
 	USER ||--o{ MESSAGE : sends
+	CONVERSATION ||--o{ MESSAGE : contains
+	USER ||--o{ CONVERSATION : participates
+	USER ||--o{ EVENT : creates
+	EVENT ||--o{ INVITATION : invites
+	TRAINING ||--o{ INVITATION : invites
+	USER ||--o{ INVITATION : receives
 	USER ||--o{ NOTIFICATION : gets
-
-	%% Note: add a Conversation table if you need group chats / rooms
+	USER ||--o{ SAVED_NEWS : bookmarks
 ```
+
+> Note : les membres d’une conversation sont stockés dans la colonne CSV `participant_ids` (source de vérité) ; la table `conversation_participants` existe mais reste dormante, conservée pour une migration future.
 
 ### 4.3 Règles de conception
 
@@ -236,164 +284,123 @@ sequenceDiagram
 
 ### 6.1 API externes
 
-La documentation du projet évoque une collecte ou consultation d’actualités économiques. Cette partie peut dépendre d’une API externe de news ou d’un flux source choisi par l’équipe.
+La veille économique est alimentée par des **flux RSS** d’actualités business françaises, agrégés côté backend avec **`feedparser`** (`backend/services/news_sync.py:sync_all`). La synchronisation tourne automatiquement **toutes les heures** via un `BackgroundScheduler` APScheduler (désactivé en test), et peut aussi être déclenchée manuellement via `POST /news/sync`.
 
-Exigences générales :
+Traitement :
 
-- récupérer des actualités économiques,
-- filtrer par sujet ou source,
-- normaliser les données avant affichage.
+- récupérer les articles depuis les flux RSS sources,
+- normaliser les champs (titre, source, résumé, url, catégorie, `published_at`),
+- purge glissante sur un mois (les signets `saved_news` conservent un snapshot autoporté).
 
 ### 6.2 API internes — Endpoints CRUD détaillés
 
-Conventions générales :
+Conventions réellement en vigueur :
 
-- Pagination: `GET` list endpoints acceptent `?page=1&per_page=20`.
-- Filtrage: `?q=term`, filtres spécifiques par champ (ex: `?is_active=true`).
-- Tri: `?sort=created_at,-title` (préfix `-` pour ordre descendant).
-- Réponses: standard `200` (OK), `201` (Created), `204` (No Content), `400` (Bad Request), `401` (Unauthorized), `403` (Forbidden), `404` (Not Found), `409` (Conflict), `422` (Validation Error), `500` (Server Error).
-- Soft delete: `DELETE` marque `is_active=false` et renseigne `delete_by` et `deleted_at` si applicable.
+- **Authentification** : jeton **JWT Bearer** (`Authorization: Bearer <token>`) sur les routes privées, via le wrapper `jwt_required` de `backend/api/jwt_helpers.py`. Le logout ajoute le JTI à une **blocklist en mémoire** (non persistée entre redémarrages).
+- **Identifiants** : UUID en `String(36)`.
+- **Codes de réponse** : `200` (OK), `201` (Created), `204` (No Content), `400`, `401`, `403`, `404`, `409`, `422`, `500`.
+- **Erreurs normalisées** : toutes les erreurs passent par `backend/api/errors.py` → `error_response(ERROR_CODES[...], msg, status)` (forme `{ error: { code, message } }`), pas par des `abort` bruts.
+- **Suppression douce** : sur les tables cœur, la suppression marque `is_active=false` et renseigne `deactivate_by` / `delete_by`.
+- **Documentation vivante** : le contrat complet (méthodes HTTP, corps, réponses) est exposé via **Swagger UI** sur `/` (`/docs`, `/swagger`) et la spec brute sur `/openapi.json`.
 
-#### Authentification
+> Remarque : la pagination `?page/per_page`, le tri `?sort`, le rate limiting et le format `problem+json` (RFC 7807) décrits dans les versions antérieures de ce document **ne sont pas** implémentés dans la version livrée ; ils restent des pistes d’évolution.
 
-- `POST /auth/register` — Crée un compte utilisateur (open/admin).
-  - Body: `{ first_name, last_name, email, password, company_id? }`
-  - Response: `201` user object (sans password).
-  - Permissions: public (ou admin pour création interne).
+> Les routes ci-dessous sont celles réellement enregistrées dans `backend/api/app.py`.
 
-- `POST /auth/login` — Retourne JWT + refresh token.
-  - Body: `{ email, password }`
-  - Response: `200` `{ access_token, refresh_token, expires_in }`.
+#### Authentification (`/auth`)
 
-- `POST /auth/refresh` — Rafraîchit le token.
-  - Body: `{ refresh_token }`
-  - Response: `200` new tokens.
-
-- `POST /auth/logout` — Invalide le refresh token / blackliste JWT.
-  - Permissions: authenticated.
+- `POST /auth/register` — Crée un compte utilisateur.
+- `POST /auth/login` — Retourne un access token JWT (+ refresh token).
+- `POST /auth/refresh` — Rafraîchit l’access token.
+- `POST /auth/logout` — Ajoute le JTI courant à la blocklist en mémoire.
+- `POST /auth/forgot-password` — Déclenche l’envoi d’un e-mail de réinitialisation.
+- `POST /auth/reset-password` — Réinitialise le mot de passe via jeton.
 
 #### Utilisateurs (`/users`)
 
-- `GET /users` — Liste paginée d'utilisateurs.
-  - Query: `?page&per_page&q&company_id&is_active`.
-  - Response: `200` `{ items: [...], meta: { total, page, per_page } }`.
-  - Permissions: admin / company-admin (scope filtered by company).
-
-- `POST /users` — Crée un utilisateur (admin action).
-  - Body: `{ first_name, last_name, email, password, company_id, roles[] }`.
-  - Response: `201` user object.
-  - Permissions: admin / company-admin.
-
-- `GET /users/{id}` — Récupère un utilisateur.
-  - Response: `200` user object or `404`.
-  - Permissions: self or admin/company-admin.
-
-- `PATCH /users/{id}` — Mise à jour partielle.
-  - Body: partial user fields (no password unless specific endpoint).
-  - Response: `200` updated user.
-  - Permissions: self or admin/company-admin.
-
-- `PUT /users/{id}` — Remplace l’utilisateur (optional; otherwise use PATCH).
-  - Response: `200` updated user.
-
-- `DELETE /users/{id}` — Soft delete.
-  - Response: `204`.
-  - Permissions: admin/company-admin.
-
-- `POST /users/{id}/reset-password` — Force password reset (admin) or change (self with old password).
+- `GET`/`POST /users` — Liste / création d’utilisateurs (admin, filtré par périmètre entreprise).
+- `GET /users/me` (alias `/me`) — Profil de l’utilisateur courant.
+- `GET`/`PATCH`/`DELETE /users/{id}` — Détail, mise à jour, suppression douce.
+- `POST /users/{id}/deactivate` · `POST /users/{id}/reactivate` — Désactivation / réactivation.
+- `PATCH /users/{id}/role` — Modifie les rôles (super-admin).
+- `PATCH /users/{id}/permissions` — Ajuste les permissions granulaires du Staff.
+- `PATCH /users/{id}/company-admin` — (Dé)signe un administrateur d’entreprise.
+- `POST /users/{id}/reset-password` — Réinitialise le mot de passe (admin).
 
 #### Entreprises (`/companies`)
 
-- `GET /companies` — Liste paginée.
-  - Query: `?q&is_active`.
-  - Permissions: admin (public read maybe allowed for directory).
+- `GET`/`POST /companies` — Liste / création (`kind` = `company` ou `trainer`).
+- `GET`/`PATCH`/`DELETE /companies/{id}` — Détail, mise à jour, suppression douce.
+- `POST /companies/{id}/deactivate` · `POST /companies/{id}/reactivate` — Désactivation / réactivation.
+- `GET /companies/{id}/users` — Utilisateurs rattachés à l’entreprise.
+- `POST /companies/{id}/assign-user` — Rattache un utilisateur à l’entreprise.
 
-- `POST /companies` — Crée une entreprise.
-  - Body: `{ name, description, website_link, company_picture, admin_id? }`.
-  - Response: `201` company object.
+#### Formations / Ateliers (`/trainings`)
 
-- `GET /companies/{id}` — Détails entreprise.
-
-- `PATCH /companies/{id}` — Mise à jour partielle.
-
-- `DELETE /companies/{id}` — Soft delete; cascade rules: disable related trainings, notify users (business rules).
-
-- `GET /companies/{id}/users` — Liste des utilisateurs d'une entreprise.
-
-#### Formations (`/trainings`)
-
-- `GET /trainings` — Liste (filter by company_id, is_active).
-
-- `POST /trainings` — Crée une formation.
-  - Body: `{ title, description, picture, company_id, is_active }`.
-
-- `GET /trainings/{id}` — Détails.
-
-- `PATCH /trainings/{id}` — Mise à jour partielle.
-
-- `DELETE /trainings/{id}` — Soft delete.
-
-- `POST /trainings/{id}/enroll` — Inscrit l'utilisateur authentifié (ou admin pour un user).
-  - Body: `{ user_id? }` (omit to use current user).
-  - Response: `201` enrollment object.
-
+- `GET`/`POST /trainings` — Catalogue / création (`type` = `formation`/`atelier`, `category` libre).
+- `GET`/`PATCH`/`DELETE /trainings/{id}` — Détail, mise à jour, suppression douce.
+- `POST /trainings/{id}/document` — Ajoute une pièce jointe (plaquette numérisée…).
+- `POST /trainings/{id}/interest` · `GET /trainings/{id}/interested` — Marque / liste les intéressés.
+- `POST /trainings/{id}/saved` — (Dé)favorise une formation.
 - `GET /trainings/{id}/enrollments` — Liste des inscrits.
+- `GET /trainings/{id}/sessions` — Sessions planifiées d’une formation.
+- `GET /trainings/completions` — Formations complétées.
+- `GET /users/{id}/trainings` — Formations d’un utilisateur ; `GET /me/trainings`, `GET /me/saved-trainings` pour l’utilisateur courant.
 
-- `GET /users/{id}/trainings` — Formations d'un utilisateur.
+#### Sessions de formation (`/training-sessions`)
 
-#### Inscriptions (`/enrollments`)
+- `GET`/`POST /training-sessions` — Liste / création d’une session (`start_date`, `end_date`, `max_participants`, `is_public`).
+- `GET`/`PATCH`/`DELETE /training-sessions/{id}` — Détail, mise à jour, suppression.
+- `POST /training-sessions/{id}/enroll` — Inscription à une session.
 
-- `GET /enrollments` — Liste paginée, filter by `user_id`, `training_id`.
+#### Inscriptions & favoris (`/formation-users`)
 
-- `POST /enrollments` — Crée explicitement une inscription (admin).
-  - Body: `{ user_id, training_id }`.
-
-- `GET /enrollments/{id}` — Détails.
-
-- `PATCH /enrollments/{id}` — Mise à jour (status, dates).
-
-- `DELETE /enrollments/{id}` — Supprime/annule l'inscription.
+- `GET`/`POST /formation-users` — Liste / création d’un lien user ↔ formation/session (inscription ou favori).
+- `GET`/`PATCH`/`DELETE /formation-users/{id}` — Détail, mise à jour, suppression.
 
 #### Messagerie et Conversations
 
-Modèle: `Conversation` (room) contient participants; `Message` appartient à une conversation.
+Modèle : une `Conversation` (1-1 ou groupe nommé) contient des `Message`. Les membres sont dans la colonne CSV `participant_ids`.
 
-- `GET /conversations` — Liste des conversations de l'utilisateur.
+- `GET`/`POST /conversations` (alias `/rooms`) — Liste / création d’une conversation (`title?`, `participant_ids`).
+- `GET`/`PATCH`/`DELETE /conversations/{id}` — Détail, renommage / (dé)ajout de membres (créateur), départ.
+- `GET`/`POST /conversations/{id}/messages` — Liste / envoi de messages dans la conversation.
+- `POST /conversations/{id}/read` — Marque la conversation comme lue.
+- `GET /messages` — Messages de l’utilisateur ; `GET /messages/direct/{user_id}` — fil direct avec un utilisateur.
+- `GET /messages/unread` — Compteur de non-lus ; `POST /messages/{id}/read` — marque un message lu.
+- `DELETE /messages/{id}` — Supprime (soft delete) un message.
+- `GET /presence` — État de présence des utilisateurs.
 
-- `POST /conversations` — Crée une conversation/room.
-  - Body: `{ title?, participant_ids: [uuid] }`.
-
-- `GET /conversations/{id}` — Détails (participants, last_messages).
-
-- `PATCH /conversations/{id}` — Mise à jour (title, add/remove participants).
-
-- `DELETE /conversations/{id}` — Supprime ou archive la conversation pour l'utilisateur.
-
-- `GET /conversations/{id}/messages` — Liste paginée des messages.
-  - Query: `?before={message_id}&limit=50` for infinite scroll.
-
-- `POST /conversations/{id}/messages` — Envoie un message dans la conversation.
-  - Body: `{ content, attachments? }`.
-  - Response: `201` message object and broadcast via WS.
-
-- `GET /messages` — Recherche globale de messages (filters: conversation_id, author_id, q).
-
-- `DELETE /messages/{id}` — Supprime/masque un message (soft delete depending on policy).
-
-- `WS /ws/chat` — WebSocket endpoint for real-time events (message.create, message.update, presence).
+**Temps réel (Socket.IO, pas de route REST `WS`)** — Le client se connecte avec `{ token }` dans l’`auth`. Événements serveur/clients : `connect`/`disconnect`, `join_conversation` → `joined_conversation`, `leave_conversation` → `left_conversation`, `send_message` → `new_message`, `typing`, `mark_read` → `messages_read`, `who_is_online` → `online_users`, `presence`, plus notifications applicatives (`invitation`, `conversation_added`/`_updated`/`_removed`, `message_deleted`). La participation est vérifiée côté serveur avant `join`/`send`.
 
 #### Notifications (`/notifications`)
 
-- `GET /notifications` — Liste pour l'utilisateur (`?is_read=false`).
-- `POST /notifications` — (system/admin) créer une notification.
-- `PATCH /notifications/{id}` — Marquer lu / mettre à jour.
-- `DELETE /notifications/{id}` — Supprimer notification.
+- `GET`/`POST /notifications` — Liste / création d’une notification pour l’utilisateur.
+- `PATCH`/`DELETE /notifications/{id}` — Marquer lue / supprimer.
 
 #### Actualités / Veille (`/news`)
 
-- `GET /news` — Récupère les articles normalisés (source, published_at, topic).
-- `GET /news/{id}` — Détails d'un article.
-- `POST /news/sync` — (cron/admin) déclenche la synchronisation depuis sources externes.
+- `GET /news` — Articles normalisés (source, `published_at`, catégorie).
+- `GET /news/{id}` — Détail d’un article.
+- `POST /news/sync` — Déclenche la synchronisation des flux RSS (aussi lancée toutes les heures par APScheduler).
+- `GET`/`POST /news/saved` · `GET`/`DELETE /news/saved/{id}` — Signets d’articles par utilisateur.
+
+#### Agenda / Événements (`/events`)
+
+- `GET`/`POST /events` — Liste / création d’un événement (`date`, `time`, `is_public`).
+- `GET`/`PATCH`/`DELETE /events/{id}` — Détail, mise à jour, suppression douce.
+
+#### Invitations (`/invitations`)
+
+- `GET`/`POST /invitations` — Liste / création d’invitations RSVP à un `event` ou une `training`.
+- `GET /me/invitations` — Invitations reçues par l’utilisateur courant.
+- `GET`/`PATCH`/`DELETE /invitations/{id}` — Détail, réponse (`accepted`/`declined`), suppression.
+
+#### Contenu, contact & exports
+
+- `GET`/`PATCH /content/{key}` — Blocs de contenu éditables (ex. `landing`, valeur JSON).
+- `POST /contact` — Envoi du formulaire de contact (e-mail SMTP).
+- `GET /exports/monthly` — Export mensuel de l’agenda (événements/sessions publics).
 
 ### 6.3 Formats d’entrée et de sortie
 
@@ -436,7 +443,7 @@ Create Message
 ```json
 {
   "content": "Bonjour",
-  "attachments": []
+  "conversation_id": "uuid-conversation"
 }
 ```
 
@@ -451,26 +458,32 @@ Create Enrollment
 
 ### 6.4 Contraintes de sécurité API
 
-- authentification obligatoire sur les routes privées,
-- contrôle d’accès par rôle (RBAC) et scopes JWT,
-- filtrage des données par entreprise pour éviter les fuites multi-tenant,
-- validation stricte des entrées (schémas JSON Schema / pydantic),
-- rate limiting sur endpoints sensibles (auth, messages),
-- mesures anti-abuse pour WS (auth, origin, per-connection limits),
-- soft-delete et audit: conserver `created_by`, `updated_by`, `deactivate_by`, `delete_by` et timestamps,
-- réponses d’erreur normalisées (RFC7807 style problem+json),
-- journalisation des opérations sensibles (suppression, changement de rôle).
+**Implémenté :**
+
+- authentification obligatoire sur les routes privées (JWT Bearer via `jwt_required`),
+- contrôle d’accès par rôle et permissions granulaires (`is_super_admin` / `is_company_admin` / `is_staff` + `permissions`), avec application `_can()`,
+- filtrage des données par entreprise pour limiter les fuites multi-tenant,
+- validation des entrées via les **modèles de domaine** (`backend/models/*.py`) dont les setters lèvent `ValueError`/`TypeError` avant persistance,
+- hachage des mots de passe (`werkzeug generate_password_hash`) réalisé dans la couche facade, jamais stocké en clair,
+- authentification des connexions Socket.IO par jeton + vérification de participation avant `join`/`send`,
+- soft-delete et audit (`deactivate_by`, `delete_by`, timestamps) sur les tables cœur,
+- réponses d’erreur normalisées via `backend/api/errors.py` (`{ error: { code, message } }`).
+
+**Pistes d’évolution (non livrées) :**
+
+- rate limiting sur les endpoints sensibles (auth, messages),
+- persistance de la blocklist JWT (actuellement en mémoire, perdue au redémarrage),
+- journalisation structurée des opérations sensibles.
 
 # 10. Plan SCM (Gestion du code source)
 
 | Élément                  | Explication simple                                                                 |
 | ------------------------ | ---------------------------------------------------------------------------------- |
-| Dépôt Git                | Projet stocké sur GitHub/GitLab avec un dossier `frontend` et un dossier `backend` |
-| Branche `main`           | Version finale utilisée en production                                              |
-| Branche `dev`            | Branche utilisée pour le développement                                             |
-| `feature/*`              | Branche pour développer une nouvelle fonctionnalité                                |
-| `release/*`              | Branche pour préparer une nouvelle version                                         |
-| `hotfix/*`               | Branche pour corriger rapidement un bug important                                  |
+| Dépôt Git                | GitHub : `github.com/tomvieilledent/portfolio-MDE_dashboard`, avec `frontend/` et `backend/` |
+| Branche `main`           | Version stable / production                                                       |
+| Branche `dev`            | Branche d’intégration du développement                                            |
+| `feature_*`              | Branches de fonctionnalités effectivement utilisées (`feature_chat`, `feature_formations`, `feature_news`, `feature_picture`) |
+| `release/*` · `hotfix/*` | Convention prévue (non utilisée sur ce projet à ce stade)                         |
 | Pull Request             | Chaque modification doit être vérifiée avant d’être ajoutée au projet              |
 | Protection des branches  | Impossible de modifier `main` et `dev` sans validation                             |
 | Convention des commits   | Messages de commits écrits de manière claire et organisée                          |
@@ -527,11 +540,16 @@ Create Enrollment
 
 ### 11.1 Stratégie de test
 
-- développement itératif,
-- couverture des cas d’usage critiques en premier,
-- revue des bugs avant chaque validation client,
-- exploitation de Jest lorsque le projet frontend ou TypeScript le nécessite,
-- documentation des incidents et des corrections.
+La QA repose sur une **suite de tests automatisés `pytest`** couvrant le backend : **340 tests, 100 % passing** (`PYTHONPATH=. pytest`). Les tests sont isolés (`tests/conftest.py` provisionne une base SQLite temporaire par test et reconstruit le schéma).
+
+Principes appliqués :
+
+- développement itératif, cas d’usage critiques couverts en priorité (auth, permissions, CRUD, chat Socket.IO, invitations),
+- tests aux différentes couches : modèles de domaine (validation), facades (accès données), et API (résources) ;
+- revue des bugs avant chaque validation client (cf. compte-rendu du 25/06/2026),
+- documentation des incidents et des corrections via les messages de commit (`fix:`).
+
+> Les tests E2E, tests de performance, environnement de staging et l’observabilité décrits ci-dessus sont des **objectifs de la stratégie QA**, non implémentés dans la version livrée. Aucun test frontend Jest n’est en place ; la couverture automatisée porte sur le backend Python.
 
 ## 12. Justifications techniques
 
@@ -547,4 +565,4 @@ Les décisions techniques sont justifiées par les besoins métiers documentés 
 
 ## 13. Conclusion
 
-La Stage 3 formalise la préparation technique du projet Maison de l'Économie Dashboard. Elle synthétise les besoins métier, le scope MVP, les risques, les choix d’architecture et les exigences de qualité pour servir de base au développement.
+La Stage 3 formalise la préparation technique du projet Portfolio-MDE Dashboard (Maison De l'Entreprise). Elle synthétise les besoins métier, le scope MVP, les risques, les choix d’architecture et les exigences de qualité pour servir de base au développement.
