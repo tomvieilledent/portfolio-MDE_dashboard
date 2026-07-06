@@ -13,3 +13,4 @@ email-validator
 alembic
 feedparser
 APScheduler>=3.10.4
+eventlet
