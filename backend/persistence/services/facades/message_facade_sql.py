@@ -16,7 +16,8 @@ class MessageFacade:
     All public methods return plain dicts suitable for JSON serialisation.
     """
 
-    def create(self, author_id, content, recipient_id=None, conversation_id=None, **kwargs):
+    def create(self, author_id, content, recipient_id=None, conversation_id=None,
+               file_url=None, file_name=None, **kwargs):
         """Persist a new message.
 
         Args:
@@ -24,6 +25,8 @@ class MessageFacade:
             content (str): Message body text.
             recipient_id (str | None): Optional direct recipient UUID.
             conversation_id (str | None): Optional conversation UUID.
+            file_url (str | None): Optional URL of an attached file.
+            file_name (str | None): Original filename of the attachment.
             **kwargs: Optional ``created_at`` datetime override.
 
         Returns:
@@ -35,6 +38,8 @@ class MessageFacade:
                 recipient_id=recipient_id,
                 conversation_id=conversation_id,
                 content=normalize_text(content),
+                file_url=file_url,
+                file_name=file_name,
                 created_at=kwargs.get('created_at') or datetime.now(timezone.utc),
             )
             db.add(message)
@@ -320,6 +325,8 @@ class MessageFacade:
             'recipient_id': message.recipient_id,
             'conversation_id': message.conversation_id,
             'content': message.content,
+            'file_url': getattr(message, 'file_url', None),
+            'file_name': getattr(message, 'file_name', None),
             'is_read': bool(message.is_read),
             'is_active': bool(getattr(message, 'is_active', True)),
             'created_at': isoformat(message.created_at),

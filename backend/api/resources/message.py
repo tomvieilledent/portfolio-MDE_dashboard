@@ -8,6 +8,7 @@ from backend.api.errors import ERROR_CODES, error_response
 from backend.api.jwt_helpers import jwt_required
 from backend.api.socket_events.message import notify_message_deleted
 from backend.api.state import online_user_ids
+from backend.api.uploads import save_message_attachment
 from backend.models.message import Message as DomainMessage
 from backend.persistence.services import ConversationService, MessageService
 
@@ -102,6 +103,26 @@ class MessageResource(Resource):
         # Notify conversation members in real time so the message disappears.
         notify_message_deleted(message)
         return {'msg': 'message deleted'}
+
+
+class MessageAttachmentResource(Resource):
+    """Upload a file attachment for a message."""
+
+    @jwt_required()
+    def post(self):
+        """Accept a multipart file upload and return its public URL.
+
+        Returns:
+            tuple[dict, int]: ``{file_url, file_name}`` and 200.
+        """
+        uploaded = request.files.get('file')
+        if not uploaded or not uploaded.filename:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], 'no file provided', 400)
+        try:
+            file_url, file_name = save_message_attachment(uploaded)
+        except ValueError as exc:
+            return error_response(ERROR_CODES['VALIDATION_ERROR'], str(exc), 400)
+        return {'file_url': file_url, 'file_name': file_name}
 
 
 class PresenceResource(Resource):

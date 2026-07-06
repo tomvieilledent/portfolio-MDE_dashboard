@@ -250,11 +250,17 @@ def handle_send_message(data):
     if not user_id:
         return
     payload = data or {}
-    content = payload.get('content')
+    content = payload.get('content', '').strip()
+    file_url = payload.get('file_url')
+    file_name = payload.get('file_name')
     conversation_id = payload.get('conversation_id')
     recipient_id = payload.get('recipient_id')
-    if not content:
+    # A message must have either text content or an attachment.
+    if not content and not file_url:
         return
+    # Use the filename as content when the user sends a file without a caption.
+    if not content and file_name:
+        content = file_name
     if conversation_id and not conversation_facade.is_participant(conversation_id, user_id):
         emit('error', {'message': 'not a participant in this conversation'}, to=sid)
         return
@@ -269,6 +275,8 @@ def handle_send_message(data):
             content=content,
             recipient_id=recipient_id,
             conversation_id=conversation_id,
+            file_url=file_url,
+            file_name=file_name,
         )
     except Exception as exc:
         print('Failed to persist message:', exc)
