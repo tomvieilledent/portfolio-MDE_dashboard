@@ -9,7 +9,6 @@ import Users from './pages/Users'
 import Trainings from './pages/Trainings'
 import News from './pages/News'
 import DashboardPage from './pages/DashboardPage'
-import MonOnglet from './pages/MonOnglet'
 import MonEntreprise from './pages/MonEntreprise'
 import Messagerie from './Messagerie'
 import LandingPage from './pages/LandingPage'
@@ -194,7 +193,6 @@ export default function DashboardContainer() {
       case 'trainings':     return <Trainings isAdmin={role === 'admin' || can('manage_trainings')} profile={profile} />
       case 'news':          return <News />
       case 'gestion':       return <GestionPage />
-      case 'mononglet':     return <MonOnglet />
       default:              return <DashboardPage />
     }
   }
