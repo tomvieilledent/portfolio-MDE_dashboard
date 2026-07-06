@@ -2,10 +2,15 @@
 
 This module centralizes the engine creation, the session factory
 (`SessionLocal`) and the declarative `Base` used by ORM models.
+
+The database **schema is owned entirely by Alembic** (see ``alembic/versions``).
+This module intentionally performs *no* schema work at import time: run
+``alembic upgrade head`` to create or migrate the schema. Tests build their
+schema from the ORM metadata directly (see ``tests/conftest.py``).
 """
 
 import os
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 
@@ -20,134 +25,8 @@ SessionLocal = sessionmaker(
     bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
-# Ensure SQLite file exists and is writable when using a file-based DB
-try:
-    if engine.url.drivername == 'sqlite':
-        db_file = Path(engine.url.database)
-        db_file.parent.mkdir(parents=True, exist_ok=True)
-        if not db_file.exists():
-            # create an empty file with user-write permissions
-            db_file.touch()
-            try:
-                db_file.chmod(0o644)
-            except Exception:
-                pass
-except Exception:
-    # best-effort; if this fails, SQLAlchemy will report errors later
-    pass
-# Try to create tables if models are available. This helps single-file test runs
-# where the global `data.db` may be missing or outdated. Use best-effort only.
-try:
-    # import here to avoid circular import when models import Base
-    from backend.persistence import models as _models
-    # Create any missing tables. This is purely *additive* and never drops
-    # existing tables, so user data is preserved across restarts. Schema drift
-    # on existing tables is handled by the additive ALTER TABLE blocks below
-    # (and by Alembic for real migrations) — never by a destructive recreate.
-    try:
-        _models.Base.metadata.create_all(bind=engine)
-    except Exception:
-        # best-effort, do not fail import
-        pass
-except Exception:
-    pass
-
-# Add missing columns to existing tables (safe ALTER TABLE migrations)
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('news')"))
-        news_cols = [row[1] for row in res]
-        if 'category' not in news_cols:
-            conn.execute(text("ALTER TABLE news ADD COLUMN category VARCHAR(100)"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('messages')"))
-        message_cols = [row[1] for row in res]
-        if 'is_read' not in message_cols:
-            conn.execute(text(
-                "ALTER TABLE messages ADD COLUMN is_read BOOLEAN DEFAULT 0"))
-            conn.commit()
-        if 'is_active' not in message_cols:
-            conn.execute(text(
-                "ALTER TABLE messages ADD COLUMN is_active BOOLEAN DEFAULT 1"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('formation_users')"))
-        fu_cols = [row[1] for row in res]
-        if 'saved' not in fu_cols:
-            conn.execute(text(
-                "ALTER TABLE formation_users ADD COLUMN saved BOOLEAN DEFAULT 0"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('users')"))
-        user_cols = [row[1] for row in res]
-        if 'is_staff' not in user_cols:
-            conn.execute(text(
-                "ALTER TABLE users ADD COLUMN is_staff BOOLEAN DEFAULT 0"))
-            conn.commit()
-        if 'permissions' not in user_cols:
-            conn.execute(text(
-                "ALTER TABLE users ADD COLUMN permissions VARCHAR(512)"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('companies')"))
-        company_cols = [row[1] for row in res]
-        if 'location' not in company_cols:
-            conn.execute(text("ALTER TABLE companies ADD COLUMN location VARCHAR(200)"))
-            conn.commit()
-        if 'kind' not in company_cols:
-            conn.execute(text(
-                "ALTER TABLE companies ADD COLUMN kind VARCHAR(20) DEFAULT 'company'"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('trainings')"))
-        training_cols = [row[1] for row in res]
-        if 'category' not in training_cols:
-            conn.execute(text(
-                "ALTER TABLE trainings ADD COLUMN category VARCHAR(100)"))
-            conn.commit()
-        if 'type' not in training_cols:
-            conn.execute(text(
-                "ALTER TABLE trainings ADD COLUMN type VARCHAR(20) DEFAULT 'formation'"))
-            conn.commit()
-        if 'documents' not in training_cols:
-            conn.execute(text(
-                "ALTER TABLE trainings ADD COLUMN documents VARCHAR(2000)"))
-            conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info('conversations')"))
-        conversation_cols = [row[1] for row in res]
-        if 'title' not in conversation_cols:
-            conn.execute(text(
-                "ALTER TABLE conversations ADD COLUMN title VARCHAR(200)"))
-            conn.commit()
-        if 'creator_id' not in conversation_cols:
-            conn.execute(text(
-                "ALTER TABLE conversations ADD COLUMN creator_id VARCHAR(36)"))
-            conn.commit()
-except Exception:
-    pass
+# Ensure the parent directory exists for a file-based SQLite DB so that both the
+# app and Alembic can create the file on first connect. This is filesystem
+# bookkeeping only — it never touches the schema.
+if engine.url.drivername == 'sqlite' and engine.url.database:
+    Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
